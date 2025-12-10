@@ -1,0 +1,25 @@
+# Golf Pick 'Em League - Dependencies
+# ====================================
+
+# Core Flask
+Flask==2.3.3
+Flask-SQLAlchemy==3.0.5
+Flask-Login==0.6.2
+Flask-WTF==1.1.1
+
+# Database
+SQLAlchemy==2.0.21
+
+# Security
+Werkzeug==2.3.7
+WTForms==3.0.1
+email-validator==2.0.0
+
+# HTTP requests (for API calls)
+requests==2.31.0
+
+# Timezone handling
+pytz==2023.3
+
+# Production server
+gunicorn==21.2.0
