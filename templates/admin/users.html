@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Users - Golf Pick 'Em{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('admin_dashboard') }}">Admin</a></li>
+        <li class="breadcrumb-item active">Users</li>
+    </ol>
+</nav>
+
+<h2>Manage Users</h2>
+
+<table class="table table-striped">
+    <thead class="table-dark">
+        <tr>
+            <th>Username</th>
+            <th>Display Name</th>
+            <th>Email</th>
+            <th>Points</th>
+            <th>Paid</th>
+            <th>Admin</th>
+            <th>Joined</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for user in users %}
+        <tr>
+            <td><strong>{{ user.username }}</strong></td>
+            <td>{{ user.display_name or '-' }}</td>
+            <td>{{ user.email }}</td>
+            <td>${{ "{:,}".format(user.total_points) }}</td>
+            <td>
+                {% if user.has_paid %}
+                    <span class="badge bg-success">Paid</span>
+                {% else %}
+                    <span class="badge bg-danger">Unpaid</span>
+                {% endif %}
+            </td>
+            <td>
+                {% if user.is_admin %}
+                    <span class="badge bg-warning text-dark">Admin</span>
+                {% else %}
+                    -
+                {% endif %}
+            </td>
+            <td>{{ user.created_at.strftime('%b %d, %Y') }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">← Back to Dashboard</a>
+{% endblock %}

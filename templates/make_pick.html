@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block title %}Pick for {{ tournament.name }} - Golf Pick 'Em{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('my_picks') }}">My Picks</a></li>
+        <li class="breadcrumb-item active">{{ tournament.name }}</li>
+    </ol>
+</nav>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h4 class="mb-0">{{ tournament.name }}</h4>
+            </div>
+            <div class="card-body">
+                <div class="row mb-4">
+                    <div class="col-sm-6">
+                        <p class="mb-1"><strong>Dates:</strong> {{ tournament.start_date.strftime('%b %d') }} - {{ tournament.end_date.strftime('%b %d, %Y') }}</p>
+                        <p class="mb-1"><strong>Purse:</strong> ${{ "{:,}".format(tournament.purse) }}</p>
+                    </div>
+                    <div class="col-sm-6">
+                        <p class="mb-1"><strong>Deadline:</strong> {{ tournament.get_deadline_display() }}</p>
+                        {% if tournament.is_team_event %}
+                            <p class="mb-1"><span class="badge bg-info">Team Event</span> Points will be divided by 2</p>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <form method="POST">
+                    <!-- Primary Pick -->
+                    <div class="mb-4">
+                        <label for="primary_player_id" class="form-label">
+                            <strong>Primary Pick *</strong>
+                            <br><small class="text-muted">This golfer will score points for you unless they withdraw before completing Round 2</small>
+                        </label>
+                        <select class="form-select form-select-lg" id="primary_player_id" name="primary_player_id" required>
+                            <option value="">-- Select Primary Golfer --</option>
+                            {% for player in available_players %}
+                                <option value="{{ player.id }}" 
+                                    {% if existing_pick and existing_pick.primary_player_id == player.id %}selected{% endif %}>
+                                    {{ player.last_name }}, {{ player.first_name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <!-- Backup Pick -->
+                    <div class="mb-4">
+                        <label for="backup_player_id" class="form-label">
+                            <strong>Backup Pick *</strong>
+                            <br><small class="text-muted">Only activates if your primary withdraws before completing Round 2</small>
+                        </label>
+                        <select class="form-select form-select-lg" id="backup_player_id" name="backup_player_id" required>
+                            <option value="">-- Select Backup Golfer --</option>
+                            {% for player in available_players %}
+                                <option value="{{ player.id }}"
+                                    {% if existing_pick and existing_pick.backup_player_id == player.id %}selected{% endif %}>
+                                    {{ player.last_name }}, {{ player.first_name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex">
+                        <button type="submit" class="btn btn-success btn-lg">
+                            {{ 'Update Pick' if existing_pick else 'Submit Pick' }}
+                        </button>
+                        <a href="{{ url_for('my_picks') }}" class="btn btn-outline-secondary btn-lg">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <!-- Rules Reminder -->
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h6 class="mb-0">📋 Pick Rules</h6>
+            </div>
+            <div class="card-body">
+                <ul class="mb-0 small">
+                    <li>Primary and backup must be different players</li>
+                    <li>You can only use each golfer <strong>once per season</strong></li>
+                    <li>Backup only activates if primary WDs before completing Round 2</li>
+                    <li>If primary WDs after Round 2, you get their earnings (usually $0)</li>
+                    <li>You can edit your pick until the deadline</li>
+                </ul>
+            </div>
+        </div>
+        
+        <!-- Available Players Count -->
+        <div class="card mt-3">
+            <div class="card-body text-center">
+                <h4>{{ available_players|length }}</h4>
+                <p class="text-muted mb-0">Available Golfers</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Prevent selecting same player for both picks
+document.getElementById('backup_player_id').addEventListener('change', function() {
+    var primary = document.getElementById('primary_player_id').value;
+    var backup = this.value;
+    
+    if (primary && backup && primary === backup) {
+        alert('Primary and backup must be different players!');
+        this.value = '';
+    }
+});
+
+document.getElementById('primary_player_id').addEventListener('change', function() {
+    var primary = this.value;
+    var backup = document.getElementById('backup_player_id').value;
+    
+    if (primary && backup && primary === backup) {
+        alert('Primary and backup must be different players!');
+        document.getElementById('backup_player_id').value = '';
+    }
+});
+</script>
+{% endblock %}

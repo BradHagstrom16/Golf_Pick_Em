@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}Schedule - Golf Pick 'Em{% endblock %}
+
+{% block content %}
+<h2>{{ season_year }} Tournament Schedule</h2>
+
+<table class="table table-striped table-hover">
+    <thead class="table-success">
+        <tr>
+            <th>#</th>
+            <th>Tournament</th>
+            <th>Dates</th>
+            <th>Purse</th>
+            <th>Pick Deadline</th>
+            <th>Status</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for tournament in tournaments %}
+        <tr class="{% if tournament.status == 'active' %}table-info{% elif tournament.status == 'complete' %}table-secondary{% endif %}">
+            <td>{{ loop.index }}</td>
+            <td>
+                <strong>{{ tournament.name }}</strong>
+                {% if tournament.is_team_event %}
+                    <br><span class="badge bg-info">Team Event</span>
+                {% endif %}
+            </td>
+            <td>
+                {{ tournament.start_date.strftime('%b %d') }} - {{ tournament.end_date.strftime('%b %d') }}
+            </td>
+            <td>${{ "{:,}".format(tournament.purse) }}</td>
+            <td>{{ tournament.get_deadline_display() }}</td>
+            <td>
+                {% if tournament.status == 'complete' %}
+                    <span class="badge bg-secondary">Complete</span>
+                {% elif tournament.status == 'active' %}
+                    <span class="badge bg-success">In Progress</span>
+                {% elif tournament.is_deadline_passed() %}
+                    <span class="badge bg-warning text-dark">Locked</span>
+                {% else %}
+                    <span class="badge bg-primary">Upcoming</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

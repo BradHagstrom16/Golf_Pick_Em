@@ -1,0 +1,53 @@
+/* Golf Pick 'Em - Custom Styles */
+
+/* Ensure tables are responsive on mobile */
+.table-responsive {
+    overflow-x: auto;
+}
+
+/* Navbar brand styling */
+.navbar-brand {
+    font-weight: bold;
+    font-size: 1.3rem;
+}
+
+/* Card hover effects */
+.card {
+    transition: box-shadow 0.2s ease-in-out;
+}
+
+.card:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Badge sizing for points */
+.badge.fs-5 {
+    font-size: 1rem !important;
+}
+
+.badge.fs-6 {
+    font-size: 0.9rem !important;
+}
+
+/* Make select dropdowns larger on mobile */
+@media (max-width: 768px) {
+    .form-select-lg {
+        font-size: 1rem;
+        padding: 0.75rem 1rem;
+    }
+}
+
+/* Tournament row highlighting */
+tr.table-info {
+    background-color: rgba(13, 202, 240, 0.15) !important;
+}
+
+/* Footer styling */
+footer {
+    border-top: 1px solid #dee2e6;
+}
+
+/* Admin badge in navbar */
+.navbar .badge {
+    font-size: 0.7rem;
+}

@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}Track Payments - Golf Pick 'Em{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('admin_dashboard') }}">Admin</a></li>
+        <li class="breadcrumb-item active">Payments</li>
+    </ol>
+</nav>
+
+<h2>Payment Tracking</h2>
+
+<!-- Summary Cards -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card text-center border-success">
+            <div class="card-body">
+                <h3 class="text-success">{{ paid_count }}</h3>
+                <p class="mb-0">Paid</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center border-danger">
+            <div class="card-body">
+                <h3 class="text-danger">{{ unpaid_count }}</h3>
+                <p class="mb-0">Unpaid</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center border-success">
+            <div class="card-body">
+                <h3 class="text-success">${{ total_collected }}</h3>
+                <p class="mb-0">Collected (${{ entry_fee }} × {{ paid_count }})</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<table class="table table-striped">
+    <thead class="table-dark">
+        <tr>
+            <th>Player</th>
+            <th>Email</th>
+            <th class="text-center">Payment Status</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for user in users %}
+        <tr>
+            <td><strong>{{ user.get_display_name() }}</strong></td>
+            <td>{{ user.email }}</td>
+            <td class="text-center">
+                <div class="form-check form-switch d-inline-block">
+                    <input class="form-check-input payment-toggle" type="checkbox" 
+                           data-user-id="{{ user.id }}"
+                           data-username="{{ user.get_display_name() }}"
+                           {% if user.has_paid %}checked{% endif %}>
+                </div>
+                {% if user.has_paid %}
+                    <span class="badge bg-success">Paid</span>
+                {% else %}
+                    <span class="badge bg-danger">Unpaid</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">← Back to Dashboard</a>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.querySelectorAll('.payment-toggle').forEach(function(toggle) {
+    toggle.addEventListener('change', function() {
+        const userId = this.dataset.userId;
+        const username = this.dataset.username;
+        const isPaid = this.checked;
+        
+        fetch(`/admin/update-payment/${userId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                has_paid: isPaid
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Reload to update badges
+                location.reload();
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block title %}My Picks - Golf Pick 'Em{% endblock %}
+
+{% block content %}
+<h2>My Picks - {{ season_year }} Season</h2>
+
+<div class="row">
+    <div class="col-lg-8">
+        <table class="table table-striped">
+            <thead class="table-success">
+                <tr>
+                    <th>Tournament</th>
+                    <th>Date</th>
+                    <th>Primary Pick</th>
+                    <th>Backup Pick</th>
+                    <th>Points</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for tournament in tournaments %}
+                {% set pick = user_picks.get(tournament.id) %}
+                <tr>
+                    <td>
+                        <strong>{{ tournament.name }}</strong>
+                        {% if tournament.is_team_event %}
+                            <span class="badge bg-info">Team Event</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {{ tournament.start_date.strftime('%b %d') }}
+                        <br><small class="text-muted">{{ tournament.status|capitalize }}</small>
+                    </td>
+                    <td>
+                        {% if pick %}
+                            <strong>{{ pick.primary_player.full_name() }}</strong>
+                            {% if pick.primary_used %}
+                                <span class="badge bg-secondary">Used</span>
+                            {% endif %}
+                            {% if pick.active_player_id == pick.primary_player_id and tournament.status == 'complete' %}
+                                <span class="badge bg-success">Active</span>
+                            {% endif %}
+                        {% else %}
+                            <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if pick %}
+                            {{ pick.backup_player.full_name() }}
+                            {% if pick.backup_used %}
+                                <span class="badge bg-secondary">Used</span>
+                            {% endif %}
+                            {% if pick.active_player_id == pick.backup_player_id and tournament.status == 'complete' %}
+                                <span class="badge bg-warning text-dark">Activated</span>
+                            {% endif %}
+                        {% else %}
+                            <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if tournament.status == 'complete' and pick %}
+                            <span class="badge bg-success fs-6">${{ "{:,}".format(pick.points_earned or 0) }}</span>
+                        {% elif tournament.status == 'active' %}
+                            <span class="badge bg-info">In Progress</span>
+                        {% else %}
+                            <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if tournament.status == 'upcoming' and not tournament.is_deadline_passed() %}
+                            <a href="{{ url_for('make_pick', tournament_id=tournament.id) }}" 
+                               class="btn btn-sm {{ 'btn-outline-success' if pick else 'btn-success' }}">
+                                {{ 'Edit' if pick else 'Pick' }}
+                            </a>
+                        {% elif tournament.status == 'upcoming' %}
+                            <span class="badge bg-danger">Deadline Passed</span>
+                        {% else %}
+                            <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="col-lg-4">
+        <!-- Season Summary -->
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">Season Summary</h5>
+            </div>
+            <div class="card-body">
+                <h3 class="text-success">${{ "{:,}".format(current_user.total_points) }}</h3>
+                <p class="text-muted">Total Points Earned</p>
+                
+                <hr>
+                
+                <p class="mb-1"><strong>Picks Made:</strong> {{ user_picks|length }} / {{ tournaments|length }}</p>
+                <p class="mb-0"><strong>Golfers Used:</strong> {{ used_player_ids|length }}</p>
+            </div>
+        </div>
+        
+        <!-- Used Players -->
+        <div class="card mt-3">
+            <div class="card-header bg-secondary text-white">
+                <h6 class="mb-0">🔒 Used Golfers</h6>
+            </div>
+            <div class="card-body">
+                {% if used_player_ids %}
+                    <p class="small text-muted mb-2">These golfers cannot be picked again:</p>
+                    <ul class="list-unstyled mb-0">
+                        {% for pick in user_picks.values() %}
+                            {% if pick.primary_used %}
+                                <li>• {{ pick.primary_player.full_name() }}</li>
+                            {% endif %}
+                            {% if pick.backup_used %}
+                                <li>• {{ pick.backup_player.full_name() }}</li>
+                            {% endif %}
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-muted mb-0">No golfers used yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

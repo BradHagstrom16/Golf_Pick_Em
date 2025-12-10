@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Tournaments - Golf Pick 'Em{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('admin_dashboard') }}">Admin</a></li>
+        <li class="breadcrumb-item active">Tournaments</li>
+    </ol>
+</nav>
+
+<h2>Manage Tournaments</h2>
+
+<table class="table table-striped">
+    <thead class="table-dark">
+        <tr>
+            <th>#</th>
+            <th>Tournament</th>
+            <th>Dates</th>
+            <th>Purse</th>
+            <th>Deadline</th>
+            <th>Status</th>
+            <th>Picks</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for tournament in tournaments %}
+        <tr>
+            <td>{{ loop.index }}</td>
+            <td>
+                <strong>{{ tournament.name }}</strong>
+                {% if tournament.is_team_event %}
+                    <span class="badge bg-info">Team</span>
+                {% endif %}
+            </td>
+            <td>{{ tournament.start_date.strftime('%b %d') }} - {{ tournament.end_date.strftime('%b %d') }}</td>
+            <td>${{ "{:,}".format(tournament.purse) }}</td>
+            <td>{{ tournament.get_deadline_display() }}</td>
+            <td>
+                <span class="badge bg-{{ 'secondary' if tournament.status == 'complete' else 'success' if tournament.status == 'active' else 'primary' }}">
+                    {{ tournament.status|capitalize }}
+                </span>
+            </td>
+            <td>{{ tournament.picks.count() }}</td>
+            <td>
+                {% if tournament.status == 'complete' %}
+                    <form action="{{ url_for('admin_process_results', tournament_id=tournament.id) }}" method="POST" style="display: inline;">
+                        <button type="submit" class="btn btn-sm btn-warning" 
+                                onclick="return confirm('Process results for {{ tournament.name }}?')">
+                            Process Results
+                        </button>
+                    </form>
+                {% elif tournament.status == 'upcoming' %}
+                    <span class="text-muted">-</span>
+                {% else %}
+                    <span class="badge bg-info">In Progress</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">← Back to Dashboard</a>
+{% endblock %}

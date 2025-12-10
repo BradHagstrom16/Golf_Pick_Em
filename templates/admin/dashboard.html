@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard - Golf Pick 'Em{% endblock %}
+
+{% block content %}
+<h2>Admin Dashboard</h2>
+
+<div class="row mb-4">
+    <!-- Quick Stats -->
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3>{{ total_users }}</h3>
+                <p class="text-muted mb-0">Total Players</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3>{{ paid_users }} / {{ total_users }}</h3>
+                <p class="text-muted mb-0">Paid Players</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3>${{ paid_users * entry_fee }}</h3>
+                <p class="text-muted mb-0">Collected</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Admin Actions -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-warning">
+                <h5 class="mb-0">Admin Actions</h5>
+            </div>
+            <div class="card-body">
+                <a href="{{ url_for('admin_tournaments') }}" class="btn btn-primary me-2">
+                    ⛳ Manage Tournaments
+                </a>
+                <a href="{{ url_for('admin_users') }}" class="btn btn-secondary me-2">
+                    👥 Manage Users
+                </a>
+                <a href="{{ url_for('admin_payments') }}" class="btn btn-success me-2">
+                    💰 Track Payments
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tournaments Overview -->
+<div class="card">
+    <div class="card-header bg-success text-white">
+        <h5 class="mb-0">Tournament Status</h5>
+    </div>
+    <div class="card-body">
+        <table class="table table-sm">
+            <thead>
+                <tr>
+                    <th>Tournament</th>
+                    <th>Date</th>
+                    <th>Status</th>
+                    <th>Picks</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for tournament in tournaments[:10] %}
+                <tr>
+                    <td>{{ tournament.name }}</td>
+                    <td>{{ tournament.start_date.strftime('%b %d') }}</td>
+                    <td>
+                        <span class="badge bg-{{ 'secondary' if tournament.status == 'complete' else 'success' if tournament.status == 'active' else 'primary' }}">
+                            {{ tournament.status|capitalize }}
+                        </span>
+                    </td>
+                    <td>{{ tournament.picks.count() }}</td>
+                    <td>
+                        {% if tournament.status == 'complete' %}
+                            <form action="{{ url_for('admin_process_results', tournament_id=tournament.id) }}" method="POST" style="display: inline;">
+                                <button type="submit" class="btn btn-sm btn-warning">Process Results</button>
+                            </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        <a href="{{ url_for('admin_tournaments') }}">View All Tournaments →</a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}Golf Pick 'Em - Home{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Main Content - Leaderboard -->
+    <div class="col-lg-8">
+        <h2>Season Standings</h2>
+        
+        {% if current_tournament %}
+        <div class="alert alert-info">
+            <strong>{{ current_tournament.status|capitalize }}:</strong> 
+            {{ current_tournament.name }}
+            {% if not current_tournament.is_deadline_passed() %}
+                <br><small>⏰ Deadline: {{ current_tournament.get_deadline_display() }}</small>
+            {% endif %}
+        </div>
+        {% endif %}
+        
+        <table class="table table-striped table-hover">
+            <thead class="table-success">
+                <tr>
+                    <th>Rank</th>
+                    <th>Player</th>
+                    <th class="text-end">Total Points</th>
+                    {% if current_tournament and show_picks %}
+                    <th>Current Pick</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                <tr {% if current_user.is_authenticated and user.id == current_user.id %}class="table-warning"{% endif %}>
+                    <td>
+                        <strong>{{ loop.index }}</strong>
+                        {% if loop.index == 1 %}🏆{% elif loop.index == 2 %}🥈{% elif loop.index == 3 %}🥉{% endif %}
+                    </td>
+                    <td>
+                        <strong>{{ user.get_display_name() }}</strong>
+                        {% if not user.has_paid %}
+                            <span class="badge bg-secondary">Unpaid</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        <span class="badge bg-success fs-6">${{ "{:,}".format(user.total_points) }}</span>
+                    </td>
+                    {% if current_tournament and show_picks %}
+                    <td>
+                        {% if user.id in tournament_picks %}
+                            <strong>{{ tournament_picks[user.id].primary }}</strong>
+                            <br><small class="text-muted">Backup: {{ tournament_picks[user.id].backup }}</small>
+                        {% else %}
+                            <span class="text-muted">No Pick</span>
+                        {% endif %}
+                    </td>
+                    {% endif %}
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="text-center text-muted">No players yet. Be the first to register!</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- Sidebar - Rules -->
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">📋 League Rules</h5>
+            </div>
+            <div class="card-body">
+                <ul class="mb-0">
+                    <li>Pick <strong>one golfer</strong> per tournament (primary + backup)</li>
+                    <li>Points = <strong>actual prize money</strong> earned</li>
+                    <li>Each golfer can only be used <strong>once per season</strong></li>
+                    <li>Backup activates only if primary WDs before completing Round 2</li>
+                    <li>Amateurs are not pickable</li>
+                    <li>Highest total points at season end wins!</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">💰 Prize Pool</h5>
+            </div>
+            <div class="card-body">
+                <p class="mb-0">
+                    $25 entry fee × {{ users|length }} players = 
+                    <strong>${{ 25 * users|length }}</strong> pot
+                </p>
+                <p class="text-muted mb-0"><small>Winner takes all!</small></p>
+            </div>
+        </div>
+        
+        {% if current_user.is_authenticated and current_tournament and not current_tournament.is_deadline_passed() %}
+        <div class="card mt-3 border-warning">
+            <div class="card-body text-center">
+                <h5>⏰ Make Your Pick!</h5>
+                <p>Deadline: {{ current_tournament.get_deadline_display() }}</p>
+                <a href="{{ url_for('make_pick', tournament_id=current_tournament.id) }}" class="btn btn-success btn-lg">
+                    Pick for {{ current_tournament.name }}
+                </a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
