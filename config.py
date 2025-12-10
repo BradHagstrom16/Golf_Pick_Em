@@ -30,8 +30,9 @@ class Config:
     SEASON_YEAR = 2026
     ENTRY_FEE = 25  # dollars
     
-    # SlashGolf API
-    SLASHGOLF_API_BASE = 'https://slashgolf.dev/api'  # Update with actual base URL
+    # SlashGolf API (via RapidAPI)
+    SLASHGOLF_API_KEY = os.environ.get('SLASHGOLF_API_KEY')
+    SLASHGOLF_API_HOST = 'live-golf-data.p.rapidapi.com'
     SLASHGOLF_ORG_ID = '1'  # PGA Tour
     
     # Feature flags

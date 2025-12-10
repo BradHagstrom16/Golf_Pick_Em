@@ -459,6 +459,11 @@ def create_admin():
     print(f'Admin user {username} created.')
 
 
+# Register API sync commands
+from sync_api import register_sync_commands
+register_sync_commands(app)
+
+
 # ============================================================================
 # Run Application
 # ============================================================================
