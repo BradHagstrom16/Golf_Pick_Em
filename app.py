@@ -87,9 +87,16 @@ def index():
         show_picks = True
         picks = Pick.query.filter_by(tournament_id=current_tournament.id).all()
         for pick in picks:
+            # Get the primary player's current result (position/earnings)
+            result = TournamentResult.query.filter_by(
+                tournament_id=current_tournament.id,
+                player_id=pick.primary_player_id
+            ).first()
+            
             tournament_picks[pick.user_id] = {
                 'primary': pick.primary_player.full_name(),
-                'backup': pick.backup_player.full_name()
+                'position': result.final_position if result else None,
+                'earnings': result.earnings if result else 0
             }
     
     return render_template('index.html',
