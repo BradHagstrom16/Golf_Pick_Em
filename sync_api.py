@@ -167,14 +167,14 @@ class TournamentSync:
         # Get leaderboard data (has field + tee times)
         data = self.api.get_leaderboard(tournament.api_tourn_id, str(tournament.season_year))
         
-        if not data or "leaderboard" not in data:
+        if not data or "leaderboardRows" not in data:
             print(f"Failed to fetch leaderboard for {tournament.name}")
             return 0, None
         
         players_synced = 0
         first_tee_time = None
         
-        for player_data in data["leaderboard"]:
+        for player_data in data["leaderboardRows"]:
             # Skip amateurs
             if player_data.get("isAmateur", False):
                 continue
@@ -208,12 +208,23 @@ class TournamentSync:
                 db.session.add(field_entry)
                 players_synced += 1
             
-            # Track earliest tee time
-            tee_time_str = player_data.get("teeTimeTimestamp")
-            if tee_time_str:
-                tee_time = datetime.fromisoformat(tee_time_str.replace("Z", "+00:00"))
-                if first_tee_time is None or tee_time < first_tee_time:
-                    first_tee_time = tee_time
+            # Track earliest tee time (format: "11:02am")
+            tee_time_str = player_data.get("teeTime")
+            if tee_time_str and tee_time_str != "N/A":
+                try:
+                    # Parse time string (e.g., "11:02am")
+                    from datetime import time
+                    tee_time_parsed = datetime.strptime(tee_time_str, "%I:%M%p").time()
+                    
+                    # Combine with tournament start date to get full datetime
+                    # Assume tee times are in tournament local time
+                    tee_datetime = datetime.combine(tournament.start_date.date(), tee_time_parsed)
+                    tee_datetime = LEAGUE_TZ.localize(tee_datetime)
+                    
+                    if first_tee_time is None or tee_datetime < first_tee_time:
+                        first_tee_time = tee_datetime
+                except ValueError:
+                    pass  # Skip unparseable tee times
         
         # Set pick deadline to first tee time
         if first_tee_time:
@@ -250,8 +261,8 @@ class TournamentSync:
         
         # Build lookup for leaderboard data
         leaderboard_lookup = {}
-        if leaderboard_data and "leaderboard" in leaderboard_data:
-            for p in leaderboard_data["leaderboard"]:
+        if leaderboard_data and "leaderboardRows" in leaderboard_data:
+            for p in leaderboard_data["leaderboardRows"]:
                 leaderboard_lookup[p["playerId"]] = p
         
         results_synced = 0
@@ -288,7 +299,15 @@ class TournamentSync:
                 db.session.add(result)
             
             # Update result
-            result.earnings = player_data.get("earnings", 0)
+            # Handle earnings format: {'$numberInt': '1512000'} or plain int
+            earnings_raw = player_data.get("earnings", 0)
+            if isinstance(earnings_raw, dict) and '$numberInt' in earnings_raw:
+                result.earnings = int(earnings_raw['$numberInt'])
+            elif isinstance(earnings_raw, dict) and '$numberLong' in earnings_raw:
+                result.earnings = int(earnings_raw['$numberLong'])
+            else:
+                result.earnings = int(earnings_raw) if earnings_raw else 0
+            
             result.status = status
             result.rounds_completed = rounds_completed
             result.final_position = lb_info.get("position", "")
@@ -346,12 +365,12 @@ class TournamentSync:
         """
         data = self.api.get_leaderboard(tournament.api_tourn_id, str(tournament.season_year))
         
-        if not data or "leaderboard" not in data:
+        if not data or "leaderboardRows" not in data:
             return []
         
         withdrawals = []
         
-        for player_data in data["leaderboard"]:
+        for player_data in data["leaderboardRows"]:
             if player_data.get("status") == "wd":
                 rounds = player_data.get("rounds", [])
                 withdrawals.append({
