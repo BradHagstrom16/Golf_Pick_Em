@@ -49,7 +49,12 @@
                     <td>
                         {% if user.id in tournament_picks %}
                             <strong>{{ tournament_picks[user.id].primary }}</strong>
-                            <br><small class="text-muted">Backup: {{ tournament_picks[user.id].backup }}</small>
+                            {% if tournament_picks[user.id].position %}
+                                <br><small class="text-muted">
+                                    {{ tournament_picks[user.id].position }} · 
+                                    ${{ "{:,}".format(tournament_picks[user.id].earnings) }}
+                                 </small>
+                            {% endif %}
                         {% else %}
                             <span class="text-muted">No Pick</span>
                         {% endif %}
