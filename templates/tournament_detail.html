@@ -113,7 +113,10 @@
     
     {% if tournament.status == 'active' %}
     <div class="alert alert-warning">
-        <strong>🏌️ Tournament In Progress</strong> - Positions and earnings will update as rounds complete.
+        <strong>🏌️ Tournament In Progress</strong> - Free tier mode updates after rounds (no live scoring).
+        <div class="small text-muted">
+            Last synced: {{ tournament.updated_at.strftime('%b %d, %I:%M %p CT') if tournament.updated_at else 'Pending sync' }}
+        </div>
     </div>
     {% endif %}
     

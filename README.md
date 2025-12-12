@@ -105,6 +105,8 @@ Tournament data synced from [SlashGolf API](https://slashgolf.dev/):
 FLASK_ENV=development|production
 SECRET_KEY=your-secret-key
 DATABASE_URL=sqlite:///golf_pickem.db
+SYNC_MODE=free|standard
+FIXED_DEADLINE_HOUR_CT=7
 ```
 
 ## 2026 Tournament Schedule
@@ -112,20 +114,19 @@ DATABASE_URL=sqlite:///golf_pickem.db
 32 tournaments from January (Sony Open) through August (BMW Championship).
 See `/schedule` route for full list.
 
-## PythonAnywhere Scheduled Tasks
+## PythonAnywhere Scheduled Tasks (Free Tier Mode)
 
-Set the following scheduled tasks (replace `USER` with your PythonAnywhere username and ensure `FLASK_APP`, `SLASHGOLF_API_KEY`, and your virtualenv are configured in the task environment). Commands assume the repo lives at `/home/USER/Golf_Pick_Em`.
+Set the following scheduled tasks (replace `USER` with your PythonAnywhere username and ensure `FLASK_APP`, `SLASHGOLF_API_KEY`, and your virtualenv are configured in the task environment). Commands assume the repo lives at `/home/USER/Golf_Pick_Em`. These windows align with RapidAPI's free-tier limits (no live polling):
 
 | Window | Frequency | Command |
 | --- | --- | --- |
-| Tue 07:00 & 15:00 CT | Pre-tournament schedule refresh | `cd /home/USER/Golf_Pick_Em && flask sync-run --mode schedule` |
-| Wed/Thu 07:00 CT | Field + tee times update | `cd /home/USER/Golf_Pick_Em && flask sync-run --mode field` |
-| Thu–Sun every 30 min 07:00–19:00 CT | Live leaderboard/status + deadlines | `cd /home/USER/Golf_Pick_Em && flask sync-run --mode live` |
-| Thu–Sun every 60 min 08:00–20:00 CT | Withdrawal monitoring | `cd /home/USER/Golf_Pick_Em && flask sync-run --mode withdrawals` |
-| Sun 20:00 CT & Mon 08:00 CT | Results/earnings + pick processing | `cd /home/USER/Golf_Pick_Em && flask sync-run --mode results` |
-| Optional daily 06:00 CT | Full sweep safety net | `cd /home/USER/Golf_Pick_Em && flask sync-run --mode all` |
+| Mon 07:00 CT | Weekly schedule refresh | `cd /home/USER/Golf_Pick_Em && flask sync-run --mode schedule` |
+| Tue 09:00 CT | Field/roster refresh (light) | `cd /home/USER/Golf_Pick_Em && flask sync-run --mode field` |
+| Wed 12:00 CT | Field/roster confirmation (optional second pass) | `cd /home/USER/Golf_Pick_Em && flask sync-run --mode field` |
+| Sun 20:00 CT | Results/earnings + pick processing | `cd /home/USER/Golf_Pick_Em && flask sync-run --mode results` |
+| Mon 08:00 CT | Results retry (ensures late postings) | `cd /home/USER/Golf_Pick_Em && flask sync-run --mode results` |
 
-Always-on task alternative: run `while true; do flask sync-run --mode live; sleep 1800; done` inside the project dir to keep live scoring fresh between scheduler runs.
+Live leaderboard polling and mid-round withdrawal monitoring are disabled in `SYNC_MODE=free` to stay within the RapidAPI 250 requests/month and 20 scorecards/day ceilings.
 
 ## License
 
