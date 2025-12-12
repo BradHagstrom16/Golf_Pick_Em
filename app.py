@@ -138,6 +138,152 @@ def schedule():
 
 
 # ============================================================================
+# Tournament Detail Route
+# ============================================================================
+
+@app.route('/tournament/<int:tournament_id>')
+def tournament_detail(tournament_id):
+    """
+    Tournament detail page - shows different info based on tournament status:
+    - Upcoming: Tournament info, deadline, field count
+    - Active: Picks table (primary only) with live position/earnings
+    - Complete: Full picks table with backup, active player, final points
+    """
+    tournament = Tournament.query.get_or_404(tournament_id)
+    
+    # Get all users (to show even those without picks)
+    all_users = User.query.order_by(func.lower(User.username)).all()
+    
+    # Get picks for this tournament
+    picks = Pick.query.filter_by(tournament_id=tournament_id).all()
+    picks_by_user = {pick.user_id: pick for pick in picks}
+    
+    # Determine visibility flags
+    show_picks = tournament.is_deadline_passed()
+    show_backup = (tournament.status == 'complete')
+    
+    # Get field count for upcoming tournaments
+    field_count = TournamentField.query.filter_by(tournament_id=tournament_id).count()
+    
+    # Build results data for each user
+    pick_results = []
+    for user in all_users:
+        pick = picks_by_user.get(user.id)
+        
+        if pick:
+            # Get result for primary player (position/earnings)
+            primary_result = TournamentResult.query.filter_by(
+                tournament_id=tournament_id,
+                player_id=pick.primary_player_id
+            ).first()
+            
+            # Get result for backup player (only needed for complete tournaments)
+            backup_result = None
+            if show_backup:
+                backup_result = TournamentResult.query.filter_by(
+                    tournament_id=tournament_id,
+                    player_id=pick.backup_player_id
+                ).first()
+            
+            # Determine display values
+            # For active tournaments, show primary's current earnings
+            # For complete tournaments, show resolved points_earned
+            if tournament.status == 'complete':
+                points = pick.points_earned or 0
+                position = None
+                # Get active player's final position
+                if pick.active_player_id:
+                    active_result = TournamentResult.query.filter_by(
+                        tournament_id=tournament_id,
+                        player_id=pick.active_player_id
+                    ).first()
+                    position = active_result.final_position if active_result else None
+            else:
+                # Active tournament - show primary's current status
+                points = primary_result.earnings if primary_result else 0
+                position = primary_result.final_position if primary_result else None
+            
+            pick_results.append({
+                'user': user,
+                'pick': pick,
+                'primary_name': pick.primary_player.full_name(),
+                'backup_name': pick.backup_player.full_name(),
+                'active_name': pick.active_player.full_name() if pick.active_player else None,
+                'primary_result': primary_result,
+                'backup_result': backup_result,
+                'position': position,
+                'points': points,
+                'backup_activated': (pick.active_player_id == pick.backup_player_id) if pick.active_player_id else False,
+                'has_pick': True
+            })
+        else:
+            # User didn't submit a pick
+            pick_results.append({
+                'user': user,
+                'pick': None,
+                'primary_name': None,
+                'backup_name': None,
+                'active_name': None,
+                'primary_result': None,
+                'backup_result': None,
+                'position': None,
+                'points': 0,
+                'backup_activated': False,
+                'has_pick': False
+            })
+    
+    # Sort results
+    if tournament.status == 'complete':
+        # Sort by points earned (desc), then alphabetically
+        pick_results.sort(key=lambda x: (-x['points'], x['user'].get_display_name().lower()))
+    elif show_picks:
+        # Active tournament - sort by current earnings (desc)
+        pick_results.sort(key=lambda x: (-x['points'], x['user'].get_display_name().lower()))
+    else:
+        # Upcoming - just alphabetical
+        pick_results.sort(key=lambda x: x['user'].get_display_name().lower())
+    
+    # Calculate summary stats
+    total_picks = sum(1 for r in pick_results if r['has_pick'])
+    total_points = sum(r['points'] for r in pick_results)
+    
+    # Find the leader for highlighting
+    max_points = max((r['points'] for r in pick_results), default=0)
+    
+    return render_template('tournament_detail.html',
+                         tournament=tournament,
+                         pick_results=pick_results,
+                         show_picks=show_picks,
+                         show_backup=show_backup,
+                         field_count=field_count,
+                         total_picks=total_picks,
+                         total_points=total_points,
+                         max_points=max_points)
+
+
+# ============================================================================
+# Also add a "Results" route that redirects to the most recent complete tournament
+# ============================================================================
+
+@app.route('/results')
+def results():
+    """Redirect to the most recently completed tournament."""
+    # Find most recent completed tournament
+    tournament = Tournament.query.filter_by(
+        status='complete',
+        season_year=app.config['SEASON_YEAR']
+    ).order_by(Tournament.end_date.desc()).first()
+    
+    if tournament:
+        return redirect(url_for('tournament_detail', tournament_id=tournament.id))
+    
+    # No completed tournaments yet - redirect to schedule
+    flash('No completed tournaments yet. Check back after the first tournament finishes!', 'info')
+    return redirect(url_for('schedule'))
+
+
+
+# ============================================================================
 # Authentication Routes
 # ============================================================================
 
