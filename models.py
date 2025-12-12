@@ -64,14 +64,7 @@ class User(UserMixin, db.Model):
         Get list of player IDs this user has 'used' (locked) for the season.
         A player is used if they were the active pick in a completed tournament.
         """
-        used_ids = []
-        for pick in self.picks:
-            if pick.tournament.status == 'complete':
-                if pick.primary_used:
-                    used_ids.append(pick.primary_player_id)
-                if pick.backup_used:
-                    used_ids.append(pick.backup_player_id)
-        return used_ids
+        return [usage.player_id for usage in self.season_usages]
     
     def calculate_total_points(self):
         """Recalculate total points from all completed picks."""
@@ -147,6 +140,10 @@ class Tournament(db.Model):
     picks = db.relationship('Pick', backref='tournament', lazy='dynamic')
     results = db.relationship('TournamentResult', backref='tournament', lazy='dynamic')
     field = db.relationship('TournamentField', backref='tournament', lazy='dynamic')
+
+    __table_args__ = (
+        db.UniqueConstraint('api_tourn_id', 'season_year', name='unique_tournament_per_season'),
+    )
     
     def is_deadline_passed(self):
         """Check if pick deadline has passed."""
@@ -157,6 +154,23 @@ class Tournament(db.Model):
         if deadline.tzinfo is None:
             deadline = LEAGUE_TZ.localize(deadline)
         return now > deadline
+
+    def update_status_from_time(self, current_time: datetime = None):
+        """Derive tournament status based on start/end dates and deadlines."""
+        now = current_time or datetime.now(LEAGUE_TZ)
+        if self.status != 'complete':
+            deadline = self.pick_deadline or self.start_date
+            deadline_localized = deadline if deadline.tzinfo else LEAGUE_TZ.localize(deadline)
+            start_localized = self.start_date if self.start_date.tzinfo else LEAGUE_TZ.localize(self.start_date)
+            end_localized = self.end_date if self.end_date.tzinfo else LEAGUE_TZ.localize(self.end_date)
+
+            if now >= end_localized:
+                self.status = 'complete'
+            elif now >= start_localized:
+                self.status = 'active'
+            elif now >= deadline_localized:
+                self.status = 'upcoming'
+        return self.status
     
     def get_deadline_display(self):
         """Return formatted deadline string."""
@@ -198,6 +212,25 @@ class TournamentField(db.Model):
     
     def __repr__(self):
         return f'<TournamentField {self.tournament_id} - {self.player_id}>'
+
+
+class SeasonPlayerUsage(db.Model):
+    """Tracks whether a user has consumed a player for a given season."""
+
+    __tablename__ = 'season_player_usage'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    player_id = db.Column(db.Integer, db.ForeignKey('player.id'), nullable=False)
+    season_year = db.Column(db.Integer, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'player_id', 'season_year', name='unique_player_usage'),
+    )
+
+    user = db.relationship('User', backref='season_usages')
+    player = db.relationship('Player')
 
 
 class TournamentResult(db.Model):
@@ -280,6 +313,31 @@ class Pick(db.Model):
         db.UniqueConstraint('user_id', 'tournament_id', name='unique_user_tournament_pick'),
     )
     
+    def validate_availability(self, season_year: int):
+        """Validate pick adheres to field eligibility and season usage constraints."""
+        errors = []
+
+        # Ensure players are in field
+        field_player_ids = [entry.player_id for entry in TournamentField.query.filter_by(tournament_id=self.tournament_id)]
+        if self.primary_player_id not in field_player_ids:
+            errors.append('Primary player is not in the tournament field.')
+        if self.backup_player_id not in field_player_ids:
+            errors.append('Backup player is not in the tournament field.')
+
+        # Ensure players are not reused this season
+        existing_usage = SeasonPlayerUsage.query.filter(
+            SeasonPlayerUsage.user_id == self.user_id,
+            SeasonPlayerUsage.season_year == season_year,
+            SeasonPlayerUsage.player_id.in_([self.primary_player_id, self.backup_player_id])
+        ).all()
+        used_ids = {usage.player_id for usage in existing_usage}
+        if self.primary_player_id in used_ids:
+            errors.append('Primary player has already been used this season.')
+        if self.backup_player_id in used_ids:
+            errors.append('Backup player has already been used this season.')
+
+        return errors
+
     def resolve_pick(self):
         """
         Determine which player was active and calculate points.
@@ -298,10 +356,13 @@ class Pick(db.Model):
             player_id=self.backup_player_id
         ).first()
         
+        if not primary_result:
+            raise ValueError('Missing tournament result for primary player')
+
         # Determine if primary WD'd before completing R2
         primary_wd_early = (
-            primary_result and 
-            primary_result.status == 'wd' and 
+            primary_result and
+            primary_result.status == 'wd' and
             primary_result.rounds_completed < 2
         )
         
@@ -323,12 +384,14 @@ class Pick(db.Model):
             else:
                 # Backup activates
                 self.active_player_id = self.backup_player_id
-                earnings = backup_result.earnings if backup_result else 0
-                
+                earnings = backup_result.earnings if backup_result else None
+                if earnings is None:
+                    raise ValueError('Backup player missing result when required')
+
                 # Handle team event (Zurich) - divide by 2
                 if self.tournament.is_team_event:
                     earnings = earnings // 2
-                
+
                 self.points_earned = earnings
                 self.primary_used = False  # Returns to pool
                 self.backup_used = True
@@ -336,8 +399,10 @@ class Pick(db.Model):
         # Case 2: Primary did not WD early (or didn't WD at all)
         else:
             self.active_player_id = self.primary_player_id
-            earnings = primary_result.earnings if primary_result else 0
-            
+            earnings = primary_result.earnings if primary_result else None
+            if earnings is None:
+                raise ValueError('Primary player missing result when required')
+
             # Handle team event (Zurich) - divide by 2
             if self.tournament.is_team_event:
                 earnings = earnings // 2
@@ -346,6 +411,14 @@ class Pick(db.Model):
             self.primary_used = True
             self.backup_used = False
         
+        # Record season usage for active player
+        usage = SeasonPlayerUsage(
+            user_id=self.user_id,
+            player_id=self.active_player_id,
+            season_year=self.tournament.season_year,
+        )
+        db.session.add(usage)
+
         return (self.points_earned, self.active_player_id, self.primary_used, self.backup_used)
     
     def __repr__(self):
