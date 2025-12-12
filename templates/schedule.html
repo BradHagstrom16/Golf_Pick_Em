@@ -14,6 +14,7 @@
             <th>Purse</th>
             <th>Pick Deadline</th>
             <th>Status</th>
+            <th></th>
         </tr>
     </thead>
     <tbody>
@@ -21,7 +22,9 @@
         <tr class="{% if tournament.status == 'active' %}table-info{% elif tournament.status == 'complete' %}table-secondary{% endif %}">
             <td>{{ loop.index }}</td>
             <td>
-                <strong>{{ tournament.name }}</strong>
+                <a href="{{ url_for('tournament_detail', tournament_id=tournament.id) }}" class="text-decoration-none text-dark">
+                    <strong>{{ tournament.name }}</strong>
+                </a>
                 {% if tournament.is_team_event %}
                     <br><span class="badge bg-info">Team Event</span>
                 {% endif %}
@@ -41,6 +44,12 @@
                 {% else %}
                     <span class="badge bg-primary">Upcoming</span>
                 {% endif %}
+            </td>
+            <td>
+                <a href="{{ url_for('tournament_detail', tournament_id=tournament.id) }}" 
+                   class="btn btn-sm btn-outline-primary">
+                    View
+                </a>
             </td>
         </tr>
         {% endfor %}

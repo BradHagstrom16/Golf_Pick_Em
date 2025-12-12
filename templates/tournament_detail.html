@@ -1,0 +1,270 @@
+{% extends "base.html" %}
+
+{% block title %}{{ tournament.name }} - Golf Pick 'Em{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('schedule') }}">Schedule</a></li>
+        <li class="breadcrumb-item active">{{ tournament.name }}</li>
+    </ol>
+</nav>
+
+<!-- Tournament Header -->
+<div class="card mb-4">
+    <div class="card-header bg-success text-white">
+        <div class="d-flex justify-content-between align-items-center">
+            <h3 class="mb-0">
+                ⛳ {{ tournament.name }}
+                {% if tournament.is_team_event %}
+                    <span class="badge bg-info ms-2">Team Event</span>
+                {% endif %}
+            </h3>
+            <span class="badge bg-{{ 'secondary' if tournament.status == 'complete' else 'warning text-dark' if tournament.status == 'active' else 'primary' }} fs-6">
+                {{ tournament.status|capitalize }}
+            </span>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-4">
+                <p class="mb-1"><strong>📅 Dates:</strong></p>
+                <p>{{ tournament.start_date.strftime('%B %d') }} - {{ tournament.end_date.strftime('%B %d, %Y') }}</p>
+            </div>
+            <div class="col-md-4">
+                <p class="mb-1"><strong>💰 Purse:</strong></p>
+                <p>${{ "{:,}".format(tournament.purse) }}</p>
+            </div>
+            <div class="col-md-4">
+                <p class="mb-1"><strong>⏰ Pick Deadline:</strong></p>
+                <p>{{ tournament.get_deadline_display() }}</p>
+            </div>
+        </div>
+        
+        {% if tournament.is_team_event %}
+        <div class="alert alert-info mb-0 mt-2">
+            <small><strong>Team Event Note:</strong> Points are calculated as actual earnings ÷ 2 since golfers play as partners.</small>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Status-specific content -->
+{% if tournament.status == 'upcoming' and not show_picks %}
+    <!-- UPCOMING: Picks not yet visible -->
+    <div class="card">
+        <div class="card-body text-center py-5">
+            <h4 class="text-muted">🔒 Picks Hidden Until Deadline</h4>
+            <p class="text-muted mb-3">
+                Picks will be revealed once the tournament begins on {{ tournament.start_date.strftime('%A, %B %d') }}.
+            </p>
+            {% if field_count > 0 %}
+                <p class="mb-0">
+                    <span class="badge bg-success fs-6">{{ field_count }} players in the field</span>
+                </p>
+            {% else %}
+                <p class="text-muted mb-0">
+                    <em>Field not yet synced</em>
+                </p>
+            {% endif %}
+            
+            {% if current_user.is_authenticated %}
+            <div class="mt-4">
+                <a href="{{ url_for('make_pick', tournament_id=tournament.id) }}" class="btn btn-primary">
+                    Make Your Pick →
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+{% else %}
+    <!-- ACTIVE or COMPLETE: Show picks table -->
+    
+    <!-- Summary Stats -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title text-muted">Picks Submitted</h5>
+                    <h2>{{ total_picks }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title text-muted">Total Points</h5>
+                    <h2 class="text-success">${{ "{:,}".format(total_points) }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title text-muted">
+                        {% if tournament.status == 'complete' %}Top Earner{% else %}Current Leader{% endif %}
+                    </h5>
+                    <h2 class="text-success">${{ "{:,}".format(max_points) }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    {% if tournament.status == 'active' %}
+    <div class="alert alert-warning">
+        <strong>🏌️ Tournament In Progress</strong> - Positions and earnings will update as rounds complete.
+    </div>
+    {% endif %}
+    
+    <!-- Picks Table -->
+    <div class="card">
+        <div class="card-header bg-dark text-white">
+            <h5 class="mb-0">
+                {% if tournament.status == 'complete' %}
+                    📊 Final Results
+                {% else %}
+                    📊 Current Picks & Standings
+                {% endif %}
+            </h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th style="width: 50px;">#</th>
+                            <th>Player</th>
+                            <th>Primary Pick</th>
+                            {% if show_backup %}
+                            <th>Backup Pick</th>
+                            <th>Active Pick</th>
+                            {% endif %}
+                            <th>Position</th>
+                            <th class="text-end">
+                                {% if tournament.status == 'complete' %}Points Earned{% else %}Current Earnings{% endif %}
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for result in pick_results %}
+                        <tr class="{% if current_user.is_authenticated and result.user.id == current_user.id %}table-warning{% endif %}
+                                   {% if result.points == max_points and result.points > 0 %}table-success{% endif %}">
+                            <td>
+                                {% if show_picks and result.has_pick %}
+                                    <strong>{{ loop.index }}</strong>
+                                    {% if result.points == max_points and result.points > 0 %}🏆{% endif %}
+                                {% else %}
+                                    {{ loop.index }}
+                                {% endif %}
+                            </td>
+                            <td>
+                                <strong>{{ result.user.get_display_name() }}</strong>
+                                {% if not result.user.has_paid %}
+                                    <span class="badge bg-secondary">Unpaid</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if result.has_pick %}
+                                    {{ result.primary_name }}
+                                    {% if result.primary_result %}
+                                        {% if result.primary_result.status == 'cut' %}
+                                            <span class="badge bg-danger">CUT</span>
+                                        {% elif result.primary_result.status == 'wd' %}
+                                            <span class="badge bg-warning text-dark">WD</span>
+                                        {% elif result.primary_result.status == 'dq' %}
+                                            <span class="badge bg-dark">DQ</span>
+                                        {% endif %}
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted fst-italic">No Pick</span>
+                                {% endif %}
+                            </td>
+                            {% if show_backup %}
+                            <td>
+                                {% if result.has_pick %}
+                                    {{ result.backup_name }}
+                                    {% if result.backup_result %}
+                                        {% if result.backup_result.status == 'cut' %}
+                                            <span class="badge bg-danger">CUT</span>
+                                        {% elif result.backup_result.status == 'wd' %}
+                                            <span class="badge bg-warning text-dark">WD</span>
+                                        {% elif result.backup_result.status == 'dq' %}
+                                            <span class="badge bg-dark">DQ</span>
+                                        {% endif %}
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if result.has_pick %}
+                                    {% if result.active_name %}
+                                        <strong>{{ result.active_name }}</strong>
+                                        {% if result.backup_activated %}
+                                            <span class="badge bg-info" title="Backup was activated">🔄</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-muted fst-italic">Pending</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            {% endif %}
+                            <td>
+                                {% if result.has_pick and result.position %}
+                                    {{ result.position }}
+                                {% elif not result.has_pick %}
+                                    <span class="text-muted">-</span>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                {% if result.has_pick %}
+                                    {% if result.points > 0 %}
+                                        <span class="badge bg-success fs-6">${{ "{:,}".format(result.points) }}</span>
+                                    {% else %}
+                                        <span class="text-muted">$0</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted">$0</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="{% if show_backup %}7{% else %}4{% endif %}" class="text-center text-muted py-4">
+                                No picks submitted for this tournament.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Legend for complete tournaments -->
+    {% if show_backup %}
+    <div class="mt-3">
+        <small class="text-muted">
+            <strong>Legend:</strong>
+            🏆 = Top Earner |
+            🔄 = Backup Activated |
+            <span class="badge bg-danger">CUT</span> = Missed Cut |
+            <span class="badge bg-warning text-dark">WD</span> = Withdrew |
+            <span class="badge bg-dark">DQ</span> = Disqualified
+        </small>
+    </div>
+    {% endif %}
+    
+{% endif %}
+
+<!-- Navigation -->
+<div class="mt-4">
+    <a href="{{ url_for('schedule') }}" class="btn btn-outline-secondary">← Back to Schedule</a>
+</div>
+
+{% endblock %}

@@ -11,7 +11,9 @@
         {% if current_tournament %}
         <div class="alert alert-info">
             <strong>{{ current_tournament.status|capitalize }}:</strong> 
-            {{ current_tournament.name }}
+            <a href="{{ url_for('tournament_detail', tournament_id=current_tournament.id) }}" class="alert-link">
+                {{ current_tournament.name }}
+            </a>
             {% if not current_tournament.is_deadline_passed() %}
                 <br><small>⏰ Deadline: {{ current_tournament.get_deadline_display() }}</small>
             {% endif %}
