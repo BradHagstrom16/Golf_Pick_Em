@@ -10,13 +10,17 @@ Core Concepts:
 - Backup activates only if primary WDs before completing Round 2
 """
 
-from flask_sqlalchemy import SQLAlchemy
-from flask_login import UserMixin
-from werkzeug.security import generate_password_hash, check_password_hash
+import logging
 from datetime import datetime
+
 import pytz
+from flask_login import UserMixin
+from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.dialects.sqlite import insert
+from werkzeug.security import generate_password_hash, check_password_hash
 
 db = SQLAlchemy()
+logger = logging.getLogger(__name__)
 
 # Timezone for the league (Central Time)
 LEAGUE_TZ = pytz.timezone('America/Chicago')
@@ -357,7 +361,16 @@ class Pick(db.Model):
         ).first()
         
         if not primary_result:
-            raise ValueError('Missing tournament result for primary player')
+            logger.error(
+                "Missing tournament result for primary player %s in tournament %s",
+                self.primary_player_id,
+                self.tournament_id,
+            )
+            self.points_earned = None
+            self.active_player_id = None
+            self.primary_used = False
+            self.backup_used = False
+            return False
 
         # Determine if primary WD'd before completing R2
         primary_wd_early = (
@@ -386,7 +399,17 @@ class Pick(db.Model):
                 self.active_player_id = self.backup_player_id
                 earnings = backup_result.earnings if backup_result else None
                 if earnings is None:
-                    raise ValueError('Backup player missing result when required')
+                    logger.error(
+                        "Backup player %s missing result for pick %s in tournament %s",
+                        self.backup_player_id,
+                        self.id,
+                        self.tournament_id,
+                    )
+                    self.active_player_id = None
+                    self.points_earned = None
+                    self.primary_used = False
+                    self.backup_used = False
+                    return False
 
                 # Handle team event (Zurich) - divide by 2
                 if self.tournament.is_team_event:
@@ -401,7 +424,17 @@ class Pick(db.Model):
             self.active_player_id = self.primary_player_id
             earnings = primary_result.earnings if primary_result else None
             if earnings is None:
-                raise ValueError('Primary player missing result when required')
+                logger.error(
+                    "Primary player %s missing earnings for pick %s in tournament %s",
+                    self.primary_player_id,
+                    self.id,
+                    self.tournament_id,
+                )
+                self.active_player_id = None
+                self.points_earned = None
+                self.primary_used = False
+                self.backup_used = False
+                return False
 
             # Handle team event (Zurich) - divide by 2
             if self.tournament.is_team_event:
@@ -412,20 +445,14 @@ class Pick(db.Model):
             self.backup_used = False
 
         # Record season usage for active player
-        existing_usage = SeasonPlayerUsage.query.filter_by(
+        stmt = insert(SeasonPlayerUsage).values(
             user_id=self.user_id,
             player_id=self.active_player_id,
             season_year=self.tournament.season_year,
-        ).first()
-        if not existing_usage:
-            usage = SeasonPlayerUsage(
-                user_id=self.user_id,
-                player_id=self.active_player_id,
-                season_year=self.tournament.season_year,
-            )
-            db.session.add(usage)
+        ).on_conflict_do_nothing()
+        db.session.execute(stmt)
 
-        return (self.points_earned, self.active_player_id, self.primary_used, self.backup_used)
+        return True
     
     def __repr__(self):
         return f'<Pick User:{self.user_id} Tournament:{self.tournament_id}>'

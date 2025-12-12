@@ -29,8 +29,9 @@
                         {% endif %}
                     </div>
                 </div>
-                
+
                 <form method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <!-- Primary Pick -->
                     <div class="mb-4">
                         <label for="primary_player_id" class="form-label">

@@ -10,8 +10,10 @@ from datetime import datetime
 import logging
 
 import pytz
+from email_validator import EmailNotValidError, validate_email
 from flask import Flask, render_template, redirect, url_for, flash, request, jsonify
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
+from flask_wtf.csrf import CSRFProtect, generate_csrf
 from sqlalchemy import func
 
 from config import config
@@ -26,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 # Initialize extensions
 db.init_app(app)
+csrf = CSRFProtect(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
@@ -39,10 +42,22 @@ def load_user(user_id):
     return User.query.get(int(user_id))
 
 
+LAST_STATUS_REFRESH = None
+
+
 @app.before_request
 def refresh_tournament_states():
     """Ensure tournament statuses reflect current time without manual intervention."""
+    if not request.endpoint or request.endpoint in {"static"}:
+        return
+
+    global LAST_STATUS_REFRESH
     now = get_current_time()
+    refresh_interval = app.config.get("STATUS_REFRESH_INTERVAL_SECONDS", 300)
+
+    if LAST_STATUS_REFRESH and (now - LAST_STATUS_REFRESH).total_seconds() < refresh_interval:
+        return
+
     tournaments = Tournament.query.filter(
         Tournament.season_year == app.config['SEASON_YEAR'],
         Tournament.status.in_(['upcoming', 'active'])
@@ -55,6 +70,7 @@ def refresh_tournament_states():
             logger.info("Auto-updated tournament %s status: %s -> %s", tournament.name, previous, tournament.status)
     if updated:
         db.session.commit()
+    LAST_STATUS_REFRESH = now
 
 
 # ============================================================================
@@ -81,7 +97,8 @@ def inject_globals():
     """Inject global variables into all templates."""
     return {
         'current_time': get_current_time(),
-        'season_year': app.config['SEASON_YEAR']
+        'season_year': app.config['SEASON_YEAR'],
+        'csrf_token': generate_csrf
     }
 
 
@@ -318,8 +335,8 @@ def login():
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '')
-        
-        user = User.query.filter_by(username=username).first()
+
+        user = User.query.filter(func.lower(User.username) == username.lower()).first()
         
         if user and user.check_password(password):
             login_user(user, remember=True)
@@ -349,7 +366,7 @@ def register():
     
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
-        email = request.form.get('email', '').strip().lower()
+        email = request.form.get('email', '').strip()
         password = request.form.get('password', '')
         confirm_password = request.form.get('confirm_password', '')
         display_name = request.form.get('display_name', '').strip() or None
@@ -359,11 +376,17 @@ def register():
         
         if len(username) < 3:
             errors.append('Username must be at least 3 characters.')
-        
-        if User.query.filter_by(username=username).first():
+
+        if User.query.filter(func.lower(User.username) == username.lower()).first():
             errors.append('Username already taken.')
-        
-        if User.query.filter_by(email=email).first():
+
+        try:
+            validated_email = validate_email(email, check_deliverability=False).email
+        except EmailNotValidError as exc:  # noqa: PERF203 - explicit error messaging is valuable here
+            errors.append(str(exc))
+            validated_email = None
+
+        if validated_email and User.query.filter(func.lower(User.email) == validated_email.lower()).first():
             errors.append('Email already registered.')
         
         if len(password) < 6:
@@ -378,7 +401,7 @@ def register():
         else:
             user = User(
                 username=username,
-                email=email,
+                email=validated_email or email.lower(),
                 display_name=display_name
             )
             user.set_password(password)
@@ -652,22 +675,35 @@ def process_tournament_results(tournament: Tournament):
     """Idempotent processing of results and seasonal usage tracking."""
     picks = Pick.query.filter_by(tournament_id=tournament.id).all()
 
-    # Clear any previously recorded usages for this tournament
-    for pick in picks:
-        SeasonPlayerUsage.query.filter(
-            SeasonPlayerUsage.user_id == pick.user_id,
-            SeasonPlayerUsage.season_year == tournament.season_year,
-            SeasonPlayerUsage.player_id.in_([pick.primary_player_id, pick.backup_player_id])
-        ).delete(synchronize_session=False)
-
     processed = 0
-    for pick in picks:
-        pick.resolve_pick()
-        pick.user.calculate_total_points()
-        processed += 1
+    skipped = []
 
-    db.session.commit()
-    return processed
+    with db.session.begin():
+        for pick in picks:
+            try:
+                with db.session.begin_nested():
+                    SeasonPlayerUsage.query.filter(
+                        SeasonPlayerUsage.user_id == pick.user_id,
+                        SeasonPlayerUsage.season_year == tournament.season_year,
+                        SeasonPlayerUsage.player_id.in_([pick.primary_player_id, pick.backup_player_id])
+                    ).delete(synchronize_session=False)
+
+                    resolved = pick.resolve_pick()
+                    if not resolved:
+                        skipped.append(pick.id)
+                        raise RuntimeError("Pick resolution incomplete")
+
+                    pick.user.calculate_total_points()
+                processed += 1
+            except Exception as exc:  # noqa: BLE001 - log and continue with remaining picks
+                logger.warning(
+                    "Skipped pick %s for tournament %s: %s",
+                    pick.id,
+                    tournament.id,
+                    exc,
+                )
+
+    return processed, skipped
 
 
 @app.route('/admin/process-results/<int:tournament_id>', methods=['POST'])
@@ -680,9 +716,12 @@ def admin_process_results(tournament_id):
         flash('Tournament must be complete before processing results.', 'error')
         return redirect(url_for('admin_tournaments'))
     
-    processed = process_tournament_results(tournament)
+    processed, skipped = process_tournament_results(tournament)
 
-    flash(f'Processed results for {processed} picks.', 'success')
+    message = f'Processed results for {processed} picks.'
+    if skipped:
+        message += f" Skipped {len(skipped)} pick(s) awaiting missing results."
+    flash(message, 'success' if not skipped else 'warning')
     return redirect(url_for('admin_tournaments'))
 
 
@@ -706,7 +745,7 @@ def create_admin():
     email = input('Admin email: ').strip()
     password = getpass.getpass('Admin password: ')
     
-    if User.query.filter_by(username=username).first():
+    if User.query.filter(func.lower(User.username) == username.lower()).first():
         print(f'User {username} already exists.')
         return
     
@@ -728,9 +767,12 @@ def process_results_cli():
     """Process results for all completed tournaments in the current season."""
     tournaments = Tournament.query.filter_by(status='complete', season_year=app.config['SEASON_YEAR']).all()
     total_processed = 0
+    total_skipped = 0
     for tournament in tournaments:
-        total_processed += process_tournament_results(tournament)
-    print(f'Processed {total_processed} picks across {len(tournaments)} tournaments.')
+        processed, skipped = process_tournament_results(tournament)
+        total_processed += processed
+        total_skipped += len(skipped)
+    print(f'Processed {total_processed} picks across {len(tournaments)} tournaments. Skipped {total_skipped}.')
 
 
 # Register API sync commands

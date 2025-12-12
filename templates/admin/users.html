@@ -70,6 +70,7 @@
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <form method="POST" action="{{ url_for('admin_reset_password', user_id=user.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <div class="modal-body">
                             <div class="alert alert-warning">
                                 You're about to reset the password for <strong>{{ user.get_display_name() }}</strong>
