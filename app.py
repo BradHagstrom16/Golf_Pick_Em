@@ -7,6 +7,7 @@ Flask application with routes for the golf pick 'em fantasy league.
 import os
 from functools import wraps
 from datetime import datetime
+import logging
 
 import pytz
 from flask import Flask, render_template, redirect, url_for, flash, request, jsonify
@@ -14,11 +15,14 @@ from flask_login import LoginManager, login_user, logout_user, login_required, c
 from sqlalchemy import func
 
 from config import config
-from models import db, User, Player, Tournament, TournamentField, TournamentResult, Pick, get_current_time, LEAGUE_TZ
+from models import db, User, Player, Tournament, TournamentField, TournamentResult, Pick, SeasonPlayerUsage, get_current_time, LEAGUE_TZ
 
 # Initialize Flask app
 app = Flask(__name__)
 app.config.from_object(config[os.environ.get('FLASK_ENV', 'default')])
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Initialize extensions
 db.init_app(app)
@@ -33,6 +37,24 @@ login_manager.login_message_category = 'info'
 def load_user(user_id):
     """Load user by ID for Flask-Login."""
     return User.query.get(int(user_id))
+
+
+@app.before_request
+def refresh_tournament_states():
+    """Ensure tournament statuses reflect current time without manual intervention."""
+    now = get_current_time()
+    tournaments = Tournament.query.filter(
+        Tournament.season_year == app.config['SEASON_YEAR'],
+        Tournament.status.in_(['upcoming', 'active'])
+    ).all()
+    updated = False
+    for tournament in tournaments:
+        previous = tournament.status
+        if tournament.update_status_from_time(now) != previous:
+            updated = True
+            logger.info("Auto-updated tournament %s status: %s -> %s", tournament.name, previous, tournament.status)
+    if updated:
+        db.session.commit()
 
 
 # ============================================================================
@@ -497,13 +519,13 @@ def make_pick(tournament_id):
         
         # Validation
         errors = []
-        
+
         if not primary_id or not backup_id:
             errors.append('You must select both a primary and backup player.')
-        
+
         if primary_id == backup_id:
             errors.append('Primary and backup must be different players.')
-        
+
         # Verify players are in available list
         available_ids = [p.id for p in available_players]
         if primary_id not in available_ids:
@@ -520,7 +542,15 @@ def make_pick(tournament_id):
                 existing_pick.primary_player_id = primary_id
                 existing_pick.backup_player_id = backup_id
                 existing_pick.updated_at = datetime.utcnow()
-                flash('Pick updated successfully!', 'success')
+                validation_errors = existing_pick.validate_availability(app.config['SEASON_YEAR'])
+                if validation_errors:
+                    for error in validation_errors:
+                        flash(error, 'error')
+                    db.session.rollback()
+                else:
+                    flash('Pick updated successfully!', 'success')
+                    db.session.commit()
+                    return redirect(url_for('my_picks'))
             else:
                 # Create new pick
                 pick = Pick(
@@ -529,11 +559,16 @@ def make_pick(tournament_id):
                     primary_player_id=primary_id,
                     backup_player_id=backup_id
                 )
-                db.session.add(pick)
-                flash('Pick submitted successfully!', 'success')
-            
-            db.session.commit()
-            return redirect(url_for('my_picks'))
+                validation_errors = pick.validate_availability(app.config['SEASON_YEAR'])
+                if validation_errors:
+                    for error in validation_errors:
+                        flash(error, 'error')
+                    db.session.rollback()
+                else:
+                    db.session.add(pick)
+                    db.session.commit()
+                    flash('Pick submitted successfully!', 'success')
+                    return redirect(url_for('my_picks'))
     
     return render_template('make_pick.html',
                          tournament=tournament,
@@ -613,6 +648,28 @@ def admin_update_payment(user_id):
     return jsonify({'success': True, 'has_paid': user.has_paid})
 
 
+def process_tournament_results(tournament: Tournament):
+    """Idempotent processing of results and seasonal usage tracking."""
+    picks = Pick.query.filter_by(tournament_id=tournament.id).all()
+
+    # Clear any previously recorded usages for this tournament
+    for pick in picks:
+        SeasonPlayerUsage.query.filter(
+            SeasonPlayerUsage.user_id == pick.user_id,
+            SeasonPlayerUsage.season_year == tournament.season_year,
+            SeasonPlayerUsage.player_id.in_([pick.primary_player_id, pick.backup_player_id])
+        ).delete(synchronize_session=False)
+
+    processed = 0
+    for pick in picks:
+        pick.resolve_pick()
+        pick.user.calculate_total_points()
+        processed += 1
+
+    db.session.commit()
+    return processed
+
+
 @app.route('/admin/process-results/<int:tournament_id>', methods=['POST'])
 @admin_required
 def admin_process_results(tournament_id):
@@ -623,17 +680,8 @@ def admin_process_results(tournament_id):
         flash('Tournament must be complete before processing results.', 'error')
         return redirect(url_for('admin_tournaments'))
     
-    # Get all picks for this tournament
-    picks = Pick.query.filter_by(tournament_id=tournament_id).all()
-    
-    processed = 0
-    for pick in picks:
-        pick.resolve_pick()
-        pick.user.calculate_total_points()
-        processed += 1
-    
-    db.session.commit()
-    
+    processed = process_tournament_results(tournament)
+
     flash(f'Processed results for {processed} picks.', 'success')
     return redirect(url_for('admin_tournaments'))
 
@@ -671,8 +719,18 @@ def create_admin():
     
     db.session.add(user)
     db.session.commit()
-    
+
     print(f'Admin user {username} created.')
+
+
+@app.cli.command('process-results')
+def process_results_cli():
+    """Process results for all completed tournaments in the current season."""
+    tournaments = Tournament.query.filter_by(status='complete', season_year=app.config['SEASON_YEAR']).all()
+    total_processed = 0
+    for tournament in tournaments:
+        total_processed += process_tournament_results(tournament)
+    print(f'Processed {total_processed} picks across {len(tournaments)} tournaments.')
 
 
 # Register API sync commands

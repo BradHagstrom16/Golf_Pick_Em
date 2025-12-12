@@ -15,12 +15,16 @@ API Endpoints Used:
 - /tournaments - Tournament details + full field
 """
 
+import logging
 import requests
 from datetime import datetime, timedelta
 from typing import Optional, Dict, List, Tuple
 import pytz
 
 from models import db, Tournament, Player, TournamentField, TournamentResult, Pick, LEAGUE_TZ
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 
 class SlashGolfAPI:
@@ -44,26 +48,28 @@ class SlashGolfAPI:
         }
         self.org_id = "1"  # PGA Tour
     
-    def _make_request(self, endpoint: str, params: Dict = None) -> Optional[Dict]:
-        """Make API request with error handling."""
+    def _make_request(self, endpoint: str, params: Dict = None, retries: int = 3) -> Optional[Dict]:
+        """Make API request with basic retry and structured logging."""
         url = f"{self.BASE_URL}/{endpoint}"
-        
+
         if params is None:
             params = {}
         params["orgId"] = self.org_id
-        
-        try:
-            response = requests.get(url, headers=self.headers, params=params)
-            
-            if response.status_code == 200:
-                return response.json()
-            else:
-                print(f"API Error {response.status_code}: {response.text}")
-                return None
-                
-        except Exception as e:
-            print(f"Request failed: {e}")
-            return None
+
+        for attempt in range(1, retries + 1):
+            try:
+                response = requests.get(url, headers=self.headers, params=params, timeout=10)
+
+                if response.status_code == 200:
+                    return response.json()
+                else:
+                    logger.warning("API Error %s on %s (attempt %s/%s)", response.status_code, endpoint, attempt, retries)
+
+            except Exception as exc:
+                logger.exception("Request failed for %s (attempt %s/%s): %s", endpoint, attempt, retries, exc)
+
+        logger.error("Exhausted retries for endpoint %s", endpoint)
+        return None
     
     def get_schedule(self, year: str) -> Optional[Dict]:
         """Get full season schedule."""
@@ -168,7 +174,7 @@ class TournamentSync:
         data = self.api.get_leaderboard(tournament.api_tourn_id, str(tournament.season_year))
         
         if not data or "leaderboardRows" not in data:
-            print(f"Failed to fetch leaderboard for {tournament.name}")
+            logger.error("Failed to fetch leaderboard for %s", tournament.name)
             return 0, None
         
         players_synced = 0
@@ -251,9 +257,9 @@ class TournamentSync:
         """
         # Get earnings data
         earnings_data = self.api.get_earnings(tournament.api_tourn_id, str(tournament.season_year))
-        
+
         if not earnings_data or "leaderboard" not in earnings_data:
-            print(f"Failed to fetch earnings for {tournament.name}")
+            logger.error("Failed to fetch earnings for %s", tournament.name)
             return 0
         
         # Get leaderboard for status/rounds info
@@ -316,9 +322,9 @@ class TournamentSync:
         
         # Mark tournament as complete
         tournament.status = "complete"
-        
+
         db.session.commit()
-        print(f"Synced {results_synced} results for {tournament.name}")
+        logger.info("Synced %s results for %s", results_synced, tournament.name)
         return results_synced
     
     def process_tournament_picks(self, tournament: Tournament) -> int:
@@ -333,7 +339,7 @@ class TournamentSync:
             Number of picks processed
         """
         if tournament.status != "complete":
-            print(f"Tournament {tournament.name} is not complete")
+            logger.warning("Tournament %s is not complete", tournament.name)
             return 0
         
         picks = Pick.query.filter_by(tournament_id=tournament.id).all()
@@ -349,7 +355,7 @@ class TournamentSync:
             processed += 1
         
         db.session.commit()
-        print(f"Processed {processed} picks for {tournament.name}")
+        logger.info("Processed %s picks for %s", processed, tournament.name)
         return processed
     
     def check_withdrawals(self, tournament: Tournament) -> List[Dict]:
