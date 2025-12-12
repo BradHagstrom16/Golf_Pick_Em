@@ -52,16 +52,28 @@
                             </a>
                         </li>
                         {% endif %}
-                        <li class="nav-item">
-                            <span class="nav-link text-light">
+                        <!-- User Dropdown Menu -->
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="userDropdown" 
+                                role="button" data-bs-toggle="dropdown" aria-expanded="false">
                                 👤 {{ current_user.get_display_name() }}
                                 <span class="badge bg-light text-success ms-1">
                                     ${{ "{:,}".format(current_user.total_points) }}
                                 </span>
-                            </span>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('logout') }}">Logout</a>
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                                <li>
+                                    <a class="dropdown-item" href="{{ url_for('change_password') }}">
+                                        🔒 Change Password
+                                    </a>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <a class="dropdown-item" href="{{ url_for('logout') }}">
+                                        🚪 Logout
+                                    </a>
+                                </li>
+                            </ul>
                         </li>
                     {% else %}
                         <li class="nav-item">
