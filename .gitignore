@@ -1,3 +1,21 @@
+# ===========================================
+# Project-specific ignores - KEEP AT TOP
+# ===========================================
+
+# Email credentials (NEVER commit!)
+email_config.py
+
+# Database files
+*.db
+*.sqlite3
+
+# Flask instance folder
+instance/
+
+# ===========================================
+# Python standard ignores below...
+# ===========================================
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
