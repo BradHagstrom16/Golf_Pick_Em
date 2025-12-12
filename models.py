@@ -410,14 +410,20 @@ class Pick(db.Model):
             self.points_earned = earnings
             self.primary_used = True
             self.backup_used = False
-        
+
         # Record season usage for active player
-        usage = SeasonPlayerUsage(
+        existing_usage = SeasonPlayerUsage.query.filter_by(
             user_id=self.user_id,
             player_id=self.active_player_id,
             season_year=self.tournament.season_year,
-        )
-        db.session.add(usage)
+        ).first()
+        if not existing_usage:
+            usage = SeasonPlayerUsage(
+                user_id=self.user_id,
+                player_id=self.active_player_id,
+                season_year=self.tournament.season_year,
+            )
+            db.session.add(usage)
 
         return (self.points_earned, self.active_player_id, self.primary_used, self.backup_used)
     

@@ -112,6 +112,21 @@ DATABASE_URL=sqlite:///golf_pickem.db
 32 tournaments from January (Sony Open) through August (BMW Championship).
 See `/schedule` route for full list.
 
+## PythonAnywhere Scheduled Tasks
+
+Set the following scheduled tasks (replace `USER` with your PythonAnywhere username and ensure `FLASK_APP`, `SLASHGOLF_API_KEY`, and your virtualenv are configured in the task environment). Commands assume the repo lives at `/home/USER/Golf_Pick_Em`.
+
+| Window | Frequency | Command |
+| --- | --- | --- |
+| Tue 07:00 & 15:00 CT | Pre-tournament schedule refresh | `cd /home/USER/Golf_Pick_Em && flask sync-run --mode schedule` |
+| Wed/Thu 07:00 CT | Field + tee times update | `cd /home/USER/Golf_Pick_Em && flask sync-run --mode field` |
+| Thu–Sun every 30 min 07:00–19:00 CT | Live leaderboard/status + deadlines | `cd /home/USER/Golf_Pick_Em && flask sync-run --mode live` |
+| Thu–Sun every 60 min 08:00–20:00 CT | Withdrawal monitoring | `cd /home/USER/Golf_Pick_Em && flask sync-run --mode withdrawals` |
+| Sun 20:00 CT & Mon 08:00 CT | Results/earnings + pick processing | `cd /home/USER/Golf_Pick_Em && flask sync-run --mode results` |
+| Optional daily 06:00 CT | Full sweep safety net | `cd /home/USER/Golf_Pick_Em && flask sync-run --mode all` |
+
+Always-on task alternative: run `while true; do flask sync-run --mode live; sleep 1800; done` inside the project dir to keep live scoring fresh between scheduler runs.
+
 ## License
 
 Private project for personal use.
