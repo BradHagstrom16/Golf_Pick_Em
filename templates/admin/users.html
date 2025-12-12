@@ -12,6 +12,11 @@
 
 <h2>Manage Users</h2>
 
+<div class="alert alert-info">
+    <strong>Note:</strong> Passwords are encrypted for security and cannot be viewed. 
+    You can only reset them to a new value.
+</div>
+
 <table class="table table-striped">
     <thead class="table-dark">
         <tr>
@@ -22,6 +27,7 @@
             <th>Paid</th>
             <th>Admin</th>
             <th>Joined</th>
+            <th>Actions</th>
         </tr>
     </thead>
     <tbody>
@@ -46,7 +52,48 @@
                 {% endif %}
             </td>
             <td>{{ user.created_at.strftime('%b %d, %Y') }}</td>
+            <td>
+                <button type="button" class="btn btn-sm btn-warning" 
+                        data-bs-toggle="modal" 
+                        data-bs-target="#resetModal{{ user.id }}">
+                    Reset Password
+                </button>
+            </td>
         </tr>
+        
+        <!-- Password Reset Modal for this user -->
+        <div class="modal fade" id="resetModal{{ user.id }}" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Reset Password for {{ user.get_display_name() }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <form method="POST" action="{{ url_for('admin_reset_password', user_id=user.id) }}">
+                        <div class="modal-body">
+                            <div class="alert alert-warning">
+                                You're about to reset the password for <strong>{{ user.get_display_name() }}</strong>
+                                {% if user.username != user.display_name and user.display_name %}
+                                    ({{ user.username }})
+                                {% endif %}
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">New Password</label>
+                                <input type="text" class="form-control" name="new_password" 
+                                       value="golf{{ user.id }}" required minlength="6">
+                                <small class="text-muted">
+                                    Default suggestion: golf{{ user.id }}
+                                </small>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-warning">Reset Password</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
         {% endfor %}
     </tbody>
 </table>
