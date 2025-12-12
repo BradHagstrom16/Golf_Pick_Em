@@ -23,7 +23,9 @@
                 {% set pick = user_picks.get(tournament.id) %}
                 <tr>
                     <td>
-                        <strong>{{ tournament.name }}</strong>
+                        <a href="{{ url_for('tournament_detail', tournament_id=tournament.id) }}" class="text-decoration-none">
+                            <strong>{{ tournament.name }}</strong>
+                        </a>
                         {% if tournament.is_team_event %}
                             <span class="badge bg-info">Team Event</span>
                         {% endif %}
@@ -52,31 +54,32 @@
                                 <span class="badge bg-secondary">Used</span>
                             {% endif %}
                             {% if pick.active_player_id == pick.backup_player_id and tournament.status == 'complete' %}
-                                <span class="badge bg-warning text-dark">Activated</span>
+                                <span class="badge bg-info">Activated</span>
                             {% endif %}
                         {% else %}
                             <span class="text-muted">-</span>
                         {% endif %}
                     </td>
                     <td>
-                        {% if tournament.status == 'complete' and pick %}
-                            <span class="badge bg-success fs-6">${{ "{:,}".format(pick.points_earned or 0) }}</span>
-                        {% elif tournament.status == 'active' %}
-                            <span class="badge bg-info">In Progress</span>
+                        {% if pick and pick.points_earned %}
+                            <span class="badge bg-success">${{ "{:,}".format(pick.points_earned) }}</span>
+                        {% elif tournament.status == 'complete' %}
+                            <span class="text-muted">$0</span>
                         {% else %}
                             <span class="text-muted">-</span>
                         {% endif %}
                     </td>
                     <td>
                         {% if tournament.status == 'upcoming' and not tournament.is_deadline_passed() %}
-                            <a href="{{ url_for('make_pick', tournament_id=tournament.id) }}" 
-                               class="btn btn-sm {{ 'btn-outline-success' if pick else 'btn-success' }}">
-                                {{ 'Edit' if pick else 'Pick' }}
-                            </a>
-                        {% elif tournament.status == 'upcoming' %}
-                            <span class="badge bg-danger">Deadline Passed</span>
+                            {% if pick %}
+                                <a href="{{ url_for('make_pick', tournament_id=tournament.id) }}" class="btn btn-sm btn-warning">Edit</a>
+                            {% else %}
+                                <a href="{{ url_for('make_pick', tournament_id=tournament.id) }}" class="btn btn-sm btn-primary">Pick</a>
+                            {% endif %}
+                        {% elif tournament.status == 'complete' %}
+                            <a href="{{ url_for('tournament_detail', tournament_id=tournament.id) }}" class="btn btn-sm btn-outline-secondary">Results</a>
                         {% else %}
-                            <span class="text-muted">-</span>
+                            <span class="text-muted">Locked</span>
                         {% endif %}
                     </td>
                 </tr>
