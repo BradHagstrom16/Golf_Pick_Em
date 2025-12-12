@@ -17,7 +17,6 @@
                     <th>Rank</th>
                     <th>Player</th>
                     <th class="text-end">Total Points</th>
-                    <th class="text-center">Paid</th>
                 </tr>
             </thead>
             <tbody>
@@ -35,21 +34,17 @@
                     </td>
                     <td>
                         <strong>{{ user.get_display_name() }}</strong>
+                        {% if not user.has_paid %}
+                            <span class="badge bg-secondary">Unpaid</span>
+                        {% endif %}
                     </td>
                     <td class="text-end">
                         <span class="badge bg-success fs-5">${{ "{:,}".format(user.total_points) }}</span>
                     </td>
-                    <td class="text-center">
-                        {% if user.has_paid %}
-                            <span class="text-success">✅</span>
-                        {% else %}
-                            <span class="text-muted">-</span>
-                        {% endif %}
-                    </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="4" class="text-center text-muted">No players yet.</td>
+                    <td colspan="3" class="text-center text-muted">No players yet.</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -59,19 +54,18 @@
     <div class="col-lg-4">
         <div class="card">
             <div class="card-header bg-success text-white">
-                <h5 class="mb-0">📊 Season Stats</h5>
+                <h5 class="mb-0">Season Progress</h5>
             </div>
             <div class="card-body">
-                <p><strong>Tournaments Complete:</strong> {{ completed_tournaments }} / {{ total_tournaments }}</p>
-                <p><strong>Total Players:</strong> {{ users|length }}</p>
-                
-                {% if users %}
-                    {% set leader = users[0] %}
-                    <hr>
-                    <p class="mb-0"><strong>Current Leader:</strong></p>
-                    <h4 class="text-success">{{ leader.get_display_name() }}</h4>
-                    <p>${{ "{:,}".format(leader.total_points) }}</p>
-                {% endif %}
+                <div class="progress mb-3" style="height: 25px;">
+                    <div class="progress-bar bg-success" role="progressbar" 
+                         style="width: {{ (completed_tournaments / total_tournaments * 100) if total_tournaments > 0 else 0 }}%">
+                        {{ completed_tournaments }} / {{ total_tournaments }}
+                    </div>
+                </div>
+                <p class="text-muted mb-0">
+                    Tournaments Completed
+                </p>
             </div>
         </div>
     </div>
