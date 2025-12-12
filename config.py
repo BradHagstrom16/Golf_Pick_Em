@@ -34,6 +34,10 @@ class Config:
     SLASHGOLF_API_KEY = os.environ.get('SLASHGOLF_API_KEY')
     SLASHGOLF_API_HOST = 'live-golf-data.p.rapidapi.com'
     SLASHGOLF_ORG_ID = '1'  # PGA Tour
+
+    # API Usage / Sync Mode
+    SYNC_MODE = (os.environ.get('SYNC_MODE') or os.environ.get('RAPIDAPI_TIER') or 'standard').lower()
+    FIXED_DEADLINE_HOUR_CT = int(os.environ.get('FIXED_DEADLINE_HOUR_CT', '7'))
     
     # Feature flags
     PICKS_VISIBLE_AFTER_DEADLINE = True  # Show everyone's picks after deadline

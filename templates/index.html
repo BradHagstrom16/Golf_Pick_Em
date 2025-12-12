@@ -10,13 +10,16 @@
         
         {% if current_tournament %}
         <div class="alert alert-info">
-            <strong>{{ current_tournament.status|capitalize }}:</strong> 
+            <strong>{{ current_tournament.status|capitalize }}:</strong>
             <a href="{{ url_for('tournament_detail', tournament_id=current_tournament.id) }}" class="alert-link">
                 {{ current_tournament.name }}
             </a>
             {% if not current_tournament.is_deadline_passed() %}
                 <br><small>⏰ Deadline: {{ current_tournament.get_deadline_display() }}</small>
             {% endif %}
+            <div class="small text-muted mt-1">
+                Leaderboard updates run on the free-tier batch schedule (after rounds / after completion).
+            </div>
         </div>
         {% endif %}
         

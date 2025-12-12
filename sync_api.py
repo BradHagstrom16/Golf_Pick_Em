@@ -32,6 +32,16 @@ from models import db, Tournament, Player, TournamentField, TournamentResult, Pi
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
+# Dedicated API call logger for auditing RapidAPI usage
+API_CALL_LOGGER = logging.getLogger("api_calls")
+API_CALL_LOGGER.setLevel(logging.INFO)
+if not API_CALL_LOGGER.handlers:
+    log_dir = os.path.join(os.path.dirname(__file__), "logs")
+    os.makedirs(log_dir, exist_ok=True)
+    handler = logging.FileHandler(os.path.join(log_dir, "api_calls.log"))
+    handler.setFormatter(logging.Formatter("%(asctime)s\t%(message)s"))
+    API_CALL_LOGGER.addHandler(handler)
+
 
 class SlashGolfAPI:
     """Client for SlashGolf API."""
@@ -39,7 +49,7 @@ class SlashGolfAPI:
     # RapidAPI configuration
     BASE_URL = "https://live-golf-data.p.rapidapi.com"
     
-    def __init__(self, api_key: str, api_host: str = "live-golf-data.p.rapidapi.com"):
+    def __init__(self, api_key: str, api_host: str = "live-golf-data.p.rapidapi.com", sync_mode: str = "standard"):
         """
         Initialize API client.
         
@@ -53,6 +63,22 @@ class SlashGolfAPI:
             "X-RapidAPI-Host": api_host
         }
         self.org_id = "1"  # PGA Tour
+        self.sync_mode = (sync_mode or "standard").lower()
+        self._call_counter = 0
+
+    def _log_api_call(self, endpoint: str, params: Dict, status: int, duration: float, attempt: int) -> None:
+        """Record API call details for auditing."""
+        self._call_counter += 1
+        API_CALL_LOGGER.info(
+            "count=%s\tmode=%s\tendpoint=%s\tstatus=%s\tattempt=%s\tduration=%.2fs\tparams=%s",
+            self._call_counter,
+            self.sync_mode,
+            endpoint,
+            status,
+            attempt,
+            duration,
+            params,
+        )
     
     def _make_request(self, endpoint: str, params: Dict = None, retries: int = 5) -> Optional[Dict]:
         """Make API request with exponential backoff, jitter, and structured logging."""
@@ -64,8 +90,12 @@ class SlashGolfAPI:
 
         backoff = 1.5
         for attempt in range(1, retries + 1):
+            start_time = time.time()
             try:
                 response = requests.get(url, headers=self.headers, params=params, timeout=15)
+
+                duration = time.time() - start_time
+                self._log_api_call(endpoint, params, response.status_code, duration, attempt)
 
                 if response.status_code == 200:
                     return response.json()
@@ -92,6 +122,8 @@ class SlashGolfAPI:
                     attempt,
                     retries,
                 )
+                duration = time.time() - start_time
+                self._log_api_call(endpoint, params, 0, duration, attempt)
 
             if attempt < retries:
                 sleep_for = min(60, backoff * (2 ** (attempt - 1)))
@@ -120,9 +152,15 @@ class SlashGolfAPI:
 
 class TournamentSync:
     """Sync tournament data from API to database."""
-    
-    def __init__(self, api: SlashGolfAPI):
+
+    def __init__(self, api: SlashGolfAPI, sync_mode: str = "standard", fallback_deadline_hour: int = 7):
         self.api = api
+        self.sync_mode = (sync_mode or "standard").lower()
+        self.fallback_deadline_hour = fallback_deadline_hour
+
+    @property
+    def is_free_mode(self) -> bool:
+        return self.sync_mode == "free"
 
     @staticmethod
     def _get_event_timezone(leaderboard_data: Dict) -> pytz.timezone:
@@ -186,6 +224,21 @@ class TournamentSync:
         else:
             tournament.status = "upcoming"
         return tournament.status
+
+    def _apply_fixed_deadline(self, tournament: Tournament) -> datetime:
+        """Set a deterministic pick deadline when tee times aren't available."""
+        start_localized = tournament.start_date
+        if start_localized.tzinfo is None:
+            start_localized = LEAGUE_TZ.localize(start_localized)
+
+        fixed_deadline = start_localized.replace(
+            hour=self.fallback_deadline_hour,
+            minute=0,
+            second=0,
+            microsecond=0,
+        )
+        tournament.pick_deadline = fixed_deadline
+        return fixed_deadline
     
     def sync_schedule(self, year: int, tournament_names: List[str] = None) -> int:
         """
@@ -320,6 +373,21 @@ class TournamentSync:
 
                 self._derive_status(tournament, data)
 
+                if not first_tee_time and self.is_free_mode:
+                    fallback_deadline = self._apply_fixed_deadline(tournament)
+                    logger.info(
+                        "Free tier: using fixed pick deadline %s for %s (tee times unavailable)",
+                        fallback_deadline,
+                        tournament.name,
+                    )
+                elif not tournament.pick_deadline:
+                    fallback_deadline = self._apply_fixed_deadline(tournament)
+                    logger.info(
+                        "Applied fallback pick deadline %s for %s",
+                        fallback_deadline,
+                        tournament.name,
+                    )
+
             logger.info("Synced %s players for %s", players_synced, tournament.name)
         except Exception:
             db.session.rollback()
@@ -443,6 +511,10 @@ class TournamentSync:
         Returns:
             List of withdrawal info dicts
         """
+        if self.is_free_mode:
+            logger.info("Free tier: skipping withdrawal check for %s", tournament.name)
+            return []
+
         data = self.api.get_leaderboard(tournament.api_tourn_id, str(tournament.season_year))
 
         if not data or "leaderboardRows" not in data:
@@ -493,6 +565,10 @@ class TournamentSync:
 
     def sync_live_leaderboard(self, tournament: Tournament) -> int:
         """Update live leaderboard data for an active tournament."""
+        if self.is_free_mode:
+            logger.info("Free tier: skipping live leaderboard sync for %s", tournament.name)
+            return 0
+
         data = self.api.get_leaderboard(tournament.api_tourn_id, str(tournament.season_year))
         if not data or "leaderboardRows" not in data:
             logger.error("Failed to fetch leaderboard for %s", tournament.name)
@@ -616,6 +692,9 @@ def get_recently_completed_tournaments(days_back: int = 2) -> List[Tournament]:
 def register_sync_commands(app):
     """Register sync CLI commands with Flask app."""
 
+    sync_mode = app.config.get('SYNC_MODE', 'standard').lower()
+    fallback_deadline_hour = app.config.get('FIXED_DEADLINE_HOUR_CT', 7)
+
     @app.cli.command('sync-schedule')
     def sync_schedule_cmd():
         """Import season schedule from API."""
@@ -626,8 +705,8 @@ def register_sync_commands(app):
             print("Error: SLASHGOLF_API_KEY not set")
             return
         
-        api = SlashGolfAPI(api_key)
-        sync = TournamentSync(api)
+        api = SlashGolfAPI(api_key, sync_mode=sync_mode)
+        sync = TournamentSync(api, sync_mode=sync_mode, fallback_deadline_hour=fallback_deadline_hour)
         
         year = app.config.get('SEASON_YEAR', 2026)
         sync.sync_schedule(year)
@@ -647,8 +726,8 @@ def register_sync_commands(app):
             print("No upcoming tournament found")
             return
         
-        api = SlashGolfAPI(api_key)
-        sync = TournamentSync(api)
+        api = SlashGolfAPI(api_key, sync_mode=sync_mode)
+        sync = TournamentSync(api, sync_mode=sync_mode, fallback_deadline_hour=fallback_deadline_hour)
         sync.sync_tournament_field(tournament)
     
     @app.cli.command('sync-results')
@@ -667,8 +746,8 @@ def register_sync_commands(app):
             print("No active tournament to process")
             return
         
-        api = SlashGolfAPI(api_key)
-        sync = TournamentSync(api)
+        api = SlashGolfAPI(api_key, sync_mode=sync_mode)
+        sync = TournamentSync(api, sync_mode=sync_mode, fallback_deadline_hour=fallback_deadline_hour)
         
         # Sync results
         sync.sync_tournament_results(tournament)
@@ -691,8 +770,8 @@ def register_sync_commands(app):
             print("No active tournament")
             return
         
-        api = SlashGolfAPI(api_key)
-        sync = TournamentSync(api)
+        api = SlashGolfAPI(api_key, sync_mode=sync_mode)
+        sync = TournamentSync(api, sync_mode=sync_mode, fallback_deadline_hour=fallback_deadline_hour)
         
         withdrawals = sync.check_withdrawals(tournament)
         
@@ -713,10 +792,15 @@ def register_sync_commands(app):
             click.echo("Error: SLASHGOLF_API_KEY not set")
             sys.exit(1)
 
-        api = SlashGolfAPI(api_key)
-        sync = TournamentSync(api)
+        api = SlashGolfAPI(api_key, sync_mode=sync_mode)
+        sync = TournamentSync(api, sync_mode=sync_mode, fallback_deadline_hour=fallback_deadline_hour)
         exit_code = 0
         year = app.config.get('SEASON_YEAR', datetime.now().year)
+
+        free_tier_blocked = {'live', 'withdrawals'}
+        if sync_mode == 'free' and mode in free_tier_blocked:
+            click.echo(f"Free tier mode: '{mode}' sync disabled to stay within RapidAPI limits")
+            sys.exit(0)
 
         try:
             if mode in ('schedule', 'all'):
@@ -724,36 +808,48 @@ def register_sync_commands(app):
                 click.echo(f"Schedule sync complete ({imported} imported/updated)")
 
             if mode in ('field', 'all'):
-                upcoming = get_upcoming_tournaments_window()
-                if not upcoming:
-                    click.echo("No upcoming tournaments to sync field for")
-                for tournament in upcoming:
-                    sync.sync_tournament_field(tournament)
+                if sync_mode == 'free' and datetime.now(LEAGUE_TZ).weekday() not in (1, 2):
+                    click.echo("Free tier: field sync limited to Tue/Wed to control API usage")
+                else:
+                    upcoming = get_upcoming_tournaments_window()
+                    if not upcoming:
+                        click.echo("No upcoming tournaments to sync field for")
+                    for tournament in upcoming:
+                        sync.sync_tournament_field(tournament)
 
             if mode in ('live', 'all'):
-                active = get_active_tournaments()
-                if not active:
-                    click.echo("No active tournaments for live sync")
-                for tournament in active:
-                    sync.sync_live_leaderboard(tournament)
+                if sync_mode == 'free':
+                    click.echo("Free tier: skipping live leaderboard refresh")
+                else:
+                    active = get_active_tournaments()
+                    if not active:
+                        click.echo("No active tournaments for live sync")
+                    for tournament in active:
+                        sync.sync_live_leaderboard(tournament)
 
             if mode in ('withdrawals', 'all'):
-                active = get_active_tournaments()
-                if not active:
-                    click.echo("No active tournaments for withdrawal checks")
-                for tournament in active:
-                    withdrawals = sync.check_withdrawals(tournament)
-                    if withdrawals:
-                        click.echo(f"Withdrawals detected for {tournament.name}: {len(withdrawals)}")
+                if sync_mode == 'free':
+                    click.echo("Free tier: skipping withdrawal monitoring (handled during results sync)")
+                else:
+                    active = get_active_tournaments()
+                    if not active:
+                        click.echo("No active tournaments for withdrawal checks")
+                    for tournament in active:
+                        withdrawals = sync.check_withdrawals(tournament)
+                        if withdrawals:
+                            click.echo(f"Withdrawals detected for {tournament.name}: {len(withdrawals)}")
 
             if mode in ('results', 'all'):
-                recent = get_recently_completed_tournaments()
-                if not recent:
-                    click.echo("No recently completed tournaments to process")
-                for tournament in recent:
-                    results_count = sync.sync_tournament_results(tournament)
-                    if results_count:
-                        sync.process_tournament_picks(tournament)
+                if sync_mode == 'free' and datetime.now(LEAGUE_TZ).weekday() not in (0, 6):
+                    click.echo("Free tier: results sync runs Sunday night or Monday morning only")
+                else:
+                    recent = get_recently_completed_tournaments()
+                    if not recent:
+                        click.echo("No recently completed tournaments to process")
+                    for tournament in recent:
+                        results_count = sync.sync_tournament_results(tournament)
+                        if results_count:
+                            sync.process_tournament_picks(tournament)
 
         except Exception:
             logger.exception("sync-run failed")
