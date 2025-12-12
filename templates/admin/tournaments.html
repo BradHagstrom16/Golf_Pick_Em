@@ -47,7 +47,8 @@
             <td>
                 {% if tournament.status == 'complete' %}
                     <form action="{{ url_for('admin_process_results', tournament_id=tournament.id) }}" method="POST" style="display: inline;">
-                        <button type="submit" class="btn btn-sm btn-warning" 
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-sm btn-warning"
                                 onclick="return confirm('Process results for {{ tournament.name }}?')">
                             Process Results
                         </button>

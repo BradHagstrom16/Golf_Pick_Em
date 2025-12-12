@@ -463,7 +463,6 @@ class TournamentSync:
 
             logger.info("Synced %s results for %s", results_synced, tournament.name)
         except Exception:
-            db.session.rollback()
             logger.exception("Failed syncing results for %s", tournament.name)
             return 0
         return results_synced
@@ -485,19 +484,34 @@ class TournamentSync:
 
         picks = Pick.query.filter_by(tournament_id=tournament.id).all()
         processed = 0
+        skipped = 0
 
-        try:
-            with db.session.begin():
-                for pick in picks:
-                    pick.resolve_pick()
-                    pick.user.calculate_total_points()
+        with db.session.begin():
+            for pick in picks:
+                try:
+                    with db.session.begin_nested():
+                        resolved = pick.resolve_pick()
+                        if not resolved:
+                            skipped += 1
+                            raise RuntimeError("Pick resolution incomplete")
+
+                        pick.user.calculate_total_points()
                     processed += 1
+                except Exception as exc:  # noqa: BLE001 - continue to next pick
+                    logger.warning(
+                        "Skipped pick %s for %s: %s",
+                        pick.id,
+                        tournament.id,
+                        exc,
+                    )
 
-            logger.info("Processed %s picks for %s", processed, tournament.name)
-        except Exception:
-            db.session.rollback()
-            logger.exception("Failed processing picks for %s", tournament.name)
-            return 0
+        logger.info(
+            "Processed %s picks for %s (skipped %s)",
+            processed,
+            tournament.name,
+            skipped,
+        )
+
         return processed
     
     def check_withdrawals(self, tournament: Tournament) -> List[Dict]:
