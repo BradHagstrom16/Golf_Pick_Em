@@ -2,6 +2,9 @@
 # Project-specific ignores - KEEP AT TOP
 # ===========================================
 
+# Environment credentials for scheduled tasks (NEVER commit!)
+env_config.sh
+
 # Email credentials (NEVER commit!)
 email_config.py
 
