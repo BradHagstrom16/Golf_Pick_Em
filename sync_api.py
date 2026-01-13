@@ -42,17 +42,63 @@ if not API_CALL_LOGGER.handlers:
     handler.setFormatter(logging.Formatter("%(asctime)s\t%(message)s"))
     API_CALL_LOGGER.addHandler(handler)
 
+# Tournaments to EXCLUDE from the league
+# (opposite-field events, playoffs finale, special events)
+EXCLUDED_TOURNAMENTS = {
+    'Puerto Rico Open',
+    'ONEflight Myrtle Beach Classic',
+    'ISCO Championship',
+    'Corales Puntacana Championship',
+    'TOUR Championship',
+    'Presidents Cup',
+}
+
+# Baseline purse estimates (used when API returns $0)
+# These will be overwritten when API provides authoritative non-zero values
+PURSE_ESTIMATES = {
+    'Sony Open in Hawaii': 8_500_000,
+    'The American Express': 8_400_000,
+    'Farmers Insurance Open': 9_000_000,
+    'WM Phoenix Open': 8_800_000,
+    'AT&T Pebble Beach Pro-Am': 20_000_000,
+    'The Genesis Invitational': 20_000_000,
+    'Cognizant Classic': 9_000_000,
+    'Arnold Palmer Invitational presented by Mastercard': 20_000_000,
+    'THE PLAYERS Championship': 25_000_000,
+    'Valspar Championship': 8_400_000,
+    'Texas Childrens Houston Open': 9_100_000,
+    'Valero Texas Open': 9_200_000,
+    'Masters Tournament': 20_000_000,
+    'RBC Heritage': 20_000_000,
+    'Zurich Classic of New Orleans': 8_900_000,
+    'PGA Championship': 18_500_000,
+    'THE CJ CUP Byron Nelson': 9_500_000,
+    'Charles Schwab Challenge': 9_100_000,
+    'The Memorial Tournament presented by Workday': 20_000_000,
+    'RBC Canadian Open': 9_400_000,
+    'U.S. Open': 20_000_000,
+    'Travelers Championship': 20_000_000,
+    'John Deere Classic': 8_000_000,
+    'Genesis Scottish Open': 9_000_000,
+    'The Open Championship': 17_000_000,
+    '3M Open': 8_300_000,
+    'Wyndham Championship': 7_900_000,
+    'FedEx St. Jude Championship': 20_000_000,
+    'BMW Championship': 20_000_000,
+}
+DEFAULT_PURSE = 10_000_000  # Fallback for tournaments not in estimates
+
 
 class SlashGolfAPI:
     """Client for SlashGolf API."""
-    
+
     # RapidAPI configuration
     BASE_URL = "https://live-golf-data.p.rapidapi.com"
-    
+
     def __init__(self, api_key: str, api_host: str = "live-golf-data.p.rapidapi.com", sync_mode: str = "standard"):
         """
         Initialize API client.
-        
+
         Args:
             api_key: Your RapidAPI key
             api_host: RapidAPI host (default for SlashGolf)
@@ -79,7 +125,7 @@ class SlashGolfAPI:
             duration,
             params,
         )
-    
+
     def _make_request(self, endpoint: str, params: Dict = None, retries: int = 5) -> Optional[Dict]:
         """Make API request with exponential backoff, jitter, and structured logging."""
         url = f"{self.BASE_URL}/{endpoint}"
@@ -132,19 +178,19 @@ class SlashGolfAPI:
 
         logger.error("Exhausted retries for endpoint %s params=%s", endpoint, params)
         return None
-    
+
     def get_schedule(self, year: str) -> Optional[Dict]:
         """Get full season schedule."""
         return self._make_request("schedule", {"year": year})
-    
+
     def get_tournament(self, tourn_id: str, year: str) -> Optional[Dict]:
         """Get tournament details including field."""
         return self._make_request("tournaments", {"tournId": tourn_id, "year": year})
-    
+
     def get_leaderboard(self, tourn_id: str, year: str) -> Optional[Dict]:
         """Get leaderboard with tee times, status, rounds."""
         return self._make_request("leaderboard", {"tournId": tourn_id, "year": year})
-    
+
     def get_earnings(self, tourn_id: str, year: str) -> Optional[Dict]:
         """Get earnings/prize money for completed tournament."""
         return self._make_request("earnings", {"tournId": tourn_id, "year": year})
@@ -239,16 +285,26 @@ class TournamentSync:
         )
         tournament.pick_deadline = fixed_deadline
         return fixed_deadline
-    
+
+    @staticmethod
+    def _parse_api_number(value):
+        """Parse MongoDB-style number format from API."""
+        if isinstance(value, dict):
+            if '$numberInt' in value:
+                return int(value['$numberInt'])
+            if '$numberLong' in value:
+                return int(value['$numberLong'])
+        return int(value) if value else 0
+
     def sync_schedule(self, year: int, tournament_names: List[str] = None) -> int:
         """
         Import season schedule from API.
-        
+
         Args:
             year: Season year (e.g., 2026)
             tournament_names: Optional list of tournament names to include.
                             If None, imports all non-opposite-field events.
-        
+
         Returns:
             Number of tournaments imported
         """
@@ -256,43 +312,52 @@ class TournamentSync:
         if not data or "schedule" not in data:
             print("Failed to fetch schedule")
             return 0
-        
+
         imported = 0
         week_number = 1
-        
+
         for event in data["schedule"]:
             name = event.get("name", "")
-            
+
             # Skip if we have a filter and this tournament isn't in it
             if tournament_names and name not in tournament_names:
                 continue
-            
+
+            # Skip excluded tournaments (opposite-field, playoffs finale, special events)
+            if name in EXCLUDED_TOURNAMENTS:
+                continue
+
             # Skip team events detection (Zurich) - we'll handle specially
             is_team_event = event.get("format") == "team"
-            
+
             # Check if already exists
             existing = Tournament.query.filter_by(
                 api_tourn_id=event["tournId"],
                 season_year=year
             ).first()
-            
+
             if existing:
                 # Update existing
                 existing.name = name
-                existing.purse = event.get("purse", 0)
+                # Only update purse if API provides non-zero value
+                api_purse = self._parse_api_number(event.get("purse", 0))
+                if api_purse > 0:
+                    existing.purse = api_purse
                 existing.is_team_event = is_team_event
             else:
-                # Parse dates
-                start_date = datetime.fromisoformat(event["date"]["start"].replace("Z", "+00:00"))
-                end_date = datetime.fromisoformat(event["date"]["end"].replace("Z", "+00:00"))
-                
+                # Parse dates (MongoDB-style timestamp format)
+                start_ts = int(event["date"]["start"]["$date"]["$numberLong"]) / 1000
+                end_ts = int(event["date"]["end"]["$date"]["$numberLong"]) / 1000
+                start_date = datetime.fromtimestamp(start_ts, tz=pytz.UTC)
+                end_date = datetime.fromtimestamp(end_ts, tz=pytz.UTC)
+
                 tournament = Tournament(
                     api_tourn_id=event["tournId"],
                     name=name,
                     season_year=year,
                     start_date=start_date,
                     end_date=end_date,
-                    purse=event.get("purse", 0),
+                    purse=self._parse_api_number(event.get("purse", 0)) or PURSE_ESTIMATES.get(name, DEFAULT_PURSE),
                     is_team_event=is_team_event,
                     week_number=week_number,
                     status="upcoming"
@@ -300,19 +365,19 @@ class TournamentSync:
                 db.session.add(tournament)
                 imported += 1
                 week_number += 1
-        
+
         db.session.commit()
         print(f"Imported {imported} tournaments for {year}")
         return imported
-    
+
     def sync_tournament_field(self, tournament: Tournament) -> Tuple[int, Optional[datetime]]:
         """
         Sync tournament field and get first tee time.
         Call this Tuesday before the tournament.
-        
+
         Args:
             tournament: Tournament object to sync
-        
+
         Returns:
             Tuple of (players_synced, first_tee_time)
         """
@@ -393,15 +458,15 @@ class TournamentSync:
             db.session.rollback()
             logger.exception("Failed syncing field for %s", tournament.name)
         return players_synced, first_tee_time
-    
+
     def sync_tournament_results(self, tournament: Tournament) -> int:
         """
         Sync tournament results after completion.
         Call this Sunday night/Monday after tournament ends.
-        
+
         Args:
             tournament: Tournament object to sync
-        
+
         Returns:
             Number of results synced
         """
@@ -466,15 +531,15 @@ class TournamentSync:
             logger.exception("Failed syncing results for %s", tournament.name)
             return 0
         return results_synced
-    
+
     def process_tournament_picks(self, tournament: Tournament) -> int:
         """
         Process all picks for a completed tournament.
         Calculates points and updates user totals.
-        
+
         Args:
             tournament: Completed tournament to process
-        
+
         Returns:
             Number of picks processed
         """
@@ -513,15 +578,15 @@ class TournamentSync:
         )
 
         return processed
-    
+
     def check_withdrawals(self, tournament: Tournament) -> List[Dict]:
         """
         Check for withdrawals during a tournament.
         Useful for monitoring mid-tournament.
-        
+
         Args:
             tournament: Active tournament to check
-        
+
         Returns:
             List of withdrawal info dicts
         """
@@ -631,7 +696,7 @@ def get_upcoming_tournament(days_ahead: int = 7) -> Optional[Tournament]:
     """Get the next upcoming tournament within specified days."""
     now = datetime.now(LEAGUE_TZ)
     cutoff = now + timedelta(days=days_ahead)
-    
+
     return Tournament.query.filter(
         Tournament.status == "upcoming",
         Tournament.start_date <= cutoff,
@@ -643,7 +708,7 @@ def get_just_completed_tournament() -> Optional[Tournament]:
     """Get tournament that just completed (ended within last 24 hours)."""
     now = datetime.now(LEAGUE_TZ)
     yesterday = now - timedelta(days=1)
-    
+
     return Tournament.query.filter(
         Tournament.status == "active",
         Tournament.end_date <= now,
@@ -713,82 +778,82 @@ def register_sync_commands(app):
     def sync_schedule_cmd():
         """Import season schedule from API."""
         import os
-        
+
         api_key = os.environ.get('SLASHGOLF_API_KEY')
         if not api_key:
             print("Error: SLASHGOLF_API_KEY not set")
             return
-        
+
         api = SlashGolfAPI(api_key, sync_mode=sync_mode)
         sync = TournamentSync(api, sync_mode=sync_mode, fallback_deadline_hour=fallback_deadline_hour)
-        
+
         year = app.config.get('SEASON_YEAR', 2026)
         sync.sync_schedule(year)
-    
+
     @app.cli.command('sync-field')
     def sync_field_cmd():
         """Sync field for upcoming tournament."""
         import os
-        
+
         api_key = os.environ.get('SLASHGOLF_API_KEY')
         if not api_key:
             print("Error: SLASHGOLF_API_KEY not set")
             return
-        
+
         tournament = get_upcoming_tournament()
         if not tournament:
             print("No upcoming tournament found")
             return
-        
+
         api = SlashGolfAPI(api_key, sync_mode=sync_mode)
         sync = TournamentSync(api, sync_mode=sync_mode, fallback_deadline_hour=fallback_deadline_hour)
         sync.sync_tournament_field(tournament)
-    
+
     @app.cli.command('sync-results')
     def sync_results_cmd():
         """Sync results for just-completed tournament."""
         import os
-        
+
         api_key = os.environ.get('SLASHGOLF_API_KEY')
         if not api_key:
             print("Error: SLASHGOLF_API_KEY not set")
             return
-        
+
         # Find tournament to process
         tournament = Tournament.query.filter_by(status="active").first()
         if not tournament:
             print("No active tournament to process")
             return
-        
+
         api = SlashGolfAPI(api_key, sync_mode=sync_mode)
         sync = TournamentSync(api, sync_mode=sync_mode, fallback_deadline_hour=fallback_deadline_hour)
-        
+
         # Sync results
         sync.sync_tournament_results(tournament)
-        
+
         # Process picks
         sync.process_tournament_picks(tournament)
-    
+
     @app.cli.command('check-wd')
     def check_wd_cmd():
         """Check for withdrawals in active tournament."""
         import os
-        
+
         api_key = os.environ.get('SLASHGOLF_API_KEY')
         if not api_key:
             print("Error: SLASHGOLF_API_KEY not set")
             return
-        
+
         tournament = Tournament.query.filter_by(status="active").first()
         if not tournament:
             print("No active tournament")
             return
-        
+
         api = SlashGolfAPI(api_key, sync_mode=sync_mode)
         sync = TournamentSync(api, sync_mode=sync_mode, fallback_deadline_hour=fallback_deadline_hour)
-        
+
         withdrawals = sync.check_withdrawals(tournament)
-        
+
         if withdrawals:
             print(f"\nWithdrawals in {tournament.name}:")
             for wd in withdrawals:
