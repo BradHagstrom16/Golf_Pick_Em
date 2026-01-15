@@ -40,7 +40,7 @@
                 <p>{{ tournament.get_deadline_display() }}</p>
             </div>
         </div>
-        
+
         {% if tournament.is_team_event %}
         <div class="alert alert-info mb-0 mt-2">
             <small><strong>Team Event Note:</strong> Points are calculated as actual earnings ÷ 2 since golfers play as partners.</small>
@@ -67,7 +67,7 @@
                     <em>Field not yet synced</em>
                 </p>
             {% endif %}
-            
+
             {% if current_user.is_authenticated %}
             <div class="mt-4">
                 <a href="{{ url_for('make_pick', tournament_id=tournament.id) }}" class="btn btn-primary">
@@ -80,7 +80,7 @@
 
 {% else %}
     <!-- ACTIVE or COMPLETE: Show picks table -->
-    
+
     <!-- Summary Stats -->
     <div class="row mb-4">
         <div class="col-md-4">
@@ -110,16 +110,16 @@
             </div>
         </div>
     </div>
-    
+
     {% if tournament.status == 'active' %}
     <div class="alert alert-warning">
-        <strong>🏌️ Tournament In Progress</strong> - Free tier mode updates after rounds (no live scoring).
+        <strong>🏌️ Tournament In Progress</strong> - Leaderboard updates at 8 PM central time.
         <div class="small text-muted">
             Last synced: {{ tournament.updated_at.strftime('%b %d, %I:%M %p CT') if tournament.updated_at else 'Pending sync' }}
         </div>
     </div>
     {% endif %}
-    
+
     <!-- Picks Table -->
     <div class="card">
         <div class="card-header bg-dark text-white">
@@ -248,7 +248,7 @@
             </div>
         </div>
     </div>
-    
+
     <!-- Legend for complete tournaments -->
     {% if show_backup %}
     <div class="mt-3">
@@ -262,7 +262,7 @@
         </small>
     </div>
     {% endif %}
-    
+
 {% endif %}
 
 <!-- Navigation -->
