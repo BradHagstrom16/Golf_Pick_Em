@@ -33,7 +33,7 @@
             </div>
             <div class="col-md-4">
                 <p class="mb-1"><strong>💰 Purse:</strong></p>
-                <p>${{ "{:,}".format(tournament.purse) }}</p>
+                <p>{% if tournament.purse > 0 %}${{ "{:,}".format(tournament.purse) }}{% else %}TBD{% endif %}</p>
             </div>
             <div class="col-md-4">
                 <p class="mb-1"><strong>⏰ Pick Deadline:</strong></p>

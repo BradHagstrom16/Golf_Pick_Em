@@ -55,34 +55,40 @@ EXCLUDED_TOURNAMENTS = {
 
 # Baseline purse estimates (used when API returns $0)
 # These will be overwritten when API provides authoritative non-zero values
+# 2026 PGA Tour purse amounts (in dollars)
+# Use None for TBD tournaments (majors typically announce week-of)
+# Names must match exactly what API returns or what's in database
 PURSE_ESTIMATES = {
-    'Sony Open in Hawaii': 8_500_000,
-    'The American Express': 8_400_000,
-    'Farmers Insurance Open': 9_000_000,
-    'WM Phoenix Open': 8_800_000,
+    'Sony Open in Hawaii': 9_100_000,
+    'The American Express': 9_200_000,
+    'Farmers Insurance Open': 9_600_000,
+    'WM Phoenix Open': 9_600_000,
     'AT&T Pebble Beach Pro-Am': 20_000_000,
     'The Genesis Invitational': 20_000_000,
-    'Cognizant Classic': 9_000_000,
+    'Cognizant Classic': 9_600_000,
     'Arnold Palmer Invitational presented by Mastercard': 20_000_000,
     'THE PLAYERS Championship': 25_000_000,
-    'Valspar Championship': 8_400_000,
-    'Texas Childrens Houston Open': 9_100_000,
-    'Valero Texas Open': 9_200_000,
-    'Masters Tournament': 20_000_000,
+    'Valspar Championship': 9_100_000,
+    "Texas Children's Houston Open": 9_900_000,
+    'Valero Texas Open': 9_800_000,
+    'Masters Tournament': None,  # TBD - Major
     'RBC Heritage': 20_000_000,
-    'Zurich Classic of New Orleans': 8_900_000,
-    'PGA Championship': 18_500_000,
-    'THE CJ CUP Byron Nelson': 9_500_000,
-    'Charles Schwab Challenge': 9_100_000,
-    'The Memorial Tournament presented by Workday': 20_000_000,
-    'RBC Canadian Open': 9_400_000,
-    'U.S. Open': 20_000_000,
+    'Zurich Classic of New Orleans': 9_500_000,
+    'Cadillac Championship': 20_000_000,
+    'Truist Championship': 20_000_000,
+    'PGA Championship': None,  # TBD - Major
+    'THE CJ CUP Byron Nelson': 10_300_000,
+    'Charles Schwab Challenge': 9_900_000,
+    'the Memorial Tournament presented by Workday': 20_000_000,
+    'RBC Canadian Open': 9_800_000,
+    'U.S. Open': None,  # TBD - Major
     'Travelers Championship': 20_000_000,
-    'John Deere Classic': 8_000_000,
+    'John Deere Classic': 8_800_000,
     'Genesis Scottish Open': 9_000_000,
-    'The Open Championship': 17_000_000,
-    '3M Open': 8_300_000,
-    'Wyndham Championship': 7_900_000,
+    'The Open Championship': None,  # TBD - Major
+    '3M Open': 8_800_000,
+    'Rocket Classic': 10_000_000,
+    'Wyndham Championship': 8_500_000,
     'FedEx St. Jude Championship': 20_000_000,
     'BMW Championship': 20_000_000,
 }
@@ -185,7 +191,7 @@ class SlashGolfAPI:
 
     def get_tournament(self, tourn_id: str, year: str) -> Optional[Dict]:
         """Get tournament details including field."""
-        return self._make_request("tournaments", {"tournId": tourn_id, "year": year})
+        return self._make_request("tournament", {"tournId": tourn_id, "year": year})
 
     def get_leaderboard(self, tourn_id: str, year: str) -> Optional[Dict]:
         """Get leaderboard with tee times, status, rounds."""
@@ -219,7 +225,47 @@ class TournamentSync:
         return LEAGUE_TZ
 
     @staticmethod
+    def _parse_tee_time_timestamp(tee_time_ts: Optional[Dict]) -> Optional[datetime]:
+        """
+        Parse teeTimeTimestamp from API (preferred method - timezone-safe).
+
+        The API provides timestamps in MongoDB format: {"$date": {"$numberLong": "1768497660000"}}
+        These are Unix timestamps in milliseconds, representing the exact moment in time.
+        """
+        if not tee_time_ts:
+            return None
+
+        try:
+            # Handle MongoDB-style timestamp format
+            if isinstance(tee_time_ts, dict):
+                if '$date' in tee_time_ts:
+                    date_val = tee_time_ts['$date']
+                    if isinstance(date_val, dict) and '$numberLong' in date_val:
+                        ts_ms = int(date_val['$numberLong'])
+                    else:
+                        ts_ms = int(date_val)
+                elif '$numberLong' in tee_time_ts:
+                    ts_ms = int(tee_time_ts['$numberLong'])
+                else:
+                    return None
+            else:
+                ts_ms = int(tee_time_ts)
+
+            # Convert milliseconds to seconds and create timezone-aware datetime
+            ts_sec = ts_ms / 1000
+            return datetime.fromtimestamp(ts_sec, tz=pytz.UTC)
+        except Exception as e:
+            logger.warning("Unable to parse tee time timestamp '%s': %s", tee_time_ts, e)
+            return None
+
+    @staticmethod
     def _parse_tee_time(tee_time_str: Optional[str], tournament_date: datetime, event_tz: pytz.timezone) -> Optional[datetime]:
+        """
+        Parse tee time from string (fallback method - requires timezone context).
+
+        WARNING: This method is less reliable because tee time strings like "7:21am"
+        don't include timezone info. Use _parse_tee_time_timestamp when available.
+        """
         if not tee_time_str or tee_time_str == "N/A":
             return None
 
@@ -242,10 +288,14 @@ class TournamentSync:
         earliest = None
 
         for player_data in leaderboard_data.get("leaderboardRows", []):
-            tee_time = (
-                self._parse_tee_time(player_data.get("teeTime"), tournament.start_date, event_tz)
-                or self._parse_tee_time(player_data.get("teeTimeLocal"), tournament.start_date, event_tz)
-            )
+            # Prefer timestamp (timezone-safe) over string (ambiguous)
+            tee_time = self._parse_tee_time_timestamp(player_data.get("teeTimeTimestamp"))
+            if not tee_time:
+                # Fallback to string parsing if timestamp not available
+                tee_time = (
+                    self._parse_tee_time(player_data.get("teeTime"), tournament.start_date, event_tz)
+                    or self._parse_tee_time(player_data.get("teeTimeLocal"), tournament.start_date, event_tz)
+                )
             if tee_time and (earliest is None or tee_time < earliest):
                 earliest = tee_time
 
@@ -393,7 +443,7 @@ class TournamentSync:
         event_tz = self._get_event_timezone(data)
 
         try:
-            with db.session.begin():
+            if True:  # removed db.session.begin() - Flask-SQLAlchemy manages transactions
                 for player_data in data["leaderboardRows"]:
                     if player_data.get("isAmateur", False):
                         continue
@@ -425,10 +475,14 @@ class TournamentSync:
                         db.session.add(field_entry)
                         players_synced += 1
 
-                    tee_time = (
-                        self._parse_tee_time(player_data.get("teeTime"), tournament.start_date, event_tz)
-                        or self._parse_tee_time(player_data.get("teeTimeLocal"), tournament.start_date, event_tz)
-                    )
+                    # Prefer timestamp (timezone-safe) over string (ambiguous)
+                    tee_time = self._parse_tee_time_timestamp(player_data.get("teeTimeTimestamp"))
+                    if not tee_time:
+                        # Fallback to string parsing if timestamp not available
+                        tee_time = (
+                            self._parse_tee_time(player_data.get("teeTime"), tournament.start_date, event_tz)
+                            or self._parse_tee_time(player_data.get("teeTimeLocal"), tournament.start_date, event_tz)
+                        )
                     if tee_time and (first_tee_time is None or tee_time < first_tee_time):
                         first_tee_time = tee_time
 
@@ -452,7 +506,7 @@ class TournamentSync:
                         fallback_deadline,
                         tournament.name,
                     )
-
+                db.session.commit()
             logger.info("Synced %s players for %s", players_synced, tournament.name)
         except Exception:
             db.session.rollback()
@@ -486,48 +540,49 @@ class TournamentSync:
         results_synced = 0
 
         try:
-            with db.session.begin():
-                for player_data in earnings_data["leaderboard"]:
-                    player_id = player_data["playerId"]
+            for player_data in earnings_data["leaderboard"]:
+                player_id = player_data["playerId"]
 
-                    player = Player.query.filter_by(api_player_id=player_id).first()
-                    if not player:
-                        continue
+                player = Player.query.filter_by(api_player_id=player_id).first()
+                if not player:
+                    continue
 
-                    lb_info = leaderboard_lookup.get(player_id, {})
-                    rounds_completed = len(lb_info.get("rounds", []))
-                    status = lb_info.get("status", "complete")
+                lb_info = leaderboard_lookup.get(player_id, {})
+                rounds_completed = len(lb_info.get("rounds", []))
+                status = lb_info.get("status", "complete")
 
-                    result = TournamentResult.query.filter_by(
+                result = TournamentResult.query.filter_by(
+                    tournament_id=tournament.id,
+                    player_id=player.id
+                ).first()
+
+                if not result:
+                    result = TournamentResult(
                         tournament_id=tournament.id,
                         player_id=player.id
-                    ).first()
+                    )
+                    db.session.add(result)
 
-                    if not result:
-                        result = TournamentResult(
-                            tournament_id=tournament.id,
-                            player_id=player.id
-                        )
-                        db.session.add(result)
+                earnings_raw = player_data.get("earnings", 0)
+                if isinstance(earnings_raw, dict) and '$numberInt' in earnings_raw:
+                    result.earnings = int(earnings_raw['$numberInt'])
+                elif isinstance(earnings_raw, dict) and '$numberLong' in earnings_raw:
+                    result.earnings = int(earnings_raw['$numberLong'])
+                else:
+                    result.earnings = int(earnings_raw) if earnings_raw else 0
 
-                    earnings_raw = player_data.get("earnings", 0)
-                    if isinstance(earnings_raw, dict) and '$numberInt' in earnings_raw:
-                        result.earnings = int(earnings_raw['$numberInt'])
-                    elif isinstance(earnings_raw, dict) and '$numberLong' in earnings_raw:
-                        result.earnings = int(earnings_raw['$numberLong'])
-                    else:
-                        result.earnings = int(earnings_raw) if earnings_raw else 0
+                result.status = status
+                result.rounds_completed = rounds_completed
+                result.final_position = lb_info.get("position", "")
 
-                    result.status = status
-                    result.rounds_completed = rounds_completed
-                    result.final_position = lb_info.get("position", "")
+                results_synced += 1
 
-                    results_synced += 1
-
-                tournament.status = "complete"
+            tournament.status = "complete"
+            db.session.commit()
 
             logger.info("Synced %s results for %s", results_synced, tournament.name)
         except Exception:
+            db.session.rollback()
             logger.exception("Failed syncing results for %s", tournament.name)
             return 0
         return results_synced
@@ -551,24 +606,24 @@ class TournamentSync:
         processed = 0
         skipped = 0
 
-        with db.session.begin():
-            for pick in picks:
-                try:
-                    with db.session.begin_nested():
-                        resolved = pick.resolve_pick()
-                        if not resolved:
-                            skipped += 1
-                            raise RuntimeError("Pick resolution incomplete")
+        for pick in picks:
+            try:
+                resolved = pick.resolve_pick()
+                if not resolved:
+                    skipped += 1
+                    continue
 
-                        pick.user.calculate_total_points()
-                    processed += 1
-                except Exception as exc:  # noqa: BLE001 - continue to next pick
-                    logger.warning(
-                        "Skipped pick %s for %s: %s",
-                        pick.id,
-                        tournament.id,
-                        exc,
-                    )
+                pick.user.calculate_total_points()
+                processed += 1
+            except Exception as exc:  # noqa: BLE001 - continue to next pick
+                logger.warning(
+                    "Skipped pick %s for %s: %s",
+                    pick.id,
+                    tournament.id,
+                    exc,
+                )
+
+        db.session.commit()
 
         logger.info(
             "Processed %s picks for %s (skipped %s)",
@@ -602,40 +657,41 @@ class TournamentSync:
         withdrawals = []
 
         try:
-            with db.session.begin():
-                for player_data in data["leaderboardRows"]:
-                    if player_data.get("status") != "wd":
-                        continue
+            for player_data in data["leaderboardRows"]:
+                if player_data.get("status") != "wd":
+                    continue
 
-                    rounds = player_data.get("rounds", [])
-                    rounds_completed = len(rounds)
+                rounds = player_data.get("rounds", [])
+                rounds_completed = len(rounds)
 
-                    player = Player.query.filter_by(api_player_id=player_data["playerId"]).first()
-                    if not player:
-                        continue
+                player = Player.query.filter_by(api_player_id=player_data["playerId"]).first()
+                if not player:
+                    continue
 
-                    result = TournamentResult.query.filter_by(
+                result = TournamentResult.query.filter_by(
+                    tournament_id=tournament.id,
+                    player_id=player.id
+                ).first()
+
+                if not result:
+                    result = TournamentResult(
                         tournament_id=tournament.id,
                         player_id=player.id
-                    ).first()
+                    )
+                    db.session.add(result)
 
-                    if not result:
-                        result = TournamentResult(
-                            tournament_id=tournament.id,
-                            player_id=player.id
-                        )
-                        db.session.add(result)
+                result.status = "wd"
+                result.rounds_completed = rounds_completed
+                result.final_position = player_data.get("position", "")
 
-                    result.status = "wd"
-                    result.rounds_completed = rounds_completed
-                    result.final_position = player_data.get("position", "")
+                withdrawals.append({
+                    "player_id": player_data["playerId"],
+                    "name": f"{player_data.get('firstName', '')} {player_data.get('lastName', '')}",
+                    "rounds_completed": rounds_completed,
+                    "wd_before_r2": rounds_completed < 2
+                })
 
-                    withdrawals.append({
-                        "player_id": player_data["playerId"],
-                        "name": f"{player_data.get('firstName', '')} {player_data.get('lastName', '')}",
-                        "rounds_completed": rounds_completed,
-                        "wd_before_r2": rounds_completed < 2
-                    })
+            db.session.commit()
         except Exception:
             db.session.rollback()
             logger.exception("Failed checking withdrawals for %s", tournament.name)
@@ -656,33 +712,33 @@ class TournamentSync:
         updated = 0
 
         try:
-            with db.session.begin():
-                self._update_pick_deadline_from_leaderboard(tournament, data)
-                self._derive_status(tournament, data)
+            self._update_pick_deadline_from_leaderboard(tournament, data)
+            self._derive_status(tournament, data)
 
-                for player_data in data.get("leaderboardRows", []):
-                    player = Player.query.filter_by(api_player_id=player_data.get("playerId")).first()
-                    if not player:
-                        continue
+            for player_data in data.get("leaderboardRows", []):
+                player = Player.query.filter_by(api_player_id=player_data.get("playerId")).first()
+                if not player:
+                    continue
 
-                    result = TournamentResult.query.filter_by(
+                result = TournamentResult.query.filter_by(
+                    tournament_id=tournament.id,
+                    player_id=player.id
+                ).first()
+
+                if not result:
+                    result = TournamentResult(
                         tournament_id=tournament.id,
                         player_id=player.id
-                    ).first()
+                    )
+                    db.session.add(result)
 
-                    if not result:
-                        result = TournamentResult(
-                            tournament_id=tournament.id,
-                            player_id=player.id
-                        )
-                        db.session.add(result)
+                result.status = player_data.get("status", result.status or "in_progress")
+                result.rounds_completed = len(player_data.get("rounds", []))
+                result.final_position = player_data.get("position", result.final_position)
 
-                    result.status = player_data.get("status", result.status or "in_progress")
-                    result.rounds_completed = len(player_data.get("rounds", []))
-                    result.final_position = player_data.get("position", result.final_position)
+                updated += 1
 
-                    updated += 1
-
+            db.session.commit()
             logger.info("Updated live leaderboard for %s (%s entries)", tournament.name, updated)
         except Exception:
             db.session.rollback()

@@ -28,17 +28,17 @@ TOURNAMENTS_2026 = [
     ("3/5/2026", "Arnold Palmer Invitational presented by Mastercard", False),
     ("3/12/2026", "THE PLAYERS Championship", False),
     ("3/19/2026", "Valspar Championship", False),
-    ("3/26/2026", "Texas Childrens Houston Open", False),
+    ("3/26/2026", "Texas Children's Houston Open", False),
     ("4/2/2026", "Valero Texas Open", False),
     ("4/9/2026", "Masters Tournament", False),
     ("4/16/2026", "RBC Heritage", False),
     ("4/23/2026", "Zurich Classic of New Orleans", True),  # TEAM EVENT
-    ("4/30/2026", "Miami Championship", False),
+    ("4/30/2026", "Cadillac Championship", False),
     ("5/7/2026", "Truist Championship", False),
     ("5/14/2026", "PGA Championship", False),
     ("5/21/2026", "THE CJ CUP Byron Nelson", False),
     ("5/28/2026", "Charles Schwab Challenge", False),
-    ("6/4/2026", "The Memorial Tournament presented by Workday", False),
+    ("6/4/2026", "the Memorial Tournament presented by Workday", False),
     ("6/11/2026", "RBC Canadian Open", False),
     ("6/18/2026", "U.S. Open", False),
     ("6/25/2026", "Travelers Championship", False),
@@ -54,64 +54,64 @@ TOURNAMENTS_2026 = [
 
 # Approximate purse amounts (can be updated when API provides actual data)
 PURSE_ESTIMATES = {
-    "Sony Open in Hawaii": 8_500_000,
-    "The American Express": 8_400_000,
-    "Farmers Insurance Open": 9_000_000,
-    "WM Phoenix Open": 8_800_000,
-    "AT&T Pebble Beach Pro-Am": 20_000_000,
-    "The Genesis Invitational": 20_000_000,
-    "Cognizant Classic": 9_000_000,
-    "Arnold Palmer Invitational presented by Mastercard": 20_000_000,
-    "THE PLAYERS Championship": 25_000_000,
-    "Valspar Championship": 8_400_000,
-    "Texas Childrens Houston Open": 9_100_000,
-    "Valero Texas Open": 9_200_000,
-    "Masters Tournament": 20_000_000,
-    "RBC Heritage": 20_000_000,
-    "Zurich Classic of New Orleans": 8_900_000,
-    "Miami Championship": 10_000_000,
-    "Truist Championship": 20_000_000,
-    "PGA Championship": 18_500_000,
-    "THE CJ CUP Byron Nelson": 9_500_000,
-    "Charles Schwab Challenge": 9_100_000,
-    "The Memorial Tournament presented by Workday": 20_000_000,
-    "RBC Canadian Open": 9_400_000,
-    "U.S. Open": 20_000_000,
-    "Travelers Championship": 20_000_000,
-    "John Deere Classic": 8_000_000,
-    "Genesis Scottish Open": 9_000_000,
-    "The Open Championship": 17_000_000,
-    "3M Open": 8_300_000,
-    "Rocket Classic": 9_200_000,
-    "Wyndham Championship": 7_900_000,
-    "FedEx St. Jude Championship": 20_000_000,
-    "BMW Championship": 20_000_000,
+    'Sony Open in Hawaii': 9_100_000,
+    'The American Express': 9_200_000,
+    'Farmers Insurance Open': 9_600_000,
+    'WM Phoenix Open': 9_600_000,
+    'AT&T Pebble Beach Pro-Am': 20_000_000,
+    'The Genesis Invitational': 20_000_000,
+    'Cognizant Classic': 9_600_000,
+    'Arnold Palmer Invitational presented by Mastercard': 20_000_000,
+    'THE PLAYERS Championship': 25_000_000,
+    'Valspar Championship': 9_100_000,
+    "Texas Children's Houston Open": 9_900_000,
+    'Valero Texas Open': 9_800_000,
+    'Masters Tournament': None,  # TBD - Major
+    'RBC Heritage': 20_000_000,
+    'Zurich Classic of New Orleans': 9_500_000,
+    'Cadillac Championship': 20_000_000,
+    'Truist Championship': 20_000_000,
+    'PGA Championship': None,  # TBD - Major
+    'THE CJ CUP Byron Nelson': 10_300_000,
+    'Charles Schwab Challenge': 9_900_000,
+    'the Memorial Tournament presented by Workday': 20_000_000,
+    'RBC Canadian Open': 9_800_000,
+    'U.S. Open': None,  # TBD - Major
+    'Travelers Championship': 20_000_000,
+    'John Deere Classic': 8_800_000,
+    'Genesis Scottish Open': 9_000_000,
+    'The Open Championship': None,  # TBD - Major
+    '3M Open': 8_800_000,
+    'Rocket Classic': 10_000_000,
+    'Wyndham Championship': 8_500_000,
+    'FedEx St. Jude Championship': 20_000_000,
+    'BMW Championship': 20_000_000,
 }
 
 
 def import_tournaments():
     """Import all 2026 tournaments into database."""
-    
+
     with app.app_context():
         imported = 0
         updated = 0
-        
+
         for week_num, (date_str, name, is_team) in enumerate(TOURNAMENTS_2026, start=1):
             # Parse start date
             start_date = datetime.strptime(date_str, "%m/%d/%Y")
-            
+
             # End date is typically 3 days later (Thu-Sun)
             end_date = start_date + timedelta(days=3)
-            
+
             # Get purse estimate
             purse = PURSE_ESTIMATES.get(name, 8_000_000)
-            
+
             # Check if tournament already exists
             existing = Tournament.query.filter_by(
                 name=name,
                 season_year=2026
             ).first()
-            
+
             if existing:
                 # Update existing
                 existing.start_date = start_date
@@ -137,16 +137,16 @@ def import_tournaments():
                 db.session.add(tournament)
                 imported += 1
                 print(f"  Imported: Week {week_num} - {name}")
-        
+
         db.session.commit()
-        
+
         print(f"\n{'='*50}")
         print(f"Import Complete!")
         print(f"  New tournaments: {imported}")
         print(f"  Updated tournaments: {updated}")
         print(f"  Total: {len(TOURNAMENTS_2026)}")
         print(f"{'='*50}")
-        
+
         # Show team event reminder
         print(f"\n⚠️  Remember: Zurich Classic (Week 15) is a team event!")
         print(f"   Earnings will be divided by 2 for picks in that tournament.")
@@ -154,15 +154,15 @@ def import_tournaments():
 
 def list_tournaments():
     """List all tournaments in database."""
-    
+
     with app.app_context():
         tournaments = Tournament.query.filter_by(
             season_year=2026
         ).order_by(Tournament.week_number).all()
-        
+
         print(f"\n2026 Tournament Schedule ({len(tournaments)} events)")
         print("=" * 70)
-        
+
         for t in tournaments:
             team_flag = " [TEAM]" if t.is_team_event else ""
             print(f"Week {t.week_number:2d} | {t.start_date.strftime('%b %d')} | "
@@ -171,7 +171,7 @@ def list_tournaments():
 
 if __name__ == "__main__":
     import sys
-    
+
     if len(sys.argv) > 1 and sys.argv[1] == "list":
         list_tournaments()
     else:

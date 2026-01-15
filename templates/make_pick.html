@@ -20,7 +20,7 @@
                 <div class="row mb-4">
                     <div class="col-sm-6">
                         <p class="mb-1"><strong>Dates:</strong> {{ tournament.start_date.strftime('%b %d') }} - {{ tournament.end_date.strftime('%b %d, %Y') }}</p>
-                        <p class="mb-1"><strong>Purse:</strong> ${{ "{:,}".format(tournament.purse) }}</p>
+                        <p class="mb-1"><strong>Purse:</strong> {% if tournament.purse > 0 %}${{ "{:,}".format(tournament.purse) }}{% else %}TBD{% endif %}</p>
                     </div>
                     <div class="col-sm-6">
                         <p class="mb-1"><strong>Deadline:</strong> {{ tournament.get_deadline_display() }}</p>
@@ -41,14 +41,14 @@
                         <select class="form-select form-select-lg" id="primary_player_id" name="primary_player_id" required>
                             <option value="">-- Select Primary Golfer --</option>
                             {% for player in available_players %}
-                                <option value="{{ player.id }}" 
+                                <option value="{{ player.id }}"
                                     {% if existing_pick and existing_pick.primary_player_id == player.id %}selected{% endif %}>
                                     {{ player.last_name }}, {{ player.first_name }}
                                 </option>
                             {% endfor %}
                         </select>
                     </div>
-                    
+
                     <!-- Backup Pick -->
                     <div class="mb-4">
                         <label for="backup_player_id" class="form-label">
@@ -65,7 +65,7 @@
                             {% endfor %}
                         </select>
                     </div>
-                    
+
                     <div class="d-grid gap-2 d-md-flex">
                         <button type="submit" class="btn btn-success btn-lg">
                             {{ 'Update Pick' if existing_pick else 'Submit Pick' }}
@@ -76,7 +76,7 @@
             </div>
         </div>
     </div>
-    
+
     <div class="col-lg-4">
         <!-- Rules Reminder -->
         <div class="card">
@@ -93,7 +93,7 @@
                 </ul>
             </div>
         </div>
-        
+
         <!-- Available Players Count -->
         <div class="card mt-3">
             <div class="card-body text-center">
@@ -112,7 +112,7 @@
 document.getElementById('backup_player_id').addEventListener('change', function() {
     var primary = document.getElementById('primary_player_id').value;
     var backup = this.value;
-    
+
     if (primary && backup && primary === backup) {
         alert('Primary and backup must be different players!');
         this.value = '';
@@ -122,7 +122,7 @@ document.getElementById('backup_player_id').addEventListener('change', function(
 document.getElementById('primary_player_id').addEventListener('change', function() {
     var primary = this.value;
     var backup = document.getElementById('backup_player_id').value;
-    
+
     if (primary && backup && primary === backup) {
         alert('Primary and backup must be different players!');
         document.getElementById('backup_player_id').value = '';

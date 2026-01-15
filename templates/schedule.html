@@ -32,7 +32,7 @@
             <td>
                 {{ tournament.start_date.strftime('%b %d') }} - {{ tournament.end_date.strftime('%b %d') }}
             </td>
-            <td>${{ "{:,}".format(tournament.purse) }}</td>
+            <td>{% if tournament.purse > 0 %}${{ "{:,}".format(tournament.purse) }}{% else %}TBD{% endif %}</td>
             <td>{{ tournament.get_deadline_display() }}</td>
             <td>
                 {% if tournament.status == 'complete' %}
@@ -46,7 +46,7 @@
                 {% endif %}
             </td>
             <td>
-                <a href="{{ url_for('tournament_detail', tournament_id=tournament.id) }}" 
+                <a href="{{ url_for('tournament_detail', tournament_id=tournament.id) }}"
                    class="btn btn-sm btn-outline-primary">
                     View
                 </a>
