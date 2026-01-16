@@ -5,14 +5,15 @@ Sync tournament data from SlashGolf API.
 
 Data Flow:
 1. sync_tournament_field() - Tuesday before tournament: Get players + tee times
-2. sync_tournament_results() - Sunday after tournament: Get earnings + status
-3. process_tournament_picks() - After results synced: Calculate points
+2. sync_live_leaderboard() - Thu-Sun 8 PM: Update positions + projected earnings
+3. sync_tournament_results() - Monday after tournament: Get actual earnings from API
+4. process_tournament_picks() - After results synced: Calculate points
 
 API Endpoints Used:
-- /leaderboards - Field, tee times, player status, rounds completed
-- /earnings - Prize money per player
-- /schedules - Season schedule (one-time import)
-- /tournaments - Tournament details + full field
+- /leaderboard - Field, tee times, player status, rounds completed
+- /earnings - Prize money per player (after tournament complete)
+- /schedule - Season schedule (one-time import)
+- /tournament - Tournament details + full field
 """
 
 import logging
@@ -53,8 +54,6 @@ EXCLUDED_TOURNAMENTS = {
     'Presidents Cup',
 }
 
-# Baseline purse estimates (used when API returns $0)
-# These will be overwritten when API provides authoritative non-zero values
 # 2026 PGA Tour purse amounts (in dollars)
 # Use None for TBD tournaments (majors typically announce week-of)
 # Names must match exactly what API returns or what's in database
@@ -94,6 +93,84 @@ PURSE_ESTIMATES = {
 }
 DEFAULT_PURSE = 10_000_000  # Fallback for tournaments not in estimates
 
+# PGA Tour Standard Payout Percentages (positions 1-65)
+# Source: PGA Tour payout structure for full-field events
+PAYOUT_PERCENTAGES = {
+    1: 0.1800,   2: 0.1090,   3: 0.0690,   4: 0.0490,   5: 0.0410,
+    6: 0.0363,   7: 0.0338,   8: 0.0313,   9: 0.0293,  10: 0.0273,
+   11: 0.0253,  12: 0.0233,  13: 0.0213,  14: 0.0193,  15: 0.0183,
+   16: 0.0173,  17: 0.0163,  18: 0.0153,  19: 0.0143,  20: 0.0133,
+   21: 0.0123,  22: 0.0113,  23: 0.0105,  24: 0.0097,  25: 0.0089,
+   26: 0.0081,  27: 0.0078,  28: 0.0075,  29: 0.0072,  30: 0.0069,
+   31: 0.0066,  32: 0.0063,  33: 0.0060,  34: 0.0057,  35: 0.0055,
+   36: 0.0052,  37: 0.0050,  38: 0.0048,  39: 0.0046,  40: 0.0044,
+   41: 0.0042,  42: 0.0040,  43: 0.0038,  44: 0.0036,  45: 0.0034,
+   46: 0.0032,  47: 0.0030,  48: 0.0028,  49: 0.0027,  50: 0.0026,
+   51: 0.0025,  52: 0.0025,  53: 0.0024,  54: 0.0024,  55: 0.0024,
+   56: 0.0023,  57: 0.0023,  58: 0.0023,  59: 0.0023,  60: 0.0023,
+   61: 0.0022,  62: 0.0022,  63: 0.0022,  64: 0.0022,  65: 0.0022,
+}
+
+
+def calculate_projected_earnings(position_str: str, purse: int, all_positions: List[str]) -> int:
+    """
+    Calculate projected earnings for a player based on position.
+
+    Uses standard PGA Tour payout percentages. When players are tied,
+    they split the combined prize money for all tied positions evenly.
+
+    Args:
+        position_str: Position from API (e.g., "1", "T2", "T10", "CUT")
+        purse: Tournament purse in dollars
+        all_positions: List of all position strings from leaderboard
+
+    Returns:
+        Projected earnings in dollars (integer)
+    """
+    # Handle non-paying positions
+    if not position_str or position_str.upper() in ('CUT', 'WD', 'DQ', '-', ''):
+        return 0
+
+    # Handle missing purse
+    if not purse or purse <= 0:
+        return 0
+
+    # Parse position (remove 'T' prefix for ties)
+    position_upper = position_str.upper()
+    is_tied = position_upper.startswith('T')
+
+    try:
+        base_position = int(position_upper[1:] if is_tied else position_upper)
+    except ValueError:
+        # Can't parse position (e.g., "E", "-", etc.)
+        return 0
+
+    # Position beyond paying range
+    if base_position > 80:  # Reasonable upper limit
+        return 0
+
+    # Count players tied at this position
+    tie_count = sum(1 for p in all_positions if p and p.upper() == position_upper)
+    if tie_count == 0:
+        tie_count = 1  # At minimum, this player
+
+    # Calculate combined payout for tied positions
+    # E.g., T2 with 3 players: combine payouts for positions 2, 3, 4
+    total_percentage = 0.0
+    for i in range(tie_count):
+        pos = base_position + i
+        if pos <= 65:
+            total_percentage += PAYOUT_PERCENTAGES.get(pos, 0)
+        elif pos <= 80:
+            # Beyond 65: starts at ~0.213% and decreases by 0.002% per rank
+            beyond_65_pct = max(0, 0.00213 - (pos - 66) * 0.00002)
+            total_percentage += beyond_65_pct
+
+    # Split evenly among tied players
+    player_percentage = total_percentage / tie_count if tie_count > 0 else 0
+
+    return int(purse * player_percentage)
+
 
 class SlashGolfAPI:
     """Client for SlashGolf API."""
@@ -108,6 +185,7 @@ class SlashGolfAPI:
         Args:
             api_key: Your RapidAPI key
             api_host: RapidAPI host (default for SlashGolf)
+            sync_mode: 'standard' or 'free' tier mode
         """
         self.api_key = api_key
         self.headers = {
@@ -304,12 +382,12 @@ class TournamentSync:
         return earliest
 
     def _derive_status(self, tournament: Tournament, leaderboard_data: Optional[Dict] = None) -> str:
-        status_hint = (leaderboard_data or {}).get("tournamentStatus", "").lower()
+        status_hint = (leaderboard_data or {}).get("status", "").lower()
         now = datetime.now(LEAGUE_TZ)
         start = tournament.start_date if tournament.start_date.tzinfo else LEAGUE_TZ.localize(tournament.start_date)
         end = tournament.end_date if tournament.end_date.tzinfo else LEAGUE_TZ.localize(tournament.end_date)
 
-        if "complete" in status_hint:
+        if "complete" in status_hint or "official" in status_hint:
             tournament.status = "complete"
         elif now >= end:
             tournament.status = "complete"
@@ -515,25 +593,44 @@ class TournamentSync:
 
     def sync_tournament_results(self, tournament: Tournament) -> int:
         """
-        Sync tournament results after completion.
-        Call this Sunday night/Monday after tournament ends.
+        Sync tournament results and ACTUAL earnings after completion.
+        Call this Monday after tournament ends.
+
+        Only proceeds if the API reports tournament status as "Complete" or "Official".
+        Sets tournament.results_finalized = True on success.
 
         Args:
             tournament: Tournament object to sync
 
         Returns:
-            Number of results synced
+            Number of results synced (0 if not ready or failed)
         """
+        # First check if tournament is actually complete via API
+        leaderboard_data = self.api.get_leaderboard(tournament.api_tourn_id, str(tournament.season_year))
+
+        if not leaderboard_data:
+            logger.error("Failed to fetch leaderboard for %s", tournament.name)
+            return 0
+
+        api_status = leaderboard_data.get("status", "").lower()
+        if api_status not in ("complete", "official"):
+            logger.info(
+                "Tournament %s not ready for finalization (API status: %s)",
+                tournament.name,
+                leaderboard_data.get("status", "unknown")
+            )
+            return 0
+
+        # Now fetch actual earnings
         earnings_data = self.api.get_earnings(tournament.api_tourn_id, str(tournament.season_year))
 
         if not earnings_data or "leaderboard" not in earnings_data:
             logger.error("Failed to fetch earnings for %s", tournament.name)
             return 0
 
-        leaderboard_data = self.api.get_leaderboard(tournament.api_tourn_id, str(tournament.season_year))
-
+        # Build lookup from leaderboard for status/rounds info
         leaderboard_lookup = {}
-        if leaderboard_data and "leaderboardRows" in leaderboard_data:
+        if "leaderboardRows" in leaderboard_data:
             for p in leaderboard_data["leaderboardRows"]:
                 leaderboard_lookup[p["playerId"]] = p
 
@@ -563,6 +660,7 @@ class TournamentSync:
                     )
                     db.session.add(result)
 
+                # Parse actual earnings from API
                 earnings_raw = player_data.get("earnings", 0)
                 if isinstance(earnings_raw, dict) and '$numberInt' in earnings_raw:
                     result.earnings = int(earnings_raw['$numberInt'])
@@ -578,9 +676,10 @@ class TournamentSync:
                 results_synced += 1
 
             tournament.status = "complete"
+            tournament.results_finalized = True
             db.session.commit()
 
-            logger.info("Synced %s results for %s", results_synced, tournament.name)
+            logger.info("Finalized %s results for %s (actual earnings from API)", results_synced, tournament.name)
         except Exception:
             db.session.rollback()
             logger.exception("Failed syncing results for %s", tournament.name)
@@ -699,23 +798,34 @@ class TournamentSync:
         return withdrawals
 
     def sync_live_leaderboard(self, tournament: Tournament) -> int:
-        """Update live leaderboard data for an active tournament."""
-        if self.is_free_mode:
-            logger.info("Free tier: skipping live leaderboard sync for %s", tournament.name)
-            return 0
+        """
+        Update live leaderboard data and PROJECTED earnings for an active tournament.
+        Call this Thu-Sun at 8 PM CT after each round.
 
+        Calculates projected earnings based on current position and tournament purse
+        using standard PGA Tour payout percentages.
+
+        Args:
+            tournament: Active tournament to sync
+
+        Returns:
+            Number of players updated
+        """
         data = self.api.get_leaderboard(tournament.api_tourn_id, str(tournament.season_year))
         if not data or "leaderboardRows" not in data:
             logger.error("Failed to fetch leaderboard for %s", tournament.name)
             return 0
 
         updated = 0
+        leaderboard_rows = data.get("leaderboardRows", [])
+
+        # Collect all positions for tie calculation
+        all_positions = [p.get("position", "") for p in leaderboard_rows]
 
         try:
-            self._update_pick_deadline_from_leaderboard(tournament, data)
             self._derive_status(tournament, data)
 
-            for player_data in data.get("leaderboardRows", []):
+            for player_data in leaderboard_rows:
                 player = Player.query.filter_by(api_player_id=player_data.get("playerId")).first()
                 if not player:
                     continue
@@ -732,14 +842,27 @@ class TournamentSync:
                     )
                     db.session.add(result)
 
-                result.status = player_data.get("status", result.status or "in_progress")
+                result.status = player_data.get("status", result.status or "active")
                 result.rounds_completed = len(player_data.get("rounds", []))
                 result.final_position = player_data.get("position", result.final_position)
+
+                # Calculate projected earnings based on current position
+                position = player_data.get("position", "")
+                projected_earnings = calculate_projected_earnings(
+                    position_str=position,
+                    purse=tournament.purse,
+                    all_positions=all_positions
+                )
+                result.earnings = projected_earnings
 
                 updated += 1
 
             db.session.commit()
-            logger.info("Updated live leaderboard for %s (%s entries)", tournament.name, updated)
+            logger.info(
+                "Updated live leaderboard for %s (%s entries, projected earnings calculated)",
+                tournament.name,
+                updated
+            )
         except Exception:
             db.session.rollback()
             logger.exception("Failed updating live leaderboard for %s", tournament.name)
@@ -820,6 +943,14 @@ def get_recently_completed_tournaments(days_back: int = 2) -> List[Tournament]:
     return tournaments
 
 
+def get_tournaments_pending_finalization() -> List[Tournament]:
+    """Get tournaments that are complete but haven't had earnings finalized from API."""
+    return Tournament.query.filter(
+        Tournament.status == "complete",
+        Tournament.results_finalized == False
+    ).order_by(Tournament.end_date.desc()).all()
+
+
 # ============================================================================
 # CLI Commands for manual sync
 # ============================================================================
@@ -833,8 +964,6 @@ def register_sync_commands(app):
     @app.cli.command('sync-schedule')
     def sync_schedule_cmd():
         """Import season schedule from API."""
-        import os
-
         api_key = os.environ.get('SLASHGOLF_API_KEY')
         if not api_key:
             print("Error: SLASHGOLF_API_KEY not set")
@@ -849,8 +978,6 @@ def register_sync_commands(app):
     @app.cli.command('sync-field')
     def sync_field_cmd():
         """Sync field for upcoming tournament."""
-        import os
-
         api_key = os.environ.get('SLASHGOLF_API_KEY')
         if not api_key:
             print("Error: SLASHGOLF_API_KEY not set")
@@ -868,8 +995,6 @@ def register_sync_commands(app):
     @app.cli.command('sync-results')
     def sync_results_cmd():
         """Sync results for just-completed tournament."""
-        import os
-
         api_key = os.environ.get('SLASHGOLF_API_KEY')
         if not api_key:
             print("Error: SLASHGOLF_API_KEY not set")
@@ -890,11 +1015,34 @@ def register_sync_commands(app):
         # Process picks
         sync.process_tournament_picks(tournament)
 
+    @app.cli.command('sync-earnings')
+    def sync_earnings_cmd():
+        """Finalize earnings for completed tournaments that haven't been finalized yet."""
+        api_key = os.environ.get('SLASHGOLF_API_KEY')
+        if not api_key:
+            print("Error: SLASHGOLF_API_KEY not set")
+            return
+
+        pending = get_tournaments_pending_finalization()
+        if not pending:
+            print("No tournaments pending earnings finalization")
+            return
+
+        api = SlashGolfAPI(api_key, sync_mode=sync_mode)
+        sync = TournamentSync(api, sync_mode=sync_mode, fallback_deadline_hour=fallback_deadline_hour)
+
+        for tournament in pending:
+            print(f"Attempting to finalize earnings for {tournament.name}...")
+            results_count = sync.sync_tournament_results(tournament)
+            if results_count > 0:
+                sync.process_tournament_picks(tournament)
+                print(f"  ✓ Finalized {results_count} results")
+            else:
+                print(f"  ✗ Not ready or failed (API may not have official results yet)")
+
     @app.cli.command('check-wd')
     def check_wd_cmd():
         """Check for withdrawals in active tournament."""
-        import os
-
         api_key = os.environ.get('SLASHGOLF_API_KEY')
         if not api_key:
             print("Error: SLASHGOLF_API_KEY not set")
@@ -919,7 +1067,7 @@ def register_sync_commands(app):
             print("No withdrawals")
 
     @app.cli.command('sync-run')
-    @click.option('--mode', type=click.Choice(['schedule', 'field', 'live', 'withdrawals', 'results', 'all']), required=True)
+    @click.option('--mode', type=click.Choice(['schedule', 'field', 'live', 'withdrawals', 'results', 'earnings', 'all']), required=True)
     def sync_run_cmd(mode):
         """Unified automation entrypoint for scheduled tasks."""
         api_key = os.environ.get('SLASHGOLF_API_KEY')
@@ -932,15 +1080,19 @@ def register_sync_commands(app):
         exit_code = 0
         year = app.config.get('SEASON_YEAR', datetime.now().year)
 
-        free_tier_blocked = {'live', 'withdrawals'}
+        free_tier_blocked = {'withdrawals'}  # 'live' now allowed for projected earnings
         if sync_mode == 'free' and mode in free_tier_blocked:
             click.echo(f"Free tier mode: '{mode}' sync disabled to stay within RapidAPI limits")
             sys.exit(0)
 
         try:
             if mode in ('schedule', 'all'):
-                imported = sync.sync_schedule(year)
-                click.echo(f"Schedule sync complete ({imported} imported/updated)")
+                # Only sync schedule on Mondays to conserve API calls
+                if datetime.now(LEAGUE_TZ).weekday() != 0:  # 0 = Monday
+                    click.echo("Schedule sync runs Mondays only (skipping today)")
+                else:
+                    imported = sync.sync_schedule(year)
+                    click.echo(f"Schedule sync complete ({imported} imported/updated)")
 
             if mode in ('field', 'all'):
                 if sync_mode == 'free' and datetime.now(LEAGUE_TZ).weekday() not in (1, 2):
@@ -953,14 +1105,13 @@ def register_sync_commands(app):
                         sync.sync_tournament_field(tournament)
 
             if mode in ('live', 'all'):
-                if sync_mode == 'free':
-                    click.echo("Free tier: skipping live leaderboard refresh")
-                else:
-                    active = get_active_tournaments()
-                    if not active:
-                        click.echo("No active tournaments for live sync")
-                    for tournament in active:
-                        sync.sync_live_leaderboard(tournament)
+                active = get_active_tournaments()
+                if not active:
+                    click.echo("No active tournaments for live sync")
+                for tournament in active:
+                    updated = sync.sync_live_leaderboard(tournament)
+                    if updated:
+                        click.echo(f"Updated {updated} leaderboard entries with projected earnings for {tournament.name}")
 
             if mode in ('withdrawals', 'all'):
                 if sync_mode == 'free':
@@ -985,6 +1136,20 @@ def register_sync_commands(app):
                         results_count = sync.sync_tournament_results(tournament)
                         if results_count:
                             sync.process_tournament_picks(tournament)
+
+            if mode in ('earnings', 'all'):
+                # Specifically for finalizing earnings on Monday
+                pending = get_tournaments_pending_finalization()
+                if not pending:
+                    click.echo("No tournaments pending earnings finalization")
+                for tournament in pending:
+                    click.echo(f"Finalizing earnings for {tournament.name}...")
+                    results_count = sync.sync_tournament_results(tournament)
+                    if results_count:
+                        sync.process_tournament_picks(tournament)
+                        click.echo(f"  ✓ Finalized {results_count} results")
+                    else:
+                        click.echo(f"  ✗ Not ready (API status not Complete/Official yet)")
 
         except Exception:
             logger.exception("sync-run failed")

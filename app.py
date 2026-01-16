@@ -108,17 +108,26 @@ def inject_globals():
 
 @app.route('/')
 def index():
-    """Home page with leaderboard."""
+    """Home page with season standings."""
     # Get all users ordered by total points
     users = User.query.order_by(User.total_points.desc()).all()
-    
+
+    # Get tournament counts
+    completed_tournaments = Tournament.query.filter_by(
+        status='complete',
+        season_year=app.config['SEASON_YEAR']
+    ).count()
+
+    total_tournaments = Tournament.query.filter_by(
+        season_year=app.config['SEASON_YEAR']
+    ).count()
+
     # Get current/next tournament
-    now = get_current_time()
     current_tournament = Tournament.query.filter(
         Tournament.status.in_(['upcoming', 'active']),
         Tournament.season_year == app.config['SEASON_YEAR']
     ).order_by(Tournament.start_date).first()
-    
+
     # Get picks for current tournament (if deadline passed)
     tournament_picks = {}
     show_picks = False
@@ -126,44 +135,37 @@ def index():
         show_picks = True
         picks = Pick.query.filter_by(tournament_id=current_tournament.id).all()
         for pick in picks:
-            # Get the primary player's current result (position/earnings)
             result = TournamentResult.query.filter_by(
                 tournament_id=current_tournament.id,
                 player_id=pick.primary_player_id
             ).first()
-            
+
+            if current_tournament.status == 'active' and result:
+                earnings = result.earnings or 0
+            elif current_tournament.status == 'complete' and pick.points_earned is not None:
+                earnings = pick.points_earned
+            else:
+                earnings = result.earnings if result else 0
+
             tournament_picks[pick.user_id] = {
                 'primary': pick.primary_player.full_name(),
                 'position': result.final_position if result else None,
-                'earnings': result.earnings if result else 0
+                'earnings': earnings
             }
-    
+
     return render_template('index.html',
                          users=users,
                          current_tournament=current_tournament,
                          tournament_picks=tournament_picks,
-                         show_picks=show_picks)
+                         show_picks=show_picks,
+                         completed_tournaments=completed_tournaments,
+                         total_tournaments=total_tournaments)
 
 
 @app.route('/leaderboard')
 def leaderboard():
-    """Full season leaderboard."""
-    users = User.query.order_by(User.total_points.desc()).all()
-    
-    # Get completed tournaments count
-    completed_tournaments = Tournament.query.filter_by(
-        status='complete',
-        season_year=app.config['SEASON_YEAR']
-    ).count()
-    
-    total_tournaments = Tournament.query.filter_by(
-        season_year=app.config['SEASON_YEAR']
-    ).count()
-    
-    return render_template('leaderboard.html',
-                         users=users,
-                         completed_tournaments=completed_tournaments,
-                         total_tournaments=total_tournaments)
+    """Redirect to home page (consolidated view)."""
+    return redirect(url_for('index'))
 
 
 @app.route('/schedule')
@@ -172,7 +174,7 @@ def schedule():
     tournaments = Tournament.query.filter_by(
         season_year=app.config['SEASON_YEAR']
     ).order_by(Tournament.start_date).all()
-    
+
     return render_template('schedule.html', tournaments=tournaments)
 
 
@@ -189,33 +191,33 @@ def tournament_detail(tournament_id):
     - Complete: Full picks table with backup, active player, final points
     """
     tournament = Tournament.query.get_or_404(tournament_id)
-    
+
     # Get all users (to show even those without picks)
     all_users = User.query.order_by(func.lower(User.username)).all()
-    
+
     # Get picks for this tournament
     picks = Pick.query.filter_by(tournament_id=tournament_id).all()
     picks_by_user = {pick.user_id: pick for pick in picks}
-    
+
     # Determine visibility flags
     show_picks = tournament.is_deadline_passed()
     show_backup = (tournament.status == 'complete')
-    
+
     # Get field count for upcoming tournaments
     field_count = TournamentField.query.filter_by(tournament_id=tournament_id).count()
-    
+
     # Build results data for each user
     pick_results = []
     for user in all_users:
         pick = picks_by_user.get(user.id)
-        
+
         if pick:
             # Get result for primary player (position/earnings)
             primary_result = TournamentResult.query.filter_by(
                 tournament_id=tournament_id,
                 player_id=pick.primary_player_id
             ).first()
-            
+
             # Get result for backup player (only needed for complete tournaments)
             backup_result = None
             if show_backup:
@@ -223,7 +225,7 @@ def tournament_detail(tournament_id):
                     tournament_id=tournament_id,
                     player_id=pick.backup_player_id
                 ).first()
-            
+
             # Determine display values
             # For active tournaments, show primary's current earnings
             # For complete tournaments, show resolved points_earned
@@ -241,7 +243,7 @@ def tournament_detail(tournament_id):
                 # Active tournament - show primary's current status
                 points = primary_result.earnings if primary_result else 0
                 position = primary_result.final_position if primary_result else None
-            
+
             pick_results.append({
                 'user': user,
                 'pick': pick,
@@ -270,7 +272,7 @@ def tournament_detail(tournament_id):
                 'backup_activated': False,
                 'has_pick': False
             })
-    
+
     # Sort results
     if tournament.status == 'complete':
         # Sort by points earned (desc), then alphabetically
@@ -281,14 +283,14 @@ def tournament_detail(tournament_id):
     else:
         # Upcoming - just alphabetical
         pick_results.sort(key=lambda x: x['user'].get_display_name().lower())
-    
+
     # Calculate summary stats
     total_picks = sum(1 for r in pick_results if r['has_pick'])
     total_points = sum(r['points'] for r in pick_results)
-    
+
     # Find the leader for highlighting
     max_points = max((r['points'] for r in pick_results), default=0)
-    
+
     return render_template('tournament_detail.html',
                          tournament=tournament,
                          pick_results=pick_results,
@@ -312,10 +314,10 @@ def results():
         status='complete',
         season_year=app.config['SEASON_YEAR']
     ).order_by(Tournament.end_date.desc()).first()
-    
+
     if tournament:
         return redirect(url_for('tournament_detail', tournament_id=tournament.id))
-    
+
     # No completed tournaments yet - redirect to schedule
     flash('No completed tournaments yet. Check back after the first tournament finishes!', 'info')
     return redirect(url_for('schedule'))
@@ -331,13 +333,13 @@ def login():
     """User login."""
     if current_user.is_authenticated:
         return redirect(url_for('index'))
-    
+
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '')
 
         user = User.query.filter(func.lower(User.username) == username.lower()).first()
-        
+
         if user and user.check_password(password):
             login_user(user, remember=True)
             flash(f'Welcome back, {user.get_display_name()}!', 'success')
@@ -345,7 +347,7 @@ def login():
             return redirect(next_page or url_for('index'))
         else:
             flash('Invalid username or password.', 'error')
-    
+
     return render_template('login.html')
 
 
@@ -363,17 +365,17 @@ def register():
     """User registration."""
     if current_user.is_authenticated:
         return redirect(url_for('index'))
-    
+
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
         email = request.form.get('email', '').strip()
         password = request.form.get('password', '')
         confirm_password = request.form.get('confirm_password', '')
         display_name = request.form.get('display_name', '').strip() or None
-        
+
         # Validation
         errors = []
-        
+
         if len(username) < 3:
             errors.append('Username must be at least 3 characters.')
 
@@ -388,13 +390,13 @@ def register():
 
         if validated_email and User.query.filter(func.lower(User.email) == validated_email.lower()).first():
             errors.append('Email already registered.')
-        
+
         if len(password) < 6:
             errors.append('Password must be at least 6 characters.')
-        
+
         if password != confirm_password:
             errors.append('Passwords do not match.')
-        
+
         if errors:
             for error in errors:
                 flash(error, 'error')
@@ -405,13 +407,13 @@ def register():
                 display_name=display_name
             )
             user.set_password(password)
-            
+
             db.session.add(user)
             db.session.commit()
-            
+
             flash('Registration successful! Please log in.', 'success')
             return redirect(url_for('login'))
-    
+
     return render_template('register.html')
 
 # ============================================================================
@@ -426,32 +428,32 @@ def change_password():
         current_password = request.form.get('current_password', '')
         new_password = request.form.get('new_password', '')
         confirm_password = request.form.get('confirm_password', '')
-        
+
         # Verify current password
         if not current_user.check_password(current_password):
             flash('Current password is incorrect.', 'error')
             return redirect(url_for('change_password'))
-        
+
         # Validate new password
         if len(new_password) < 6:
             flash('New password must be at least 6 characters.', 'error')
             return redirect(url_for('change_password'))
-        
+
         if new_password != confirm_password:
             flash('New passwords do not match.', 'error')
             return redirect(url_for('change_password'))
-        
+
         if current_password == new_password:
             flash('New password must be different from current password.', 'error')
             return redirect(url_for('change_password'))
-        
+
         # Update password
         current_user.set_password(new_password)
         db.session.commit()
-        
+
         flash('Password changed successfully!', 'success')
         return redirect(url_for('index'))
-    
+
     return render_template('change_password.html')
 
 
@@ -461,18 +463,18 @@ def admin_reset_password(user_id):
     """Admin can reset a user's password."""
     user = User.query.get_or_404(user_id)
     new_password = request.form.get('new_password', '').strip()
-    
+
     if not new_password:
         flash('No password provided.', 'error')
         return redirect(url_for('admin_users'))
-    
+
     if len(new_password) < 6:
         flash('Password must be at least 6 characters.', 'error')
         return redirect(url_for('admin_users'))
-    
+
     user.set_password(new_password)
     db.session.commit()
-    
+
     flash(f'Password reset for {user.get_display_name()}. New password: {new_password}', 'success')
     return redirect(url_for('admin_users'))
 
@@ -490,13 +492,13 @@ def my_picks():
     tournaments = Tournament.query.filter_by(
         season_year=app.config['SEASON_YEAR']
     ).order_by(Tournament.start_date).all()
-    
+
     # Get user's picks
     user_picks = {pick.tournament_id: pick for pick in current_user.picks}
-    
+
     # Get used player IDs
     used_player_ids = current_user.get_used_player_ids()
-    
+
     return render_template('my_picks.html',
                          tournaments=tournaments,
                          user_picks=user_picks,
@@ -508,18 +510,18 @@ def my_picks():
 def make_pick(tournament_id):
     """Make or edit a pick for a tournament."""
     tournament = Tournament.query.get_or_404(tournament_id)
-    
+
     # Check if deadline passed
     if tournament.is_deadline_passed():
         flash('The deadline for this tournament has passed.', 'error')
         return redirect(url_for('my_picks'))
-    
+
     # Get existing pick if any
     existing_pick = Pick.query.filter_by(
         user_id=current_user.id,
         tournament_id=tournament_id
     ).first()
-    
+
     # Get used player IDs (excluding current pick's players if editing)
     used_player_ids = current_user.get_used_player_ids()
     if existing_pick:
@@ -528,18 +530,18 @@ def make_pick(tournament_id):
             used_player_ids.remove(existing_pick.primary_player_id)
         if existing_pick.backup_player_id in used_player_ids:
             used_player_ids.remove(existing_pick.backup_player_id)
-    
+
     # Get available players (in field, not amateur, not used)
     available_players = Player.query.join(TournamentField).filter(
         TournamentField.tournament_id == tournament_id,
         Player.is_amateur == False,
         ~Player.id.in_(used_player_ids) if used_player_ids else True
     ).order_by(Player.last_name).all()
-    
+
     if request.method == 'POST':
         primary_id = request.form.get('primary_player_id', type=int)
         backup_id = request.form.get('backup_player_id', type=int)
-        
+
         # Validation
         errors = []
 
@@ -555,7 +557,7 @@ def make_pick(tournament_id):
             errors.append('Primary player is not available.')
         if backup_id not in available_ids:
             errors.append('Backup player is not available.')
-        
+
         if errors:
             for error in errors:
                 flash(error, 'error')
@@ -592,7 +594,7 @@ def make_pick(tournament_id):
                     db.session.commit()
                     flash('Pick submitted successfully!', 'success')
                     return redirect(url_for('my_picks'))
-    
+
     return render_template('make_pick.html',
                          tournament=tournament,
                          available_players=available_players,
@@ -610,15 +612,23 @@ def admin_dashboard():
     tournaments = Tournament.query.filter_by(
         season_year=app.config['SEASON_YEAR']
     ).order_by(Tournament.start_date).all()
-    
+
     total_users = User.query.count()
     paid_users = User.query.filter_by(has_paid=True).count()
-    
+
+    # Get tournaments pending earnings finalization
+    pending_finalization = Tournament.query.filter(
+        Tournament.season_year == app.config['SEASON_YEAR'],
+        Tournament.status == 'complete',
+        Tournament.results_finalized == False
+    ).order_by(Tournament.end_date.desc()).all()
+
     return render_template('admin/dashboard.html',
                          tournaments=tournaments,
                          total_users=total_users,
                          paid_users=paid_users,
-                         entry_fee=app.config['ENTRY_FEE'])
+                         entry_fee=app.config['ENTRY_FEE'],
+                         pending_finalization=pending_finalization)
 
 
 @app.route('/admin/tournaments')
@@ -628,7 +638,7 @@ def admin_tournaments():
     tournaments = Tournament.query.filter_by(
         season_year=app.config['SEASON_YEAR']
     ).order_by(Tournament.start_date).all()
-    
+
     return render_template('admin/tournaments.html', tournaments=tournaments)
 
 
@@ -645,11 +655,11 @@ def admin_users():
 def admin_payments():
     """Track payments."""
     users = User.query.order_by(func.lower(User.username)).all()
-    
+
     paid_count = sum(1 for u in users if u.has_paid)
     unpaid_count = len(users) - paid_count
     total_collected = paid_count * app.config['ENTRY_FEE']
-    
+
     return render_template('admin/payments.html',
                          users=users,
                          paid_count=paid_count,
@@ -664,10 +674,10 @@ def admin_update_payment(user_id):
     """Toggle user payment status (AJAX)."""
     user = User.query.get_or_404(user_id)
     data = request.get_json()
-    
+
     user.has_paid = data.get('has_paid', False)
     db.session.commit()
-    
+
     return jsonify({'success': True, 'has_paid': user.has_paid})
 
 
@@ -711,11 +721,11 @@ def process_tournament_results(tournament: Tournament):
 def admin_process_results(tournament_id):
     """Process tournament results and calculate points."""
     tournament = Tournament.query.get_or_404(tournament_id)
-    
+
     if tournament.status != 'complete':
         flash('Tournament must be complete before processing results.', 'error')
         return redirect(url_for('admin_tournaments'))
-    
+
     processed, skipped = process_tournament_results(tournament)
 
     message = f'Processed results for {processed} picks.'
@@ -740,22 +750,22 @@ def init_db():
 def create_admin():
     """Create an admin user."""
     import getpass
-    
+
     username = input('Admin username: ').strip()
     email = input('Admin email: ').strip()
     password = getpass.getpass('Admin password: ')
-    
+
     if User.query.filter(func.lower(User.username) == username.lower()).first():
         print(f'User {username} already exists.')
         return
-    
+
     user = User(
         username=username,
         email=email,
         is_admin=True
     )
     user.set_password(password)
-    
+
     db.session.add(user)
     db.session.commit()
 

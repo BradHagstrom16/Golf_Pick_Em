@@ -55,6 +55,47 @@
     </div>
 </div>
 
+<!-- Pending Earnings Finalization -->
+{% if pending_finalization %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-warning">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0">⚠️ Tournaments Pending Earnings Finalization</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-3">
+                    These tournaments are marked complete but haven't had official earnings synced from the API yet.
+                    Run <code>./run_sync.sh earnings</code> or wait for the Monday scheduled task.
+                </p>
+                <table class="table table-sm mb-0">
+                    <thead>
+                        <tr>
+                            <th>Tournament</th>
+                            <th>End Date</th>
+                            <th>Picks</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for tournament in pending_finalization %}
+                        <tr>
+                            <td>{{ tournament.name }}</td>
+                            <td>{{ tournament.end_date.strftime('%b %d, %Y') }}</td>
+                            <td>{{ tournament.picks.count() }}</td>
+                            <td>
+                                <span class="badge bg-warning text-dark">Projections Only</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <!-- Tournaments Overview -->
 <div class="card">
     <div class="card-header bg-success text-white">
@@ -94,7 +135,7 @@
                 {% endfor %}
             </tbody>
         </table>
-        
+
         <a href="{{ url_for('admin_tournaments') }}">View All Tournaments →</a>
     </div>
 </div>

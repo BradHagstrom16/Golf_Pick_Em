@@ -113,9 +113,12 @@
 
     {% if tournament.status == 'active' %}
     <div class="alert alert-warning">
-        <strong>🏌️ Tournament In Progress</strong> - Leaderboard updates at 8 PM central time.
+        <strong>🏌️ Tournament In Progress</strong> - Leaderboard updates at 8 PM Central time.
         <div class="small text-muted">
             Last synced: {{ tournament.updated_at.strftime('%b %d, %I:%M %p CT') if tournament.updated_at else 'Pending sync' }}
+        </div>
+        <div class="small mt-1">
+            💡 <em>Earnings shown are projections based on current standings. Final earnings from official PGA Tour results will be updated Monday.</em>
         </div>
     </div>
     {% endif %}

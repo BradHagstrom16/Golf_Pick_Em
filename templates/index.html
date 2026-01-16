@@ -1,25 +1,28 @@
 {% extends "base.html" %}
 
-{% block title %}Golf Pick 'Em - Home{% endblock %}
+{% block title %}Golf Pick 'Em - Season Standings{% endblock %}
 
 {% block content %}
 <div class="row">
-    <!-- Main Content - Leaderboard -->
+    <!-- Main Content -->
     <div class="col-lg-8">
         <h2>Season Standings</h2>
+        <p class="text-muted">
+            {{ completed_tournaments }} of {{ total_tournaments }} tournaments complete
+        </p>
 
         {% if current_tournament %}
         <div class="alert alert-info">
-            <strong>{{ current_tournament.status|capitalize }}:</strong>
+            <strong>{{ 'Active' if current_tournament.status == 'active' else 'Next' }}:</strong>
             <a href="{{ url_for('tournament_detail', tournament_id=current_tournament.id) }}" class="alert-link">
                 {{ current_tournament.name }}
             </a>
             {% if not current_tournament.is_deadline_passed() %}
                 <br><small>⏰ Deadline: {{ current_tournament.get_deadline_display() }}</small>
             {% endif %}
-            <div class="small text-muted mt-1">
-                Leaderboard updates run after rounds complete.
-            </div>
+            {% if current_tournament.status == 'active' %}
+                <br><small>💡 Earnings shown are projections. Final results updated Monday.</small>
+            {% endif %}
         </div>
         {% endif %}
 
@@ -31,6 +34,7 @@
                     <th class="text-end">Total Points</th>
                     {% if current_tournament and show_picks %}
                     <th>Current Pick</th>
+                    <th class="text-end">Projected</th>
                     {% endif %}
                 </tr>
             </thead>
@@ -53,30 +57,37 @@
                     {% if current_tournament and show_picks %}
                     <td>
                         {% if user.id in tournament_picks %}
-                            <strong>{{ tournament_picks[user.id].primary }}</strong>
+                            {{ tournament_picks[user.id].primary }}
                             {% if tournament_picks[user.id].position %}
-                                <br><small class="text-muted">
-                                    {{ tournament_picks[user.id].position }} ·
-                                    ${{ "{:,}".format(tournament_picks[user.id].earnings) }}
-                                 </small>
+                                <br><small class="text-muted">{{ tournament_picks[user.id].position }}</small>
                             {% endif %}
                         {% else %}
                             <span class="text-muted">No Pick</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        {% if user.id in tournament_picks %}
+                            <span class="badge bg-warning text-dark">${{ "{:,}".format(tournament_picks[user.id].earnings) }}</span>
+                        {% else %}
+                            <span class="text-muted">$0</span>
                         {% endif %}
                     </td>
                     {% endif %}
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="4" class="text-center text-muted">No players yet. Be the first to register!</td>
+                    <td colspan="{{ 5 if current_tournament and show_picks else 3 }}" class="text-center text-muted">
+                        No players yet. Be the first to register!
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 
-    <!-- Sidebar - Rules -->
+    <!-- Sidebar -->
     <div class="col-lg-4">
+        <!-- League Rules -->
         <div class="card">
             <div class="card-header bg-success text-white">
                 <h5 class="mb-0">📋 League Rules</h5>
@@ -93,6 +104,7 @@
             </div>
         </div>
 
+        <!-- Prize Pool -->
         <div class="card mt-3">
             <div class="card-header bg-info text-white">
                 <h5 class="mb-0">💰 Prize Pool</h5>
@@ -106,11 +118,28 @@
             </div>
         </div>
 
+        <!-- Season Progress -->
+        <div class="card mt-3">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0">📊 Season Progress</h5>
+            </div>
+            <div class="card-body">
+                <div class="progress mb-2" style="height: 25px;">
+                    <div class="progress-bar bg-success" role="progressbar" 
+                         style="width: {{ (completed_tournaments / total_tournaments * 100) if total_tournaments > 0 else 0 }}%">
+                        {{ completed_tournaments }} / {{ total_tournaments }}
+                    </div>
+                </div>
+                <p class="text-muted mb-0 small">Tournaments Completed</p>
+            </div>
+        </div>
+
+        <!-- Make Your Pick CTA -->
         {% if current_user.is_authenticated and current_tournament and not current_tournament.is_deadline_passed() %}
         <div class="card mt-3 border-warning">
             <div class="card-body text-center">
                 <h5>⏰ Make Your Pick!</h5>
-                <p>Deadline: {{ current_tournament.get_deadline_display() }}</p>
+                <p class="mb-2">Deadline: {{ current_tournament.get_deadline_display() }}</p>
                 <a href="{{ url_for('make_pick', tournament_id=current_tournament.id) }}" class="btn btn-success btn-lg">
                     Pick for {{ current_tournament.name }}
                 </a>

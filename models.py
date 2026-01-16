@@ -31,45 +31,45 @@ class User(UserMixin, db.Model):
     Contestant in the pick 'em league.
     """
     __tablename__ = 'user'
-    
+
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
     display_name = db.Column(db.String(100), nullable=True)
-    
+
     # Season standings
     total_points = db.Column(db.Integer, default=0)  # Sum of all earnings
-    
+
     # Admin & payment tracking
     is_admin = db.Column(db.Boolean, default=False)
     has_paid = db.Column(db.Boolean, default=False)
-    
+
     # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
+
     # Relationships
     picks = db.relationship('Pick', backref='user', lazy='dynamic')
-    
+
     def set_password(self, password):
         """Hash and store password."""
         self.password_hash = generate_password_hash(password)
-    
+
     def check_password(self, password):
         """Verify password against hash."""
         return check_password_hash(self.password_hash, password)
-    
+
     def get_display_name(self):
         """Return display name or username."""
         return self.display_name or self.username
-    
+
     def get_used_player_ids(self):
         """
         Get list of player IDs this user has 'used' (locked) for the season.
         A player is used if they were the active pick in a completed tournament.
         """
         return [usage.player_id for usage in self.season_usages]
-    
+
     def calculate_total_points(self):
         """Recalculate total points from all completed picks."""
         total = 0
@@ -78,7 +78,7 @@ class User(UserMixin, db.Model):
                 total += pick.points_earned
         self.total_points = total
         return total
-    
+
     def __repr__(self):
         return f'<User {self.username}>'
 
@@ -88,24 +88,24 @@ class Player(db.Model):
     A PGA Tour golfer. Synced from SlashGolf API.
     """
     __tablename__ = 'player'
-    
+
     id = db.Column(db.Integer, primary_key=True)
     api_player_id = db.Column(db.String(20), unique=True, nullable=False)  # SlashGolf player ID
     first_name = db.Column(db.String(100), nullable=False)
     last_name = db.Column(db.String(100), nullable=False)
     is_amateur = db.Column(db.Boolean, default=False)
-    
+
     # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+
     # Relationships
     tournament_results = db.relationship('TournamentResult', backref='player', lazy='dynamic')
-    
+
     def full_name(self):
         """Return full name."""
         return f"{self.first_name} {self.last_name}"
-    
+
     def __repr__(self):
         return f'<Player {self.first_name} {self.last_name}>'
 
@@ -115,31 +115,32 @@ class Tournament(db.Model):
     A PGA Tour tournament. Synced from SlashGolf API.
     """
     __tablename__ = 'tournament'
-    
+
     id = db.Column(db.Integer, primary_key=True)
     api_tourn_id = db.Column(db.String(20), nullable=False)  # SlashGolf tournament ID
     name = db.Column(db.String(200), nullable=False)
     season_year = db.Column(db.Integer, nullable=False)  # e.g., 2026
-    
+
     # Dates
     start_date = db.Column(db.DateTime, nullable=False)
     end_date = db.Column(db.DateTime, nullable=False)
     pick_deadline = db.Column(db.DateTime, nullable=True)  # First tee time Thursday
-    
+
     # Tournament details
     purse = db.Column(db.Integer, default=0)  # Total purse in dollars
     is_team_event = db.Column(db.Boolean, default=False)  # True for Zurich Classic
-    
+
     # Status tracking
     status = db.Column(db.String(20), default='upcoming')  # upcoming, active, complete
-    
+    results_finalized = db.Column(db.Boolean, default=False)  # True once actual earnings fetched from API
+
     # Week number in our league (1-32)
     week_number = db.Column(db.Integer, nullable=True)
-    
+
     # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+
     # Relationships
     picks = db.relationship('Pick', backref='tournament', lazy='dynamic')
     results = db.relationship('TournamentResult', backref='tournament', lazy='dynamic')
@@ -148,7 +149,7 @@ class Tournament(db.Model):
     __table_args__ = (
         db.UniqueConstraint('api_tourn_id', 'season_year', name='unique_tournament_per_season'),
     )
-    
+
     def is_deadline_passed(self):
         """Check if pick deadline has passed."""
         if not self.pick_deadline:
@@ -175,7 +176,7 @@ class Tournament(db.Model):
             elif now >= deadline_localized:
                 self.status = 'upcoming'
         return self.status
-    
+
     def get_deadline_display(self):
         """Return formatted deadline string."""
         if not self.pick_deadline:
@@ -184,7 +185,7 @@ class Tournament(db.Model):
         if deadline.tzinfo is None:
             deadline = LEAGUE_TZ.localize(deadline)
         return deadline.strftime('%a %b %d, %I:%M %p CT')
-    
+
     def __repr__(self):
         return f'<Tournament {self.name} ({self.season_year})>'
 
@@ -195,25 +196,25 @@ class TournamentField(db.Model):
     This is separate from TournamentResult to track the pre-tournament field.
     """
     __tablename__ = 'tournament_field'
-    
+
     id = db.Column(db.Integer, primary_key=True)
     tournament_id = db.Column(db.Integer, db.ForeignKey('tournament.id'), nullable=False)
     player_id = db.Column(db.Integer, db.ForeignKey('player.id'), nullable=False)
-    
+
     # Field status
     is_alternate = db.Column(db.Boolean, default=False)
-    
+
     # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
+
     # Relationship to player
     player = db.relationship('Player', backref='field_entries')
-    
+
     # Unique constraint: player can only be in field once per tournament
     __table_args__ = (
         db.UniqueConstraint('tournament_id', 'player_id', name='unique_player_tournament_field'),
     )
-    
+
     def __repr__(self):
         return f'<TournamentField {self.tournament_id} - {self.player_id}>'
 
@@ -242,30 +243,30 @@ class TournamentResult(db.Model):
     A player's result in a completed tournament. Synced from API after tournament.
     """
     __tablename__ = 'tournament_result'
-    
+
     id = db.Column(db.Integer, primary_key=True)
     tournament_id = db.Column(db.Integer, db.ForeignKey('tournament.id'), nullable=False)
     player_id = db.Column(db.Integer, db.ForeignKey('player.id'), nullable=False)
-    
+
     # Result details
     status = db.Column(db.String(20), nullable=False)  # complete, cut, wd, dq
     final_position = db.Column(db.String(20), nullable=True)  # "1", "T5", "CUT", etc.
     earnings = db.Column(db.Integer, default=0)  # Prize money in dollars
     rounds_completed = db.Column(db.Integer, default=0)  # 0-4, key for WD timing
-    
+
     # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+
     # Unique constraint: one result per player per tournament
     __table_args__ = (
         db.UniqueConstraint('tournament_id', 'player_id', name='unique_player_tournament_result'),
     )
-    
+
     def wd_before_round_2_complete(self):
         """Check if this was a WD before completing round 2."""
         return self.status == 'wd' and self.rounds_completed < 2
-    
+
     def __repr__(self):
         return f'<TournamentResult {self.tournament_id} - {self.player_id}: {self.earnings}>'
 
@@ -273,50 +274,50 @@ class TournamentResult(db.Model):
 class Pick(db.Model):
     """
     A user's pick for a specific tournament.
-    
+
     Key Logic:
     - User selects primary_player and backup_player before deadline
     - After tournament: we determine which was the "active" pick
     - active_player_id stores who actually counted for points
     - primary_used/backup_used track which player is now "locked" for season
-    
+
     WD Rules:
     - Primary WDs BEFORE completing R2 → Backup activates, primary returns to pool
     - Primary WDs AFTER completing R2 → Primary counts (0 pts), backup unused
     - Both WD before R2 → Primary is used (0 pts), backup returns to pool
     """
     __tablename__ = 'pick'
-    
+
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     tournament_id = db.Column(db.Integer, db.ForeignKey('tournament.id'), nullable=False)
-    
+
     # The picks
     primary_player_id = db.Column(db.Integer, db.ForeignKey('player.id'), nullable=False)
     backup_player_id = db.Column(db.Integer, db.ForeignKey('player.id'), nullable=False)
-    
+
     # Resolved after tournament completes
     active_player_id = db.Column(db.Integer, db.ForeignKey('player.id'), nullable=True)
     points_earned = db.Column(db.Integer, nullable=True)  # Set after tournament completes
-    
+
     # Which players are now "used" for the season
     primary_used = db.Column(db.Boolean, default=False)
     backup_used = db.Column(db.Boolean, default=False)
-    
+
     # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+
     # Relationships
     primary_player = db.relationship('Player', foreign_keys=[primary_player_id], backref='primary_picks')
     backup_player = db.relationship('Player', foreign_keys=[backup_player_id], backref='backup_picks')
     active_player = db.relationship('Player', foreign_keys=[active_player_id], backref='active_picks')
-    
+
     # Unique constraint: one pick per user per tournament
     __table_args__ = (
         db.UniqueConstraint('user_id', 'tournament_id', name='unique_user_tournament_pick'),
     )
-    
+
     def validate_availability(self, season_year: int):
         """Validate pick adheres to field eligibility and season usage constraints."""
         errors = []
@@ -346,7 +347,7 @@ class Pick(db.Model):
         """
         Determine which player was active and calculate points.
         Call this after tournament results are imported.
-        
+
         Returns tuple: (points_earned, active_player_id, primary_used, backup_used)
         """
         # Get results for both players
@@ -354,12 +355,12 @@ class Pick(db.Model):
             tournament_id=self.tournament_id,
             player_id=self.primary_player_id
         ).first()
-        
+
         backup_result = TournamentResult.query.filter_by(
             tournament_id=self.tournament_id,
             player_id=self.backup_player_id
         ).first()
-        
+
         if not primary_result:
             logger.error(
                 "Missing tournament result for primary player %s in tournament %s",
@@ -378,16 +379,16 @@ class Pick(db.Model):
             primary_result.status == 'wd' and
             primary_result.rounds_completed < 2
         )
-        
+
         # Case 1: Primary WD before R2 - backup activates
         if primary_wd_early:
             # Check if backup also WD'd before R2
             backup_wd_early = (
-                backup_result and 
-                backup_result.status == 'wd' and 
+                backup_result and
+                backup_result.status == 'wd' and
                 backup_result.rounds_completed < 2
             )
-            
+
             if backup_wd_early:
                 # Both WD early: Primary is used with 0 points, backup returns to pool
                 self.active_player_id = self.primary_player_id
@@ -418,7 +419,7 @@ class Pick(db.Model):
                 self.points_earned = earnings
                 self.primary_used = False  # Returns to pool
                 self.backup_used = True
-        
+
         # Case 2: Primary did not WD early (or didn't WD at all)
         else:
             self.active_player_id = self.primary_player_id
@@ -439,7 +440,7 @@ class Pick(db.Model):
             # Handle team event (Zurich) - divide by 2
             if self.tournament.is_team_event:
                 earnings = earnings // 2
-            
+
             self.points_earned = earnings
             self.primary_used = True
             self.backup_used = False
@@ -453,7 +454,27 @@ class Pick(db.Model):
         db.session.execute(stmt)
 
         return True
-    
+
+    def get_current_earnings(self):
+        """
+        Get current earnings for display purposes.
+        - Complete tournaments: returns points_earned (actual)
+        - Active tournaments: returns primary player's projected earnings from TournamentResult
+        - Upcoming tournaments: returns None
+        """
+        if self.tournament.status == 'complete' and self.points_earned is not None:
+            return self.points_earned
+
+        if self.tournament.status == 'active':
+            result = TournamentResult.query.filter_by(
+                tournament_id=self.tournament_id,
+                player_id=self.primary_player_id
+            ).first()
+            if result and result.earnings:
+                return result.earnings
+
+        return None
+
     def __repr__(self):
         return f'<Pick User:{self.user_id} Tournament:{self.tournament_id}>'
 

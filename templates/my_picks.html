@@ -61,10 +61,18 @@
                         {% endif %}
                     </td>
                     <td>
-                        {% if pick and pick.points_earned %}
-                            <span class="badge bg-success">${{ "{:,}".format(pick.points_earned) }}</span>
-                        {% elif tournament.status == 'complete' %}
-                            <span class="text-muted">$0</span>
+                        {% if pick %}
+                            {% set current_earnings = pick.get_current_earnings() %}
+                            {% if current_earnings %}
+                                <span class="badge bg-{{ 'success' if tournament.status == 'complete' else 'warning text-dark' }}">${{ "{:,}".format(current_earnings) }}</span>
+                                {% if tournament.status == 'active' %}
+                                    <br><small class="text-muted">projected</small>
+                                {% endif %}
+                            {% elif tournament.status == 'complete' %}
+                                <span class="text-muted">$0</span>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
                         {% else %}
                             <span class="text-muted">-</span>
                         {% endif %}
@@ -87,7 +95,7 @@
             </tbody>
         </table>
     </div>
-    
+
     <div class="col-lg-4">
         <!-- Season Summary -->
         <div class="card">
@@ -97,14 +105,14 @@
             <div class="card-body">
                 <h3 class="text-success">${{ "{:,}".format(current_user.total_points) }}</h3>
                 <p class="text-muted">Total Points Earned</p>
-                
+
                 <hr>
-                
+
                 <p class="mb-1"><strong>Picks Made:</strong> {{ user_picks|length }} / {{ tournaments|length }}</p>
                 <p class="mb-0"><strong>Golfers Used:</strong> {{ used_player_ids|length }}</p>
             </div>
         </div>
-        
+
         <!-- Used Players -->
         <div class="card mt-3">
             <div class="card-header bg-secondary text-white">
