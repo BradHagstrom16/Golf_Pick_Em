@@ -11,18 +11,47 @@
             {{ completed_tournaments }} of {{ total_tournaments }} tournaments complete
         </p>
 
-        {% if current_tournament %}
-        <div class="alert alert-info">
-            <strong>{{ 'Active' if current_tournament.status == 'active' else 'Next' }}:</strong>
-            <a href="{{ url_for('tournament_detail', tournament_id=current_tournament.id) }}" class="alert-link">
-                {{ current_tournament.name }}
-            </a>
-            {% if not current_tournament.is_deadline_passed() %}
-                <br><small>⏰ Deadline: {{ current_tournament.get_deadline_display() }}</small>
-            {% endif %}
-            {% if current_tournament.status == 'active' %}
-                <br><small>💡 Earnings shown are projections. Final results updated Monday.</small>
-            {% endif %}
+        {# Coming Up Banner - shown when featuring completed tournament but next one is known #}
+        {% if upcoming_tournament %}
+        <div class="alert alert-primary d-flex justify-content-between align-items-center">
+            <div>
+                <strong>🗓️ Coming Up:</strong>
+                <a href="{{ url_for('tournament_detail', tournament_id=upcoming_tournament.id) }}" class="alert-link">
+                    {{ upcoming_tournament.name }}
+                </a>
+                <br><small>{{ upcoming_tournament.start_date.strftime('%B %d') }} - {{ upcoming_tournament.end_date.strftime('%B %d') }} · Field not yet available</small>
+            </div>
+            <span class="badge bg-primary">{{ upcoming_tournament.get_deadline_display() }}</span>
+        </div>
+        {% endif %}
+
+        {# Featured Tournament Info #}
+        {% if featured_tournament %}
+        <div class="alert {% if featured_tournament.status == 'active' %}alert-info{% elif featured_tournament.status == 'complete' %}alert-secondary{% else %}alert-success{% endif %}">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    {% if featured_tournament.status == 'active' %}
+                        <strong>🏌️ In Progress:</strong>
+                    {% elif featured_tournament.status == 'complete' %}
+                        <strong>🏆 Latest Results:</strong>
+                    {% else %}
+                        <strong>📋 Make Your Picks:</strong>
+                    {% endif %}
+                    <a href="{{ url_for('tournament_detail', tournament_id=featured_tournament.id) }}" class="alert-link">
+                        {{ featured_tournament.name }}
+                    </a>
+                    {% if featured_tournament.status == 'active' %}
+                        <br><small>💡 Earnings shown are projections. Final results updated Monday.</small>
+                    {% elif featured_tournament.status == 'upcoming' and not featured_tournament.is_deadline_passed() %}
+                        <br><small>⏰ Deadline: {{ featured_tournament.get_deadline_display() }}</small>
+                    {% endif %}
+                </div>
+                {% if featured_tournament.status == 'complete' %}
+                    <a href="{{ url_for('tournament_detail', tournament_id=featured_tournament.id) }}" class="btn btn-sm btn-outline-secondary">
+                        View Full Results →
+                    </a>
+                {% endif %}
+            </div>
         </div>
         {% endif %}
 
@@ -32,9 +61,11 @@
                     <th>Rank</th>
                     <th>Player</th>
                     <th class="text-end">Total Points</th>
-                    {% if current_tournament and show_picks %}
-                    <th>Current Pick</th>
-                    <th class="text-end">Projected</th>
+                    {% if featured_tournament and show_picks %}
+                    <th>{{ featured_tournament.name }} Pick</th>
+                    <th class="text-end">
+                        {% if featured_tournament.status == 'complete' %}Earned{% else %}Projected{% endif %}
+                    </th>
                     {% endif %}
                 </tr>
             </thead>
@@ -54,7 +85,7 @@
                     <td class="text-end">
                         <span class="badge bg-success fs-6">${{ "{:,}".format(user.total_points) }}</span>
                     </td>
-                    {% if current_tournament and show_picks %}
+                    {% if featured_tournament and show_picks %}
                     <td>
                         {% if user.id in tournament_picks %}
                             {{ tournament_picks[user.id].primary }}
@@ -67,7 +98,9 @@
                     </td>
                     <td class="text-end">
                         {% if user.id in tournament_picks %}
-                            <span class="badge bg-warning text-dark">${{ "{:,}".format(tournament_picks[user.id].earnings) }}</span>
+                            <span class="badge bg-{% if featured_tournament.status == 'complete' %}success{% else %}warning text-dark{% endif %}">
+                                ${{ "{:,}".format(tournament_picks[user.id].earnings) }}
+                            </span>
                         {% else %}
                             <span class="text-muted">$0</span>
                         {% endif %}
@@ -76,7 +109,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="{{ 5 if current_tournament and show_picks else 3 }}" class="text-center text-muted">
+                    <td colspan="{{ 5 if featured_tournament and show_picks else 3 }}" class="text-center text-muted">
                         No players yet. Be the first to register!
                     </td>
                 </tr>
@@ -87,6 +120,19 @@
 
     <!-- Sidebar -->
     <div class="col-lg-4">
+        <!-- Make Your Pick CTA - only show if upcoming tournament with field -->
+        {% if current_user.is_authenticated and featured_tournament and featured_tournament.status == 'upcoming' and not featured_tournament.is_deadline_passed() %}
+        <div class="card mb-3 border-success">
+            <div class="card-body text-center">
+                <h5>⏰ Make Your Pick!</h5>
+                <p class="mb-2">Deadline: {{ featured_tournament.get_deadline_display() }}</p>
+                <a href="{{ url_for('make_pick', tournament_id=featured_tournament.id) }}" class="btn btn-success btn-lg">
+                    Pick for {{ featured_tournament.name }}
+                </a>
+            </div>
+        </div>
+        {% endif %}
+
         <!-- League Rules -->
         <div class="card">
             <div class="card-header bg-success text-white">
@@ -133,19 +179,6 @@
                 <p class="text-muted mb-0 small">Tournaments Completed</p>
             </div>
         </div>
-
-        <!-- Make Your Pick CTA -->
-        {% if current_user.is_authenticated and current_tournament and not current_tournament.is_deadline_passed() %}
-        <div class="card mt-3 border-warning">
-            <div class="card-body text-center">
-                <h5>⏰ Make Your Pick!</h5>
-                <p class="mb-2">Deadline: {{ current_tournament.get_deadline_display() }}</p>
-                <a href="{{ url_for('make_pick', tournament_id=current_tournament.id) }}" class="btn btn-success btn-lg">
-                    Pick for {{ current_tournament.name }}
-                </a>
-            </div>
-        </div>
-        {% endif %}
     </div>
 </div>
 {% endblock %}

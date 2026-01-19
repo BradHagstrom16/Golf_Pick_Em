@@ -122,27 +122,59 @@ def index():
         season_year=app.config['SEASON_YEAR']
     ).count()
 
-    # Get current/next tournament
-    current_tournament = Tournament.query.filter(
+    # Get next upcoming/active tournament
+    next_tournament = Tournament.query.filter(
         Tournament.status.in_(['upcoming', 'active']),
         Tournament.season_year == app.config['SEASON_YEAR']
     ).order_by(Tournament.start_date).first()
 
-    # Get picks for current tournament (if deadline passed)
+    # Get most recent completed tournament
+    last_completed = Tournament.query.filter_by(
+        status='complete',
+        season_year=app.config['SEASON_YEAR']
+    ).order_by(Tournament.end_date.desc()).first()
+
+    # Determine which tournament to feature
+    # Priority: active > upcoming with field > last completed
+    featured_tournament = None
+    upcoming_tournament = None  # Secondary "coming up" info
+
+    if next_tournament:
+        if next_tournament.status == 'active':
+            # Active tournament is always featured
+            featured_tournament = next_tournament
+        else:
+            # Check if upcoming tournament has a field
+            field_count = TournamentField.query.filter_by(
+                tournament_id=next_tournament.id
+            ).count()
+
+            if field_count > 0:
+                # Field is available - feature the upcoming tournament
+                featured_tournament = next_tournament
+            else:
+                # No field yet - feature last completed, show upcoming as secondary
+                featured_tournament = last_completed
+                upcoming_tournament = next_tournament
+    else:
+        # No upcoming tournaments - show last completed
+        featured_tournament = last_completed
+
+    # Get picks for featured tournament (if deadline passed or complete)
     tournament_picks = {}
     show_picks = False
-    if current_tournament and current_tournament.is_deadline_passed():
+    if featured_tournament and (featured_tournament.status == 'complete' or featured_tournament.is_deadline_passed()):
         show_picks = True
-        picks = Pick.query.filter_by(tournament_id=current_tournament.id).all()
+        picks = Pick.query.filter_by(tournament_id=featured_tournament.id).all()
         for pick in picks:
             result = TournamentResult.query.filter_by(
-                tournament_id=current_tournament.id,
+                tournament_id=featured_tournament.id,
                 player_id=pick.primary_player_id
             ).first()
 
-            if current_tournament.status == 'active' and result:
+            if featured_tournament.status == 'active' and result:
                 earnings = result.earnings or 0
-            elif current_tournament.status == 'complete' and pick.points_earned is not None:
+            elif featured_tournament.status == 'complete' and pick.points_earned is not None:
                 earnings = pick.points_earned
             else:
                 earnings = result.earnings if result else 0
@@ -155,7 +187,8 @@ def index():
 
     return render_template('index.html',
                          users=users,
-                         current_tournament=current_tournament,
+                         featured_tournament=featured_tournament,
+                         upcoming_tournament=upcoming_tournament,
                          tournament_picks=tournament_picks,
                          show_picks=show_picks,
                          completed_tournaments=completed_tournaments,
