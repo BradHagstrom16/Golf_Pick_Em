@@ -147,7 +147,7 @@
                     <li>Points = <strong>actual prize money</strong> earned</li>
                     <li>Each golfer can only be used <strong>once per season</strong></li>
                     <li>Backup activates only if primary WDs before completing Round 2</li>
-                    <li>Amateurs are not pickable</li>
+                    <li><strong>⭐ Majors pay 1.5x</strong> (Masters, PGA, US Open, The Open)</li>
                     <li>Highest total points at season end wins!</li>
                 </ul>
             </div>
@@ -174,7 +174,7 @@
             </div>
             <div class="card-body">
                 <div class="progress mb-2" style="height: 25px;">
-                    <div class="progress-bar bg-success" role="progressbar" 
+                    <div class="progress-bar bg-success" role="progressbar"
                          style="width: {{ (completed_tournaments / total_tournaments * 100) if total_tournaments > 0 else 0 }}%">
                         {{ completed_tournaments }} / {{ total_tournaments }}
                     </div>
