@@ -25,6 +25,9 @@
                 <a href="{{ url_for('tournament_detail', tournament_id=tournament.id) }}" class="text-decoration-none text-dark">
                     <strong>{{ tournament.name }}</strong>
                 </a>
+                {% if tournament.is_major %}
+                    <br><span class="badge bg-warning text-dark">⭐ 1.5x Major</span>
+                {% endif %}
                 {% if tournament.is_team_event %}
                     <br><span class="badge bg-info">Team Event</span>
                 {% endif %}

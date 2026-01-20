@@ -129,6 +129,7 @@ class Tournament(db.Model):
     # Tournament details
     purse = db.Column(db.Integer, default=0)  # Total purse in dollars
     is_team_event = db.Column(db.Boolean, default=False)  # True for Zurich Classic
+    is_major = db.Column(db.Boolean, default=False)  # True for Masters, PGA, US Open, The Open
 
     # Status tracking
     status = db.Column(db.String(20), default='upcoming')  # upcoming, active, complete
@@ -415,6 +416,10 @@ class Pick(db.Model):
                 # Handle team event (Zurich) - divide by 2
                 if self.tournament.is_team_event:
                     earnings = earnings // 2
+                
+                # Handle major multiplier - multiply by 1.5
+                if self.tournament.is_major:
+                    earnings = int(earnings * 1.5)
 
                 self.points_earned = earnings
                 self.primary_used = False  # Returns to pool
@@ -440,6 +445,10 @@ class Pick(db.Model):
             # Handle team event (Zurich) - divide by 2
             if self.tournament.is_team_event:
                 earnings = earnings // 2
+            
+            # Handle major multiplier - multiply by 1.5
+            if self.tournament.is_major:
+                earnings = int(earnings * 1.5)
 
             self.points_earned = earnings
             self.primary_used = True
@@ -471,7 +480,14 @@ class Pick(db.Model):
                 player_id=self.primary_player_id
             ).first()
             if result and result.earnings:
-                return result.earnings
+                earnings = result.earnings
+                # Apply team event divisor for projections
+                if self.tournament.is_team_event:
+                    earnings = earnings // 2
+                # Apply major multiplier for projections
+                if self.tournament.is_major:
+                    earnings = int(earnings * 1.5)
+                return earnings
 
         return None
 

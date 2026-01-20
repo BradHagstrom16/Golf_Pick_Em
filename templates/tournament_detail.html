@@ -20,9 +20,14 @@
                     <span class="badge bg-info ms-2">Team Event</span>
                 {% endif %}
             </h3>
-            <span class="badge bg-{{ 'secondary' if tournament.status == 'complete' else 'warning text-dark' if tournament.status == 'active' else 'primary' }} fs-6">
-                {{ tournament.status|capitalize }}
-            </span>
+            <div class="text-end">
+                {% if tournament.is_major %}
+                    <span class="badge bg-warning text-dark fs-6 me-2">⭐ 1.5x Major</span>
+                {% endif %}
+                <span class="badge bg-{{ 'secondary' if tournament.status == 'complete' else 'warning text-dark' if tournament.status == 'active' else 'primary' }} fs-6">
+                    {{ tournament.status|capitalize }}
+                </span>
+            </div>
         </div>
     </div>
     <div class="card-body">
@@ -41,6 +46,11 @@
             </div>
         </div>
 
+        {% if tournament.is_major %}
+        <div class="alert alert-warning mb-0 mt-2">
+            <small><strong>⭐ Major Championship:</strong> All points earned in this tournament are multiplied by 1.5x!</small>
+        </div>
+        {% endif %}
         {% if tournament.is_team_event %}
         <div class="alert alert-info mb-0 mt-2">
             <small><strong>Team Event Note:</strong> Points are calculated as actual earnings ÷ 2 since golfers play as partners.</small>

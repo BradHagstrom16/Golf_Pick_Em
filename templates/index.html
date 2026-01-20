@@ -37,6 +37,9 @@
                     {% else %}
                         <strong>📋 Make Your Picks:</strong>
                     {% endif %}
+                    {% if featured_tournament.is_major %}
+                        <span class="badge bg-warning text-dark ms-2">⭐ 1.5x Major</span>
+                    {% endif %}
                     <a href="{{ url_for('tournament_detail', tournament_id=featured_tournament.id) }}" class="alert-link">
                         {{ featured_tournament.name }}
                     </a>
