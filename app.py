@@ -185,6 +185,14 @@ def index():
                 'earnings': earnings
             }
 
+    # Get current user's pick for featured tournament (if logged in)
+    user_pick = None
+    if featured_tournament and current_user.is_authenticated:
+        user_pick = Pick.query.filter_by(
+            user_id=current_user.id,
+            tournament_id=featured_tournament.id
+        ).first()
+
     return render_template('index.html',
                          users=users,
                          featured_tournament=featured_tournament,
@@ -192,7 +200,8 @@ def index():
                          tournament_picks=tournament_picks,
                          show_picks=show_picks,
                          completed_tournaments=completed_tournaments,
-                         total_tournaments=total_tournaments)
+                         total_tournaments=total_tournaments,
+                         user_pick=user_pick)
 
 
 @app.route('/leaderboard')
