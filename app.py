@@ -333,6 +333,14 @@ def tournament_detail(tournament_id):
     # Find the leader for highlighting
     max_points = max((r['points'] for r in pick_results), default=0)
 
+    # Get current user's pick for this tournament
+    user_pick = None
+    if current_user.is_authenticated:
+        user_pick = Pick.query.filter_by(
+            user_id=current_user.id,
+            tournament_id=tournament_id
+        ).first()
+
     return render_template('tournament_detail.html',
                          tournament=tournament,
                          pick_results=pick_results,
@@ -341,7 +349,8 @@ def tournament_detail(tournament_id):
                          field_count=field_count,
                          total_picks=total_picks,
                          total_points=total_points,
-                         max_points=max_points)
+                         max_points=max_points,
+                         user_pick=user_pick)
 
 
 # ============================================================================
