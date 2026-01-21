@@ -185,6 +185,8 @@ class Tournament(db.Model):
         deadline = self.pick_deadline
         if deadline.tzinfo is None:
             deadline = LEAGUE_TZ.localize(deadline)
+        else:
+            deadline = deadline.astimezone(LEAGUE_TZ)
         return deadline.strftime('%a %b %d, %I:%M %p CT')
 
     def __repr__(self):
@@ -416,7 +418,7 @@ class Pick(db.Model):
                 # Handle team event (Zurich) - divide by 2
                 if self.tournament.is_team_event:
                     earnings = earnings // 2
-                
+
                 # Handle major multiplier - multiply by 1.5
                 if self.tournament.is_major:
                     earnings = int(earnings * 1.5)
@@ -445,7 +447,7 @@ class Pick(db.Model):
             # Handle team event (Zurich) - divide by 2
             if self.tournament.is_team_event:
                 earnings = earnings // 2
-            
+
             # Handle major multiplier - multiply by 1.5
             if self.tournament.is_major:
                 earnings = int(earnings * 1.5)

@@ -565,8 +565,13 @@ class TournamentSync:
                         first_tee_time = tee_time
 
                 if first_tee_time:
-                    tournament.pick_deadline = first_tee_time
-                    logger.info("Set deadline for %s: %s", tournament.name, first_tee_time)
+                    # Convert to Central Time before storing (SQLite loses timezone info)
+                    if first_tee_time.tzinfo:
+                        first_tee_time_ct = first_tee_time.astimezone(LEAGUE_TZ)
+                        tournament.pick_deadline = first_tee_time_ct.replace(tzinfo=None)
+                    else:
+                        tournament.pick_deadline = first_tee_time
+                    logger.info("Set deadline for %s: %s CT", tournament.name, tournament.pick_deadline)
 
                 self._derive_status(tournament, data)
 
