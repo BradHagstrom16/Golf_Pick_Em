@@ -135,6 +135,10 @@ class Tournament(db.Model):
     status = db.Column(db.String(20), default='upcoming')  # upcoming, active, complete
     results_finalized = db.Column(db.Boolean, default=False)  # True once actual earnings fetched from API
 
+    # Email notification tracking
+    picks_open_notified = db.Column(db.Boolean, default=False)  # True once "picks are open" email sent
+    field_alert_sent = db.Column(db.Boolean, default=False)  # True once admin alert sent for missing field
+
     # Week number in our league (1-32)
     week_number = db.Column(db.Integer, nullable=True)
 
@@ -160,6 +164,15 @@ class Tournament(db.Model):
         if deadline.tzinfo is None:
             deadline = LEAGUE_TZ.localize(deadline)
         return now > deadline
+
+    def get_field_count(self):
+        """Get the number of players in the tournament field."""
+        from models import TournamentField
+        return TournamentField.query.filter_by(tournament_id=self.id).count()
+
+    def has_sufficient_field(self, minimum=50):
+        """Check if tournament has a sufficient field size for picks."""
+        return self.get_field_count() >= minimum
 
     def update_status_from_time(self, current_time: datetime = None):
         """Derive tournament status based on start/end dates and deadlines."""

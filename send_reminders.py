@@ -1,13 +1,18 @@
 """
-Golf Pick 'Em - Tournament Reminder Script
-==========================================
+Golf Pick 'Em - Tournament Reminder & Notification Script
+==========================================================
 
-Sends email reminders to users who haven't made their picks.
+Handles two types of emails:
+1. "Picks Are Open" - Sent when field is synced (called from sync_api.py)
+2. Deadline Reminders - Sent at 24h, 12h, 1h before deadline
 
 Reminder Schedule:
-  • 48 hours before deadline
-  • 24 hours before deadline  
+  • 24 hours before deadline
+  • 12 hours before deadline
   • 1 hour before deadline (FINAL)
+
+IMPORTANT: Reminders are ONLY sent if the field is synced (≥50 players).
+           If field is not ready, no reminders go out.
 
 Setup:
   1. Create email_config.py from email_config_template.py
@@ -15,7 +20,7 @@ Setup:
      Recommended: Every hour at :00 (e.g., 8:00, 9:00, 10:00...)
 
 PythonAnywhere Scheduled Task:
-  cd /home/YOUR_USERNAME/Golf_Pick_Em && python send_reminders.py
+  cd /home/GolfPickEm/Golf_Pick_Em && ./run_reminders.sh
 """
 
 import os
@@ -35,7 +40,7 @@ if PROJECT_HOME not in sys.path:
 os.environ.setdefault('FLASK_ENV', 'production')
 
 from app import app
-from models import db, User, Tournament, Pick
+from models import db, User, Tournament, TournamentField, Pick
 
 # Import email configuration
 try:
@@ -64,10 +69,18 @@ except ImportError:
 # Timezone
 CENTRAL_TZ = pytz.timezone("America/Chicago")
 
+# Minimum field size required for notifications
+MIN_FIELD_SIZE = 50
+
+# Admin contact for alerts
+ADMIN_EMAIL = "bhagstrom0@gmail.com"
+ADMIN_NAME = "Sun Day Regrets"
+
 # Reminder windows (hours before deadline)
+# Updated: 24h, 12h, 1h (removed 48h, added 12h)
 REMINDER_WINDOWS = [
-    {'hours': 48, 'type': 'early', 'emoji': '📅'},
     {'hours': 24, 'type': 'warning', 'emoji': '⚠️'},
+    {'hours': 12, 'type': 'reminder', 'emoji': '⏰'},
     {'hours': 1, 'type': 'final', 'emoji': '🚨'},
 ]
 
@@ -80,16 +93,27 @@ def get_current_time():
     return datetime.now(CENTRAL_TZ)
 
 
+def get_field_count(tournament_id):
+    """Get the number of players in a tournament's field."""
+    return TournamentField.query.filter_by(tournament_id=tournament_id).count()
+
+
+def is_field_ready(tournament_id, minimum=MIN_FIELD_SIZE):
+    """Check if tournament field has enough players for picks to be open."""
+    return get_field_count(tournament_id) >= minimum
+
+
 def get_upcoming_tournament():
     """
     Find the next tournament that:
     - Has status 'upcoming'
     - Has a deadline in the future
-    - Has a deadline within the next 48 hours (for reminders)
+    - Has a deadline within the next 24 hours (for reminders)
+    - Has a synced field (≥50 players)
     """
     with app.app_context():
         now = get_current_time()
-        max_future = now + timedelta(hours=48, minutes=TOLERANCE_MINUTES)
+        max_future = now + timedelta(hours=24, minutes=TOLERANCE_MINUTES)
         
         tournament = Tournament.query.filter(
             Tournament.status == 'upcoming',
@@ -111,6 +135,12 @@ def get_upcoming_tournament():
         if deadline > max_future:
             return None  # Too far in the future for reminders
         
+        # Check if field is ready
+        if not is_field_ready(tournament.id):
+            print(f"⚠️ Field not ready for {tournament.name} ({get_field_count(tournament.id)} players)")
+            print(f"   Reminders will not be sent until field has ≥{MIN_FIELD_SIZE} players")
+            return None
+        
         # Attach the aware deadline
         tournament._aware_deadline = deadline
         return tournament
@@ -124,6 +154,12 @@ def get_users_without_picks(tournament):
             p.user_id for p in Pick.query.filter_by(tournament_id=tournament.id)
         }
         return [u for u in all_users if u.id not in picked_user_ids]
+
+
+def get_all_users():
+    """Get all registered users."""
+    with app.app_context():
+        return User.query.all()
 
 
 def should_send_reminder(deadline, window_hours):
@@ -202,17 +238,17 @@ def send_email(to_addr: str, subject: str, body: str) -> bool:
 
 
 def build_reminder_email(user, tournament, deadline, window):
-    """Build the email subject and body for a reminder."""
+    """Build the email subject and body for a deadline reminder."""
     time_remaining = format_time_remaining(deadline)
     pick_url = f"{SITE_URL}/pick/{tournament.id}"
     
     # Subject line based on urgency
     if window['type'] == 'final':
         subject = f"🚨 FINAL REMINDER: {tournament.name} pick due in ~1 hour!"
-    elif window['type'] == 'warning':
-        subject = f"⚠️ Reminder: {tournament.name} pick due in ~24 hours"
+    elif window['type'] == 'reminder':
+        subject = f"⏰ Reminder: {tournament.name} pick due in ~12 hours"
     else:
-        subject = f"📅 Reminder: {tournament.name} pick deadline approaching"
+        subject = f"⚠️ Reminder: {tournament.name} pick due in ~24 hours"
     
     # Email body
     body = f"""Hi {user.get_display_name()},
@@ -238,14 +274,14 @@ Your Season Stats:
 The deadline is less than 1 hour away. Make your pick NOW to avoid missing out!
 
 """
-    elif window['type'] == 'warning':
-        body += """You have about 24 hours left. You'll receive one more reminder 
+    elif window['type'] == 'reminder':
+        body += """You have about 12 hours left. You'll receive one more reminder 
 1 hour before the deadline.
 
 """
     else:
-        body += """You'll receive additional reminders at 24 hours and 1 hour 
-before the deadline.
+        body += """You have about 24 hours left. You'll receive additional reminders 
+at 12 hours and 1 hour before the deadline.
 
 """
     
@@ -259,6 +295,165 @@ Golf Pick 'Em {tournament.season_year}
     
     return subject, body
 
+
+# =============================================================================
+# PICKS OPEN NOTIFICATION (Called from sync_api.py after field sync)
+# =============================================================================
+
+def send_picks_open_email(tournament) -> int:
+    """
+    Send "Picks Are Open" notification to all users.
+    Called from sync_api.py after successful field sync.
+    
+    Args:
+        tournament: Tournament object with field synced
+    
+    Returns:
+        Number of emails successfully sent
+    """
+    print(f"\n📬 Sending 'Picks Are Open' notifications for {tournament.name}")
+    
+    if not CONFIG_LOADED:
+        print("  ❌ Cannot send: Email configuration not loaded")
+        return 0
+    
+    # Get deadline for display
+    deadline = tournament.pick_deadline
+    if deadline and deadline.tzinfo is None:
+        deadline = CENTRAL_TZ.localize(deadline)
+    
+    deadline_str = deadline.strftime('%A, %B %d at %I:%M %p CT') if deadline else "TBD"
+    
+    # Get field count
+    field_count = get_field_count(tournament.id)
+    
+    # Build email
+    pick_url = f"{SITE_URL}/pick/{tournament.id}"
+    
+    subject = f"🏌️ Picks Are Open: {tournament.name}"
+    
+    body_template = """Hi {display_name},
+
+Great news! The field for {tournament_name} is now available, and picks are open!
+
+🏆 Tournament: {tournament_name}
+💰 Purse: ${purse:,}
+👥 Field Size: {field_count} players
+⏰ Pick Deadline: {deadline}
+
+Make your pick now: {pick_url}
+
+Remember:
+• Pick a primary golfer and a backup
+• Each golfer can only be used once this season
+• Points = actual prize money earned
+
+Your Season Stats:
+• Total Points: ${total_points:,}
+• Golfers Used: {golfers_used}
+
+Good luck this week!
+{commissioner}
+
+---
+Golf Pick 'Em {season_year}
+{site_url}
+"""
+    
+    # Send to all users
+    with app.app_context():
+        users = get_all_users()
+        success_count = 0
+        
+        for user in users:
+            body = body_template.format(
+                display_name=user.get_display_name(),
+                tournament_name=tournament.name,
+                purse=tournament.purse,
+                field_count=field_count,
+                deadline=deadline_str,
+                pick_url=pick_url,
+                total_points=user.total_points,
+                golfers_used=len(user.get_used_player_ids()),
+                commissioner=COMMISSIONER_NAME,
+                season_year=tournament.season_year,
+                site_url=SITE_URL
+            )
+            
+            if send_email(user.email, subject, body):
+                success_count += 1
+        
+        print(f"\n📊 Picks Open Summary: {success_count}/{len(users)} emails sent")
+        return success_count
+
+
+# =============================================================================
+# ADMIN ALERT (Called from sync_api.py on Wednesday if field not ready)
+# =============================================================================
+
+def send_admin_field_alert(tournament, field_count: int) -> bool:
+    """
+    Send alert to admin when field sync fails on Wednesday.
+    
+    Args:
+        tournament: Tournament object
+        field_count: Current number of players in field
+    
+    Returns:
+        True if email sent successfully
+    """
+    print(f"\n🚨 Sending admin alert for {tournament.name}")
+    
+    if not CONFIG_LOADED:
+        print("  ❌ Cannot send: Email configuration not loaded")
+        return False
+    
+    # Get deadline for display
+    deadline = tournament.pick_deadline
+    if deadline and deadline.tzinfo is None:
+        deadline = CENTRAL_TZ.localize(deadline)
+    
+    deadline_str = deadline.strftime('%A, %B %d at %I:%M %p CT') if deadline else "TBD"
+    
+    subject = f"⚠️ ADMIN ALERT: Field sync issue for {tournament.name}"
+    
+    body = f"""Hi {ADMIN_NAME},
+
+This is an automated alert from Golf Pick 'Em.
+
+⚠️ FIELD SYNC ISSUE DETECTED
+
+Tournament: {tournament.name}
+Current Field Size: {field_count} players (minimum required: {MIN_FIELD_SIZE})
+Pick Deadline: {deadline_str}
+Tournament Start: {tournament.start_date.strftime('%A, %B %d')}
+
+What this means:
+• The Wednesday field confirmation pass did not find enough players
+• Users will NOT receive "Picks Are Open" emails
+• Deadline reminder emails will NOT be sent
+• Users cannot make picks without a synced field
+
+Recommended Actions:
+1. Check if the API has field data available
+2. Try running a manual field sync: ./run_sync.sh field
+3. Check SlashGolf API status for any outages
+4. If the tournament is cancelled/postponed, update the database
+
+Admin Dashboard: {SITE_URL}/admin
+
+This alert will only be sent once per tournament.
+
+---
+Golf Pick 'Em Automated Alert System
+"""
+    
+    return send_email(ADMIN_EMAIL, subject, body)
+
+
+# =============================================================================
+# MAIN REMINDER CHECK (Runs hourly via scheduled task)
+# =============================================================================
 
 def main():
     """Main reminder processing function."""
@@ -279,20 +474,21 @@ def main():
         tournament = get_upcoming_tournament()
         
         if not tournament:
-            print("\n📭 No upcoming tournaments within reminder window")
+            print("\n📭 No upcoming tournaments within reminder window (or field not ready)")
             return
         
         deadline = tournament._aware_deadline
         print(f"\n🏌️ Tournament: {tournament.name}")
         print(f"📅 Deadline: {deadline.strftime('%A, %B %d at %I:%M %p %Z')}")
         print(f"⏱️ Time remaining: {format_time_remaining(deadline)}")
+        print(f"👥 Field size: {get_field_count(tournament.id)} players")
         
         # Check which reminder window is active
         window = get_active_reminder_window(deadline)
         
         if not window:
             print(f"\n⏳ Not within any reminder window")
-            print(f"   Next windows: 48h, 24h, 1h before deadline")
+            print(f"   Next windows: 24h, 12h, 1h before deadline")
             return
         
         print(f"\n📬 Active reminder window: {window['hours']}-hour ({window['type']})")

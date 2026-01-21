@@ -14,6 +14,10 @@ API Endpoints Used:
 - /earnings - Prize money per player (after tournament complete)
 - /schedule - Season schedule (one-time import)
 - /tournament - Tournament details + full field
+
+Email Notifications (NEW):
+- "Picks Are Open" - Sent when field syncs with ≥50 players
+- Admin Alert - Sent on Wednesday if field still has <50 players
 """
 
 import logging
@@ -92,6 +96,9 @@ PURSE_ESTIMATES = {
     'BMW Championship': 20_000_000,
 }
 DEFAULT_PURSE = 10_000_000  # Fallback for tournaments not in estimates
+
+# Minimum field size for "picks open" notification
+MIN_FIELD_SIZE = 50
 
 # PGA Tour Standard Payout Percentages (positions 1-65)
 # Source: PGA Tour payout structure for full-field events
@@ -498,13 +505,14 @@ class TournamentSync:
         print(f"Imported {imported} tournaments for {year}")
         return imported
 
-    def sync_tournament_field(self, tournament: Tournament) -> Tuple[int, Optional[datetime]]:
+    def sync_tournament_field(self, tournament: Tournament, is_wednesday: bool = False) -> Tuple[int, Optional[datetime]]:
         """
         Sync tournament field and get first tee time.
         Call this Tuesday before the tournament.
 
         Args:
             tournament: Tournament object to sync
+            is_wednesday: True if this is the Wednesday confirmation pass
 
         Returns:
             Tuple of (players_synced, first_tee_time)
@@ -594,6 +602,36 @@ class TournamentSync:
         except Exception:
             db.session.rollback()
             logger.exception("Failed syncing field for %s", tournament.name)
+            return 0, None
+
+        # =================================================================
+        # EMAIL NOTIFICATIONS (after successful sync)
+        # =================================================================
+        field_count = TournamentField.query.filter_by(tournament_id=tournament.id).count()
+        
+        # Check if field is sufficient and we haven't sent the "picks open" email yet
+        if field_count >= MIN_FIELD_SIZE and not tournament.picks_open_notified:
+            try:
+                from send_reminders import send_picks_open_email
+                emails_sent = send_picks_open_email(tournament)
+                if emails_sent > 0:
+                    tournament.picks_open_notified = True
+                    db.session.commit()
+                    logger.info("Sent 'picks open' email to %s users for %s", emails_sent, tournament.name)
+            except Exception as e:
+                logger.error("Failed to send 'picks open' email for %s: %s", tournament.name, e)
+        
+        # Check if it's Wednesday and field is still insufficient - send admin alert
+        if is_wednesday and field_count < MIN_FIELD_SIZE and not tournament.field_alert_sent:
+            try:
+                from send_reminders import send_admin_field_alert
+                if send_admin_field_alert(tournament, field_count):
+                    tournament.field_alert_sent = True
+                    db.session.commit()
+                    logger.warning("Sent admin alert for %s - only %s players in field", tournament.name, field_count)
+            except Exception as e:
+                logger.error("Failed to send admin alert for %s: %s", tournament.name, e)
+
         return players_synced, first_tee_time
 
     def sync_tournament_results(self, tournament: Tournament) -> int:
@@ -1090,6 +1128,9 @@ def register_sync_commands(app):
             click.echo(f"Free tier mode: '{mode}' sync disabled to stay within RapidAPI limits")
             sys.exit(0)
 
+        # Determine if today is Wednesday (for admin alert logic)
+        is_wednesday = datetime.now(LEAGUE_TZ).weekday() == 2  # 0=Mon, 1=Tue, 2=Wed
+
         try:
             if mode in ('schedule', 'all'):
                 # Only sync schedule on Mondays to conserve API calls
@@ -1107,7 +1148,8 @@ def register_sync_commands(app):
                     if not upcoming:
                         click.echo("No upcoming tournaments to sync field for")
                     for tournament in upcoming:
-                        sync.sync_tournament_field(tournament)
+                        # Pass is_wednesday flag for admin alert logic
+                        sync.sync_tournament_field(tournament, is_wednesday=is_wednesday)
 
             if mode in ('live', 'all'):
                 active = get_active_tournaments()
