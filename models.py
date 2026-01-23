@@ -320,6 +320,10 @@ class Pick(db.Model):
     primary_used = db.Column(db.Boolean, default=False)
     backup_used = db.Column(db.Boolean, default=False)
 
+    # Admin override tracking
+    admin_override = db.Column(db.Boolean, default=False)  # True if admin created/modified after deadline
+    admin_override_note = db.Column(db.String(200), nullable=True)  # Optional reason for override
+
     # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

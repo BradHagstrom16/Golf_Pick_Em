@@ -182,7 +182,9 @@ def index():
             tournament_picks[pick.user_id] = {
                 'primary': pick.primary_player.full_name(),
                 'position': result.final_position if result else None,
-                'earnings': earnings
+                'earnings': earnings,
+                'admin_override': pick.admin_override,
+                'admin_override_note': pick.admin_override_note
             }
 
     # Get current user's pick for featured tournament (if logged in)
@@ -297,7 +299,9 @@ def tournament_detail(tournament_id):
                 'position': position,
                 'points': points,
                 'backup_activated': (pick.active_player_id == pick.backup_player_id) if pick.active_player_id else False,
-                'has_pick': True
+                'has_pick': True,
+                'admin_override': pick.admin_override,
+                'admin_override_note': pick.admin_override_note
             })
         else:
             # User didn't submit a pick
@@ -312,7 +316,9 @@ def tournament_detail(tournament_id):
                 'position': None,
                 'points': 0,
                 'backup_activated': False,
-                'has_pick': False
+                'has_pick': False,
+                'admin_override': False,
+                'admin_override_note': None
             })
 
     # Sort results
@@ -730,6 +736,143 @@ def admin_update_payment(user_id):
     db.session.commit()
 
     return jsonify({'success': True, 'has_paid': user.has_paid})
+
+
+# ============================================================================
+# Admin Override Pick Route
+# ============================================================================
+
+@app.route('/admin/override-pick', methods=['GET', 'POST'])
+@admin_required
+def admin_override_pick():
+    """Admin can create or modify picks after deadline has passed."""
+
+    # Get all tournaments and users for dropdowns
+    tournaments = Tournament.query.filter_by(
+        season_year=app.config['SEASON_YEAR']
+    ).order_by(Tournament.start_date.desc()).all()
+
+    users = User.query.order_by(func.lower(User.username)).all()
+
+    # Track which users have picks for selected tournament
+    users_with_picks = set()
+
+    # Context for template
+    selected_tournament = None
+    selected_user = None
+    field_players = None
+    existing_pick = None
+    used_player_ids = []
+
+    # Get recent override picks for sidebar
+    recent_overrides = Pick.query.filter_by(admin_override=True).order_by(Pick.updated_at.desc()).limit(5).all()
+
+    if request.method == 'POST':
+        tournament_id = request.form.get('tournament_id', type=int)
+        user_id = request.form.get('user_id', type=int)
+        primary_id = request.form.get('primary_player_id', type=int)
+        backup_id = request.form.get('backup_player_id', type=int)
+        override_note = request.form.get('override_note', '').strip()[:200]
+        load_field = request.form.get('load_field')
+
+        if tournament_id:
+            selected_tournament = Tournament.query.get(tournament_id)
+            # Get users who already have picks for this tournament
+            picks_for_tournament = Pick.query.filter_by(tournament_id=tournament_id).all()
+            users_with_picks = {p.user_id for p in picks_for_tournament}
+
+        if user_id:
+            selected_user = User.query.get(user_id)
+            if selected_user:
+                used_player_ids = selected_user.get_used_player_ids()
+
+        # If we have both tournament and user, load the field
+        if selected_tournament and selected_user:
+            field_players = Player.query.join(TournamentField).filter(
+                TournamentField.tournament_id==selected_tournament.id,
+                Player.is_amateur == False
+            ).order_by(Player.last_name).all()
+
+            # Check for existing pick
+            existing_pick = Pick.query.filter_by(
+                user_id=selected_user.id,
+                tournament_id=selected_tournament.id
+            ).first()
+
+            # If existing pick, allow those players to be reselected
+            if existing_pick:
+                if existing_pick.primary_player_id in used_player_ids:
+                    used_player_ids.remove(existing_pick.primary_player_id)
+                if existing_pick.backup_player_id in used_player_ids:
+                    used_player_ids.remove(existing_pick.backup_player_id)
+
+        # If we have all the data and it's not just a "load field" request
+        if primary_id and backup_id and not load_field:
+            errors = []
+
+            if primary_id == backup_id:
+                errors.append('Primary and backup must be different players.')
+
+            # Validate players are in field
+            field_ids = [p.id for p in field_players] if field_players else []
+            if primary_id not in field_ids:
+                errors.append('Primary player is not in the tournament field.')
+            if backup_id not in field_ids:
+                errors.append('Backup player is not in the tournament field.')
+
+            # Check if players are already used (but allow current pick's players)
+            if primary_id in used_player_ids:
+                errors.append('Primary player has already been used by this user this season.')
+            if backup_id in used_player_ids:
+                errors.append('Backup player has already been used by this user this season.')
+
+            if errors:
+                for error in errors:
+                    flash(error, 'error')
+            else:
+                if existing_pick:
+                    # Update existing pick
+                    existing_pick.primary_player_id = primary_id
+                    existing_pick.backup_player_id = backup_id
+                    existing_pick.admin_override = True
+                    existing_pick.admin_override_note = override_note or None
+                    existing_pick.updated_at = datetime.utcnow()
+                    flash(f'Override pick updated for {selected_user.get_display_name()}!', 'success')
+                else:
+                    # Create new pick
+                    new_pick = Pick(
+                        user_id=selected_user.id,
+                        tournament_id=selected_tournament.id,
+                        primary_player_id=primary_id,
+                        backup_player_id=backup_id,
+                        admin_override=True,
+                        admin_override_note=override_note or None
+                    )
+                    db.session.add(new_pick)
+                    flash(f'Override pick created for {selected_user.get_display_name()}!', 'success')
+
+                db.session.commit()
+
+                # Refresh recent overrides
+                recent_overrides = Pick.query.filter_by(admin_override=True).order_by(Pick.updated_at.desc()).limit(5).all()
+
+                # Reset form state
+                selected_tournament = None
+                selected_user = None
+                field_players = None
+                existing_pick = None
+                used_player_ids = []
+
+    return render_template('admin/override_pick.html',
+                         tournaments=tournaments,
+                         users=users,
+                         users_with_picks=users_with_picks,
+                         selected_tournament=selected_tournament,
+                         selected_user=selected_user,
+                         field_players=field_players,
+                         existing_pick=existing_pick,
+                         used_player_ids=used_player_ids,
+                         recent_overrides=recent_overrides)
 
 
 def process_tournament_results(tournament: Tournament):

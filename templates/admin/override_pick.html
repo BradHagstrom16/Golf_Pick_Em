@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+
+{% block title %}Override Pick - Golf Pick 'Em{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('admin_dashboard') }}">Admin</a></li>
+        <li class="breadcrumb-item active">Override Pick</li>
+    </ol>
+</nav>
+
+<h2>👑 Admin Override Pick</h2>
+
+<div class="alert alert-warning">
+    <strong>⚠️ Admin Override Mode</strong><br>
+    Use this to create or modify picks after the deadline has passed. 
+    Picks created this way will be marked with a 👑 icon visible to all users.
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0">Create/Edit Override Pick</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" id="overrideForm">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    
+                    <!-- Tournament Selection -->
+                    <div class="mb-4">
+                        <label for="tournament_id" class="form-label">
+                            <strong>Tournament *</strong>
+                        </label>
+                        <select class="form-select form-select-lg" id="tournament_id" name="tournament_id" required>
+                            <option value="">-- Select Tournament --</option>
+                            {% for tournament in tournaments %}
+                                <option value="{{ tournament.id }}" 
+                                    {% if selected_tournament and selected_tournament.id == tournament.id %}selected{% endif %}>
+                                    {{ tournament.name }} ({{ tournament.status|capitalize }})
+                                    {% if tournament.is_deadline_passed() %} - DEADLINE PASSED{% endif %}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- User Selection -->
+                    <div class="mb-4">
+                        <label for="user_id" class="form-label">
+                            <strong>User *</strong>
+                        </label>
+                        <select class="form-select form-select-lg" id="user_id" name="user_id" required>
+                            <option value="">-- Select User --</option>
+                            {% for user in users %}
+                                <option value="{{ user.id }}"
+                                    {% if selected_user and selected_user.id == user.id %}selected{% endif %}>
+                                    {{ user.get_display_name() }} ({{ user.username }})
+                                    {% if user.id in users_with_picks %} - HAS PICK{% endif %}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    {% if field_players %}
+                    <!-- Primary Pick -->
+                    <div class="mb-4">
+                        <label for="primary_player_id" class="form-label">
+                            <strong>Primary Pick *</strong>
+                        </label>
+                        <select class="form-select form-select-lg" id="primary_player_id" name="primary_player_id" required>
+                            <option value="">-- Select Primary Golfer --</option>
+                            {% for player in field_players %}
+                                <option value="{{ player.id }}"
+                                    {% if existing_pick and existing_pick.primary_player_id == player.id %}selected{% endif %}
+                                    {% if player.id in used_player_ids %}class="text-muted"{% endif %}>
+                                    {{ player.last_name }}, {{ player.first_name }}
+                                    {% if player.id in used_player_ids %}(USED){% endif %}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <small class="text-muted">Players marked (USED) have already been used by this user this season</small>
+                    </div>
+
+                    <!-- Backup Pick -->
+                    <div class="mb-4">
+                        <label for="backup_player_id" class="form-label">
+                            <strong>Backup Pick *</strong>
+                        </label>
+                        <select class="form-select form-select-lg" id="backup_player_id" name="backup_player_id" required>
+                            <option value="">-- Select Backup Golfer --</option>
+                            {% for player in field_players %}
+                                <option value="{{ player.id }}"
+                                    {% if existing_pick and existing_pick.backup_player_id == player.id %}selected{% endif %}
+                                    {% if player.id in used_player_ids %}class="text-muted"{% endif %}>
+                                    {{ player.last_name }}, {{ player.first_name }}
+                                    {% if player.id in used_player_ids %}(USED){% endif %}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endif %}
+
+                    <!-- Override Note -->
+                    <div class="mb-4">
+                        <label for="override_note" class="form-label">
+                            <strong>Override Note</strong> (optional)
+                        </label>
+                        <input type="text" class="form-control" id="override_note" name="override_note" 
+                               maxlength="200" placeholder="e.g., User contacted before deadline but had technical issues"
+                               {% if existing_pick and existing_pick.admin_override_note %}value="{{ existing_pick.admin_override_note }}"{% endif %}>
+                        <small class="text-muted">This note will be visible when hovering over the 👑 icon</small>
+                    </div>
+
+                    <div class="d-grid gap-2 d-md-flex">
+                        {% if field_players %}
+                            <button type="submit" class="btn btn-warning btn-lg">
+                                {% if existing_pick %}Update Override Pick{% else %}Create Override Pick{% endif %}
+                            </button>
+                        {% else %}
+                            <button type="submit" class="btn btn-primary btn-lg" name="load_field" value="1">
+                                Load Tournament Field
+                            </button>
+                        {% endif %}
+                        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-secondary btn-lg">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <!-- Current Pick Info -->
+        {% if existing_pick %}
+        <div class="card border-info mb-3">
+            <div class="card-header bg-info text-white">
+                <h6 class="mb-0">📋 Existing Pick</h6>
+            </div>
+            <div class="card-body">
+                <p class="mb-1"><strong>Primary:</strong> {{ existing_pick.primary_player.full_name() }}</p>
+                <p class="mb-1"><strong>Backup:</strong> {{ existing_pick.backup_player.full_name() }}</p>
+                <p class="mb-1"><strong>Created:</strong> {{ existing_pick.created_at.strftime('%b %d, %Y %I:%M %p') }}</p>
+                {% if existing_pick.admin_override %}
+                    <p class="mb-0"><span class="badge bg-warning text-dark">👑 Admin Override</span></p>
+                    {% if existing_pick.admin_override_note %}
+                        <small class="text-muted">Note: {{ existing_pick.admin_override_note }}</small>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Instructions -->
+        <div class="card">
+            <div class="card-header bg-secondary text-white">
+                <h6 class="mb-0">📋 Instructions</h6>
+            </div>
+            <div class="card-body">
+                <ol class="mb-0 small">
+                    <li>Select the tournament</li>
+                    <li>Select the user</li>
+                    <li>Click "Load Tournament Field"</li>
+                    <li>Select primary and backup golfers</li>
+                    <li>Optionally add a note explaining the override</li>
+                    <li>Submit the pick</li>
+                </ol>
+                <hr>
+                <p class="small text-muted mb-0">
+                    <strong>Note:</strong> Override picks are marked with 👑 and the note is visible on hover.
+                    This maintains transparency about admin-assisted picks.
+                </p>
+            </div>
+        </div>
+
+        <!-- Recent Override Picks -->
+        {% if recent_overrides %}
+        <div class="card mt-3">
+            <div class="card-header bg-warning text-dark">
+                <h6 class="mb-0">👑 Recent Overrides</h6>
+            </div>
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush">
+                    {% for pick in recent_overrides %}
+                    <li class="list-group-item small">
+                        <strong>{{ pick.user.get_display_name() }}</strong><br>
+                        {{ pick.tournament.name }}<br>
+                        <span class="text-muted">{{ pick.primary_player.full_name() }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Auto-submit when tournament or user changes to load the field
+document.getElementById('tournament_id').addEventListener('change', function() {
+    if (this.value && document.getElementById('user_id').value) {
+        document.querySelector('button[name="load_field"]')?.click();
+    }
+});
+
+document.getElementById('user_id').addEventListener('change', function() {
+    if (this.value && document.getElementById('tournament_id').value) {
+        document.querySelector('button[name="load_field"]')?.click();
+    }
+});
+
+// Prevent selecting same player for both picks
+document.getElementById('backup_player_id')?.addEventListener('change', function() {
+    var primary = document.getElementById('primary_player_id').value;
+    var backup = this.value;
+
+    if (primary && backup && primary === backup) {
+        alert('Primary and backup must be different players!');
+        this.value = '';
+    }
+});
+
+document.getElementById('primary_player_id')?.addEventListener('change', function() {
+    var primary = this.value;
+    var backup = document.getElementById('backup_player_id').value;
+
+    if (primary && backup && primary === backup) {
+        alert('Primary and backup must be different players!');
+        document.getElementById('backup_player_id').value = '';
+    }
+});
+</script>
+{% endblock %}

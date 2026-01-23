@@ -189,6 +189,9 @@
                             <td>
                                 {% if result.has_pick %}
                                     {{ result.primary_name }}
+                                    {% if result.admin_override %}
+                                        <span class="badge bg-warning text-dark" title="{{ result.admin_override_note or 'Admin override pick' }}">👑</span>
+                                    {% endif %}
                                     {% if result.primary_result %}
                                         {% if result.primary_result.status == 'cut' %}
                                             <span class="badge bg-danger">CUT</span>
@@ -275,6 +278,7 @@
             <strong>Legend:</strong>
             🏆 = Top Earner |
             🔄 = Backup Activated |
+            👑 = Admin Override |
             <span class="badge bg-danger">CUT</span> = Missed Cut |
             <span class="badge bg-warning text-dark">WD</span> = Withdrew |
             <span class="badge bg-dark">DQ</span> = Disqualified
