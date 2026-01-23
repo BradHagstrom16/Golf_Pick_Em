@@ -81,7 +81,7 @@
                         {% endif %}
                     </td>
                     <td>
-                        {% if tournament.status == 'upcoming' and not tournament.is_deadline_passed() %}
+                        {% if tournament.status != 'complete' and not tournament.is_deadline_passed() %}
                             {% if pick %}
                                 <a href="{{ url_for('make_pick', tournament_id=tournament.id) }}" class="btn btn-sm btn-warning">Edit</a>
                             {% else %}

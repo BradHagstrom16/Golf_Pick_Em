@@ -126,7 +126,7 @@
     <!-- Sidebar -->
     <div class="col-lg-4">
         <!-- Pick Status - show if upcoming tournament with field -->
-        {% if current_user.is_authenticated and featured_tournament and featured_tournament.status == 'upcoming' and not featured_tournament.is_deadline_passed() %}
+        {% if current_user.is_authenticated and featured_tournament and featured_tournament.status != 'complete' and not featured_tournament.is_deadline_passed() %}
         <div class="card mb-3 border-success">
             <div class="card-body">
                 {% if user_pick %}
