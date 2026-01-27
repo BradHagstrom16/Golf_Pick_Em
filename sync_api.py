@@ -1110,7 +1110,7 @@ def register_sync_commands(app):
             print("No withdrawals")
 
     @app.cli.command('sync-run')
-    @click.option('--mode', type=click.Choice(['schedule', 'field', 'live', 'withdrawals', 'results', 'earnings', 'all']), required=True)
+    @click.option('--mode', type=click.Choice(['schedule', 'field', 'live', 'live-with-wd', 'withdrawals', 'results', 'earnings', 'all']), required=True)
     def sync_run_cmd(mode):
         """Unified automation entrypoint for scheduled tasks."""
         api_key = os.environ.get('SLASHGOLF_API_KEY')
@@ -1160,10 +1160,27 @@ def register_sync_commands(app):
                     if updated:
                         click.echo(f"Updated {updated} leaderboard entries with projected earnings for {tournament.name}")
 
+            if mode == 'live-with-wd':
+                # Combined live update + withdrawal check (for Friday 8 PM critical timing)
+                active = get_active_tournaments()
+                if not active:
+                    click.echo("No active tournaments for live+WD sync")
+                for tournament in active:
+                    # First update leaderboard
+                    updated = sync.sync_live_leaderboard(tournament)
+                    if updated:
+                        click.echo(f"Updated {updated} leaderboard entries for {tournament.name}")
+        
+                    # Then check for withdrawals
+                    withdrawals = sync.check_withdrawals(tournament)
+                    if withdrawals:
+                        click.echo(f"Withdrawals detected for {tournament.name}: {len(withdrawals)}")
+                        # Log critical R2 withdrawals
+                        for wd in withdrawals:
+                            if wd['wd_before_r2']:
+                                click.echo(f"  ⚠️ {wd['name']} - WD before R2 complete (backup activation possible)")
+
             if mode in ('withdrawals', 'all'):
-                if sync_mode == 'free':
-                    click.echo("Free tier: skipping withdrawal monitoring (handled during results sync)")
-                else:
                     active = get_active_tournaments()
                     if not active:
                         click.echo("No active tournaments for withdrawal checks")

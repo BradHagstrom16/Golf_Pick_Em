@@ -38,17 +38,21 @@
                         <br><small class="text-muted">{{ tournament.status|capitalize }}</small>
                     </td>
                     <td>
+                    
                         {% if pick %}
                             <strong>{{ pick.primary_player.full_name() }}</strong>
                             {% if pick.admin_override %}
                                 <span class="badge bg-warning text-dark" title="{{ pick.admin_override_note or 'Admin override pick' }}">👑</span>
                             {% endif %}
-                            {% if pick.primary_used %}
-                                <span class="badge bg-secondary">Used</span>
-                            {% endif %}
-                            {% if pick.active_player_id == pick.primary_player_id and tournament.status == 'complete' %}
-                                <span class="badge bg-success">Active</span>
-                            {% endif %}
+                        {% if pick.is_backup_activated() %}
+                            <span class="badge bg-info" title="Backup activated - Primary withdrew early">🔄</span>
+                        {% endif %}
+                        {% if pick.primary_used %}
+                            <span class="badge bg-secondary">Used</span>
+                        {% endif %}
+                        {% if pick.active_player_id == pick.primary_player_id and tournament.status == 'complete' %}
+                            <span class="badge bg-success">Active</span>
+                        {% endif %}
                         {% else %}
                             <span class="text-muted">-</span>
                         {% endif %}
@@ -150,6 +154,7 @@
             </div>
             <div class="card-body small">
                 <p class="mb-1"><span class="badge bg-warning text-dark">👑</span> = Admin Override (pick made by commissioner)</p>
+                <p class="mb-1"><span class="badge bg-info">🔄</span> = Backup Activated (primary withdrew before R2)</p>
                 <p class="mb-1"><span class="badge bg-success">Active</span> = This golfer counted for points</p>
                 <p class="mb-1"><span class="badge bg-info">Activated</span> = Backup was used (primary WD early)</p>
                 <p class="mb-0"><span class="badge bg-secondary">Used</span> = Golfer locked for season</p>

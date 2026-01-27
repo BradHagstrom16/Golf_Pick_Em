@@ -509,6 +509,31 @@ class Pick(db.Model):
                 return earnings
 
         return None
+    
+    def is_backup_activated(self):
+        """
+        Check if backup was activated during or after tournament.
+        Returns True if active player is the backup player.
+    
+        This can be determined:
+        - During tournament: if primary has WD'd before R2 (from TournamentResult)
+        - After tournament: if active_player_id == backup_player_id
+        """
+        # After tournament completes, we have definitive answer
+        if self.tournament.status == 'complete' and self.active_player_id:
+            return self.active_player_id == self.backup_player_id
+    
+        # During tournament, check if primary WD'd before R2
+        if self.tournament.status == 'active':
+            primary_result = TournamentResult.query.filter_by(
+                tournament_id=self.tournament_id,
+                player_id=self.primary_player_id
+            ).first()
+        
+            if primary_result and primary_result.wd_before_round_2_complete():
+                return True
+    
+        return False
 
     def __repr__(self):
         return f'<Pick User:{self.user_id} Tournament:{self.tournament_id}>'

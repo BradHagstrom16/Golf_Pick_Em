@@ -192,6 +192,9 @@
                                     {% if result.admin_override %}
                                         <span class="badge bg-warning text-dark" title="{{ result.admin_override_note or 'Admin override pick' }}">👑</span>
                                     {% endif %}
+                                    {% if result.backup_activated %}
+                                        <span class="badge bg-info" title="Backup activated - Primary withdrew before completing Round 2">🔄</span>
+                                    {% endif %}
                                     {% if result.primary_result %}
                                         {% if result.primary_result.status == 'cut' %}
                                             <span class="badge bg-danger">CUT</span>

@@ -184,7 +184,8 @@ def index():
                 'position': result.final_position if result else None,
                 'earnings': earnings,
                 'admin_override': pick.admin_override,
-                'admin_override_note': pick.admin_override_note
+                'admin_override_note': pick.admin_override_note,
+                'backup_activated': pick.is_backup_activated()
             }
 
     # Get current user's pick for featured tournament (if logged in)
@@ -680,12 +681,16 @@ def admin_dashboard():
         Tournament.results_finalized == False
     ).order_by(Tournament.end_date.desc()).all()
 
+    # Get API usage statistics
+    api_usage = parse_api_usage_logs()
+
     return render_template('admin/dashboard.html',
                          tournaments=tournaments,
                          total_users=total_users,
                          paid_users=paid_users,
                          entry_fee=app.config['ENTRY_FEE'],
-                         pending_finalization=pending_finalization)
+                         pending_finalization=pending_finalization,
+                         api_usage=api_usage)
 
 
 @app.route('/admin/tournaments')
@@ -908,6 +913,101 @@ def process_tournament_results(tournament: Tournament):
                 )
 
     return processed, skipped
+
+# ============================================================================
+# API Usage Monitoring
+# ============================================================================
+
+def parse_api_usage_logs(month=None, year=None):
+    """
+    Parse API call logs to track usage.
+    
+    Args:
+        month: Month to filter (1-12), defaults to current month
+        year: Year to filter, defaults to current year
+    
+    Returns:
+        dict with usage statistics
+    """
+    import os
+    from datetime import datetime
+    from collections import defaultdict
+    
+    now = datetime.now(LEAGUE_TZ)
+    target_month = month or now.month
+    target_year = year or now.year
+    
+    log_path = os.path.join(os.path.dirname(__file__), 'logs', 'api_calls.log')
+    
+    if not os.path.exists(log_path):
+        return {
+            'total_calls': 0,
+            'by_endpoint': {},
+            'by_mode': {},
+            'last_call': None,
+            'month': target_month,
+            'year': target_year
+        }
+    
+    total_calls = 0
+    by_endpoint = defaultdict(int)
+    by_mode = defaultdict(int)
+    last_call = None
+    
+    try:
+        with open(log_path, 'r') as f:
+            for line in f:
+                try:
+                    # Parse log line
+                    # Format: 2026-01-23 14:30:45\tcount=1\tmode=free\tendpoint=leaderboard...
+                    parts = line.strip().split('\t')
+                    if len(parts) < 2:
+                        continue
+                    
+                    # Extract timestamp
+                    timestamp_str = parts[0]
+                    log_time = datetime.strptime(timestamp_str, '%Y-%m-%d %H:%M:%S')
+                    
+                    # Filter by month/year
+                    if log_time.month != target_month or log_time.year != target_year:
+                        continue
+                    
+                    # Extract details
+                    details = {}
+                    for part in parts[1:]:
+                        if '=' in part:
+                            key, value = part.split('=', 1)
+                            details[key] = value
+                    
+                    # Count successful calls (status 200)
+                    if details.get('status') == '200':
+                        total_calls += 1
+                        endpoint = details.get('endpoint', 'unknown')
+                        mode = details.get('mode', 'unknown')
+                        
+                        by_endpoint[endpoint] += 1
+                        by_mode[mode] += 1
+                        
+                        if last_call is None or log_time > last_call:
+                            last_call = log_time
+                
+                except Exception as e:
+                    # Skip malformed lines
+                    continue
+    
+    except Exception as e:
+        logger.error(f"Error parsing API logs: {e}")
+    
+    return {
+        'total_calls': total_calls,
+        'by_endpoint': dict(by_endpoint),
+        'by_mode': dict(by_mode),
+        'last_call': last_call,
+        'month': target_month,
+        'year': target_year,
+        'limit': 250,  # Free tier limit
+        'percentage': round((total_calls / 250) * 100, 1)
+    }
 
 
 @app.route('/admin/process-results/<int:tournament_id>', methods=['POST'])

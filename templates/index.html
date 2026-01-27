@@ -97,6 +97,9 @@
                             {% if tournament_picks[user.id].admin_override %}
                                 <span class="badge bg-warning text-dark" title="{{ tournament_picks[user.id].admin_override_note or 'Admin override pick' }}">👑</span>
                             {% endif %}
+                            {% if tournament_picks[user.id].backup_activated %}
+                                <span class="badge bg-info" title="Backup activated">🔄</span>
+                            {% endif %}
                             {% if tournament_picks[user.id].position %}
                                 <br><small class="text-muted">{{ tournament_picks[user.id].position }}</small>
                             {% endif %}
