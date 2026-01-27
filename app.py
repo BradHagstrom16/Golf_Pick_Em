@@ -172,20 +172,40 @@ def index():
                 player_id=pick.primary_player_id
             ).first()
 
-            if featured_tournament.status == 'active' and result:
+            backup_activated = pick.is_backup_activated()
+
+            # If backup activated, get backup player's result for position/earnings
+            backup_result = None
+            if backup_activated and pick.backup_player_id:
+                backup_result = TournamentResult.query.filter_by(
+                    tournament_id=featured_tournament.id,
+                    player_id=pick.backup_player_id
+                ).first()
+
+            if featured_tournament.status == 'active' and backup_activated and backup_result:
+                earnings = backup_result.earnings or 0
+            elif featured_tournament.status == 'active' and result:
                 earnings = result.earnings or 0
             elif featured_tournament.status == 'complete' and pick.points_earned is not None:
                 earnings = pick.points_earned
             else:
                 earnings = result.earnings if result else 0
 
+            # Determine displayed position: use backup's position when activated
+            if backup_activated and backup_result:
+                display_position = backup_result.final_position
+            else:
+                display_position = result.final_position if result else None
+
             tournament_picks[pick.user_id] = {
                 'primary': pick.primary_player.full_name(),
-                'position': result.final_position if result else None,
+                'position': display_position,
+                'primary_position': result.final_position if result else None,
                 'earnings': earnings,
                 'admin_override': pick.admin_override,
                 'admin_override_note': pick.admin_override_note,
-                'backup_activated': pick.is_backup_activated()
+                'backup_activated': backup_activated,
+                'backup_name': pick.backup_player.full_name() if pick.backup_player else None
             }
 
     # Get current user's pick for featured tournament (if logged in)
