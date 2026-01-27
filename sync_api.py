@@ -776,18 +776,19 @@ class TournamentSync:
 
         return processed
 
-    def check_withdrawals(self, tournament: Tournament) -> List[Dict]:
+    def check_withdrawals(self, tournament: Tournament, force: bool = False) -> List[Dict]:
         """
         Check for withdrawals during a tournament.
         Useful for monitoring mid-tournament.
 
         Args:
             tournament: Active tournament to check
+            force: If True, bypass free tier restriction (used by live-with-wd)
 
         Returns:
             List of withdrawal info dicts
         """
-        if self.is_free_mode:
+        if self.is_free_mode and not force:
             logger.info("Free tier: skipping withdrawal check for %s", tournament.name)
             return []
 
@@ -1171,8 +1172,8 @@ def register_sync_commands(app):
                     if updated:
                         click.echo(f"Updated {updated} leaderboard entries for {tournament.name}")
         
-                    # Then check for withdrawals
-                    withdrawals = sync.check_withdrawals(tournament)
+                    # Then check for withdrawals (force=True to bypass free tier guard)
+                    withdrawals = sync.check_withdrawals(tournament, force=True)
                     if withdrawals:
                         click.echo(f"Withdrawals detected for {tournament.name}: {len(withdrawals)}")
                         # Log critical R2 withdrawals
