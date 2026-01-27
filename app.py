@@ -941,24 +941,24 @@ def process_tournament_results(tournament: Tournament):
 def parse_api_usage_logs(month=None, year=None):
     """
     Parse API call logs to track usage.
-    
+
     Args:
         month: Month to filter (1-12), defaults to current month
         year: Year to filter, defaults to current year
-    
+
     Returns:
         dict with usage statistics
     """
     import os
     from datetime import datetime
     from collections import defaultdict
-    
+
     now = datetime.now(LEAGUE_TZ)
     target_month = month or now.month
     target_year = year or now.year
-    
+
     log_path = os.path.join(os.path.dirname(__file__), 'logs', 'api_calls.log')
-    
+
     if not os.path.exists(log_path):
         return {
             'total_calls': 0,
@@ -968,12 +968,12 @@ def parse_api_usage_logs(month=None, year=None):
             'month': target_month,
             'year': target_year
         }
-    
+
     total_calls = 0
     by_endpoint = defaultdict(int)
     by_mode = defaultdict(int)
     last_call = None
-    
+
     try:
         with open(log_path, 'r') as f:
             for line in f:
@@ -983,41 +983,44 @@ def parse_api_usage_logs(month=None, year=None):
                     parts = line.strip().split('\t')
                     if len(parts) < 2:
                         continue
-                    
-                    # Extract timestamp
+
+                    # Extract timestamp (handle milliseconds format from logging)
                     timestamp_str = parts[0]
+                    # Remove milliseconds if present (format: 2026-01-12 22:24:12,785)
+                    if ',' in timestamp_str:
+                        timestamp_str = timestamp_str.split(',')[0]
                     log_time = datetime.strptime(timestamp_str, '%Y-%m-%d %H:%M:%S')
-                    
+
                     # Filter by month/year
                     if log_time.month != target_month or log_time.year != target_year:
                         continue
-                    
+
                     # Extract details
                     details = {}
                     for part in parts[1:]:
                         if '=' in part:
                             key, value = part.split('=', 1)
                             details[key] = value
-                    
+
                     # Count successful calls (status 200)
                     if details.get('status') == '200':
                         total_calls += 1
                         endpoint = details.get('endpoint', 'unknown')
                         mode = details.get('mode', 'unknown')
-                        
+
                         by_endpoint[endpoint] += 1
                         by_mode[mode] += 1
-                        
+
                         if last_call is None or log_time > last_call:
                             last_call = log_time
-                
+
                 except Exception as e:
                     # Skip malformed lines
                     continue
-    
+
     except Exception as e:
         logger.error(f"Error parsing API logs: {e}")
-    
+
     return {
         'total_calls': total_calls,
         'by_endpoint': dict(by_endpoint),
