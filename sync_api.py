@@ -1181,13 +1181,13 @@ def register_sync_commands(app):
                                 click.echo(f"  ⚠️ {wd['name']} - WD before R2 complete (backup activation possible)")
 
             if mode in ('withdrawals', 'all'):
-                    active = get_active_tournaments()
-                    if not active:
-                        click.echo("No active tournaments for withdrawal checks")
-                    for tournament in active:
-                        withdrawals = sync.check_withdrawals(tournament)
-                        if withdrawals:
-                            click.echo(f"Withdrawals detected for {tournament.name}: {len(withdrawals)}")
+                active = get_active_tournaments()
+                if not active:
+                    click.echo("No active tournaments for withdrawal checks")
+                for tournament in active:
+                    withdrawals = sync.check_withdrawals(tournament)
+                    if withdrawals:
+                        click.echo(f"Withdrawals detected for {tournament.name}: {len(withdrawals)}")
 
             if mode in ('results', 'all'):
                 if sync_mode == 'free' and datetime.now(LEAGUE_TZ).weekday() not in (0, 6):
