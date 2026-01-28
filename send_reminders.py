@@ -77,7 +77,6 @@ ADMIN_EMAIL = "bhagstrom0@gmail.com"
 ADMIN_NAME = "Sun Day Regrets"
 
 # Reminder windows (hours before deadline)
-# Updated: 24h, 12h, 1h (removed 48h, added 12h)
 REMINDER_WINDOWS = [
     {'hours': 24, 'type': 'warning', 'emoji': '⚠️'},
     {'hours': 12, 'type': 'reminder', 'emoji': '⏰'},
@@ -94,72 +93,82 @@ def get_current_time():
 
 
 def get_field_count(tournament_id):
-    """Get the number of players in a tournament's field."""
+    """
+    Get the number of players in a tournament's field.
+    
+    NOTE: Must be called within an app context.
+    """
     return TournamentField.query.filter_by(tournament_id=tournament_id).count()
 
 
 def is_field_ready(tournament_id, minimum=MIN_FIELD_SIZE):
-    """Check if tournament field has enough players for picks to be open."""
+    """
+    Check if tournament field has enough players for picks to be open.
+    
+    NOTE: Must be called within an app context.
+    """
     return get_field_count(tournament_id) >= minimum
 
 
-def get_upcoming_tournament():
+def get_upcoming_tournament_for_reminders():
     """
     Find the next tournament that:
     - Has status 'upcoming'
     - Has a deadline in the future
     - Has a deadline within the next 24 hours (for reminders)
     - Has a synced field (≥50 players)
+    
+    NOTE: Must be called within an app context.
+    
+    Returns:
+        Tuple of (tournament, aware_deadline) or (None, None)
     """
-    with app.app_context():
-        now = get_current_time()
-        max_future = now + timedelta(hours=24, minutes=TOLERANCE_MINUTES)
-        
-        tournament = Tournament.query.filter(
-            Tournament.status == 'upcoming',
-            Tournament.pick_deadline.isnot(None)
-        ).order_by(Tournament.start_date).first()
-        
-        if not tournament:
-            return None
-        
-        # Make deadline timezone-aware if needed
-        deadline = tournament.pick_deadline
-        if deadline.tzinfo is None:
-            deadline = CENTRAL_TZ.localize(deadline)
-        
-        # Check if deadline is in the future and within our reminder window
-        if deadline <= now:
-            return None  # Deadline already passed
-        
-        if deadline > max_future:
-            return None  # Too far in the future for reminders
-        
-        # Check if field is ready
-        if not is_field_ready(tournament.id):
-            print(f"⚠️ Field not ready for {tournament.name} ({get_field_count(tournament.id)} players)")
-            print(f"   Reminders will not be sent until field has ≥{MIN_FIELD_SIZE} players")
-            return None
-        
-        # Attach the aware deadline
-        tournament._aware_deadline = deadline
-        return tournament
+    now = get_current_time()
+    max_future = now + timedelta(hours=24, minutes=TOLERANCE_MINUTES)
+    
+    tournament = Tournament.query.filter(
+        Tournament.status == 'upcoming',
+        Tournament.pick_deadline.isnot(None)
+    ).order_by(Tournament.start_date).first()
+    
+    if not tournament:
+        return None, None
+    
+    # Make deadline timezone-aware if needed
+    deadline = tournament.pick_deadline
+    if deadline.tzinfo is None:
+        deadline = CENTRAL_TZ.localize(deadline)
+    
+    # Check if deadline is in the future and within our reminder window
+    if deadline <= now:
+        return None, None  # Deadline already passed
+    
+    if deadline > max_future:
+        return None, None  # Too far in the future for reminders
+    
+    # Check if field is ready
+    if not is_field_ready(tournament.id):
+        print(f"⚠️ Field not ready for {tournament.name} ({get_field_count(tournament.id)} players)")
+        print(f"   Reminders will not be sent until field has ≥{MIN_FIELD_SIZE} players")
+        return None, None
+    
+    return tournament, deadline
 
 
-def get_users_without_picks(tournament):
-    """Get users who haven't made a pick for this tournament."""
-    with app.app_context():
-        all_users = User.query.all()
-        picked_user_ids = {
-            p.user_id for p in Pick.query.filter_by(tournament_id=tournament.id)
-        }
-        return [u for u in all_users if u.id not in picked_user_ids]
-
-
-def get_all_users():
-    """Get all registered users."""
-    with app.app_context():
-        return User.query.all()
+def get_users_without_picks(tournament_id):
+    """
+    Get users who haven't made a pick for this tournament.
+    
+    NOTE: Must be called within an app context.
+    
+    Returns:
+        List of User objects (still attached to session)
+    """
+    all_users = User.query.all()
+    picked_user_ids = {
+        p.user_id for p in Pick.query.filter_by(tournament_id=tournament_id)
+    }
+    return [u for u in all_users if u.id not in picked_user_ids]
 
 
 def should_send_reminder(deadline, window_hours):
@@ -184,7 +193,7 @@ def get_active_reminder_window(deadline):
     """
     now = get_current_time()
     
-    # Also check if deadline hasn't passed
+    # Check if deadline hasn't passed
     if deadline <= now:
         return None
     
@@ -237,34 +246,40 @@ def send_email(to_addr: str, subject: str, body: str) -> bool:
         return False
 
 
-def build_reminder_email(user, tournament, deadline, window):
-    """Build the email subject and body for a deadline reminder."""
+def build_reminder_email(user_display_name, user_total_points, user_golfers_used,
+                         tournament_name, tournament_id, tournament_purse, tournament_season_year,
+                         deadline, window):
+    """
+    Build the email subject and body for a deadline reminder.
+    
+    Takes primitive values instead of ORM objects to avoid session issues.
+    """
     time_remaining = format_time_remaining(deadline)
-    pick_url = f"{SITE_URL}/pick/{tournament.id}"
+    pick_url = f"{SITE_URL}/pick/{tournament_id}"
     
     # Subject line based on urgency
     if window['type'] == 'final':
-        subject = f"🚨 FINAL REMINDER: {tournament.name} pick due in ~1 hour!"
+        subject = f"🚨 FINAL REMINDER: {tournament_name} pick due in ~1 hour!"
     elif window['type'] == 'reminder':
-        subject = f"⏰ Reminder: {tournament.name} pick due in ~12 hours"
+        subject = f"⏰ Reminder: {tournament_name} pick due in ~12 hours"
     else:
-        subject = f"⚠️ Reminder: {tournament.name} pick due in ~24 hours"
+        subject = f"⚠️ Reminder: {tournament_name} pick due in ~24 hours"
     
     # Email body
-    body = f"""Hi {user.get_display_name()},
+    body = f"""Hi {user_display_name},
 
-You haven't made your pick for {tournament.name} yet!
+You haven't made your pick for {tournament_name} yet!
 
-Tournament: {tournament.name}
-Purse: ${tournament.purse:,}
+Tournament: {tournament_name}
+Purse: ${tournament_purse:,}
 Deadline: {deadline.strftime('%A, %B %d at %I:%M %p %Z')}
 Time Remaining: {time_remaining}
 
 Make your pick now: {pick_url}
 
 Your Season Stats:
-• Total Points: ${user.total_points:,}
-• Golfers Used: {len(user.get_used_player_ids())}
+• Total Points: ${user_total_points:,}
+• Golfers Used: {user_golfers_used}
 
 """
     
@@ -289,7 +304,7 @@ at 12 hours and 1 hour before the deadline.
 {COMMISSIONER_NAME}
 
 ---
-Golf Pick 'Em {tournament.season_year}
+Golf Pick 'Em {tournament_season_year}
 {SITE_URL}
 """
     
@@ -300,39 +315,55 @@ Golf Pick 'Em {tournament.season_year}
 # PICKS OPEN NOTIFICATION (Called from sync_api.py after field sync)
 # =============================================================================
 
-def send_picks_open_email(tournament) -> int:
+def send_picks_open_email(tournament_id_or_obj) -> int:
     """
     Send "Picks Are Open" notification to all users.
     Called from sync_api.py after successful field sync.
     
     Args:
-        tournament: Tournament object with field synced
+        tournament_id_or_obj: Tournament ID (int) or Tournament object
     
     Returns:
         Number of emails successfully sent
     """
-    print(f"\n📬 Sending 'Picks Are Open' notifications for {tournament.name}")
+    # Accept either tournament object or ID to avoid session issues
+    if isinstance(tournament_id_or_obj, int):
+        tournament_id = tournament_id_or_obj
+    else:
+        tournament_id = tournament_id_or_obj.id
+    
+    print(f"\n📬 Sending 'Picks Are Open' notifications...")
     
     if not CONFIG_LOADED:
         print("  ❌ Cannot send: Email configuration not loaded")
         return 0
     
-    # Get deadline for display
-    deadline = tournament.pick_deadline
-    if deadline and deadline.tzinfo is None:
-        deadline = CENTRAL_TZ.localize(deadline)
-    
-    deadline_str = deadline.strftime('%A, %B %d at %I:%M %p CT') if deadline else "TBD"
-    
-    # Get field count
-    field_count = get_field_count(tournament.id)
-    
-    # Build email
-    pick_url = f"{SITE_URL}/pick/{tournament.id}"
-    
-    subject = f"🏌️ Picks Are Open: {tournament.name}"
-    
-    body_template = """Hi {display_name},
+    # Do everything inside a single app context to avoid session issues
+    with app.app_context():
+        # Re-query tournament to ensure it's bound to this session
+        tournament = Tournament.query.get(tournament_id)
+        if not tournament:
+            print(f"  ❌ Tournament ID {tournament_id} not found")
+            return 0
+        
+        print(f"  Tournament: {tournament.name}")
+        
+        # Get deadline for display
+        deadline = tournament.pick_deadline
+        if deadline and deadline.tzinfo is None:
+            deadline = CENTRAL_TZ.localize(deadline)
+        
+        deadline_str = deadline.strftime('%A, %B %d at %I:%M %p CT') if deadline else "TBD"
+        
+        # Get field count
+        field_count = TournamentField.query.filter_by(tournament_id=tournament.id).count()
+        
+        # Build email
+        pick_url = f"{SITE_URL}/pick/{tournament.id}"
+        
+        subject = f"🏌️ Picks Are Open: {tournament.name}"
+        
+        body_template = """Hi {display_name},
 
 Great news! The field for {tournament_name} is now available, and picks are open!
 
@@ -359,28 +390,33 @@ Good luck this week!
 Golf Pick 'Em {season_year}
 {site_url}
 """
-    
-    # Send to all users
-    with app.app_context():
-        users = get_all_users()
+        
+        # Query users directly within this context
+        users = User.query.all()
         success_count = 0
         
         for user in users:
+            # Access all user attributes while still in session
+            display_name = user.get_display_name()
+            total_points = user.total_points
+            golfers_used = len(user.get_used_player_ids())
+            user_email = user.email
+            
             body = body_template.format(
-                display_name=user.get_display_name(),
+                display_name=display_name,
                 tournament_name=tournament.name,
                 purse=tournament.purse,
                 field_count=field_count,
                 deadline=deadline_str,
                 pick_url=pick_url,
-                total_points=user.total_points,
-                golfers_used=len(user.get_used_player_ids()),
+                total_points=total_points,
+                golfers_used=golfers_used,
                 commissioner=COMMISSIONER_NAME,
                 season_year=tournament.season_year,
                 site_url=SITE_URL
             )
             
-            if send_email(user.email, subject, body):
+            if send_email(user_email, subject, body):
                 success_count += 1
         
         print(f"\n📊 Picks Open Summary: {success_count}/{len(users)} emails sent")
@@ -391,33 +427,48 @@ Golf Pick 'Em {season_year}
 # ADMIN ALERT (Called from sync_api.py on Wednesday if field not ready)
 # =============================================================================
 
-def send_admin_field_alert(tournament, field_count: int) -> bool:
+def send_admin_field_alert(tournament_id_or_obj, field_count: int) -> bool:
     """
     Send alert to admin when field sync fails on Wednesday.
     
     Args:
-        tournament: Tournament object
+        tournament_id_or_obj: Tournament ID (int) or Tournament object
         field_count: Current number of players in field
     
     Returns:
         True if email sent successfully
     """
-    print(f"\n🚨 Sending admin alert for {tournament.name}")
+    # Accept either tournament object or ID to avoid session issues
+    if isinstance(tournament_id_or_obj, int):
+        tournament_id = tournament_id_or_obj
+    else:
+        tournament_id = tournament_id_or_obj.id
+    
+    print(f"\n🚨 Sending admin alert...")
     
     if not CONFIG_LOADED:
         print("  ❌ Cannot send: Email configuration not loaded")
         return False
     
-    # Get deadline for display
-    deadline = tournament.pick_deadline
-    if deadline and deadline.tzinfo is None:
-        deadline = CENTRAL_TZ.localize(deadline)
-    
-    deadline_str = deadline.strftime('%A, %B %d at %I:%M %p CT') if deadline else "TBD"
-    
-    subject = f"⚠️ ADMIN ALERT: Field sync issue for {tournament.name}"
-    
-    body = f"""Hi {ADMIN_NAME},
+    with app.app_context():
+        # Re-query tournament to ensure it's bound to this session
+        tournament = Tournament.query.get(tournament_id)
+        if not tournament:
+            print(f"  ❌ Tournament ID {tournament_id} not found")
+            return False
+        
+        print(f"  Tournament: {tournament.name}")
+        
+        # Get deadline for display
+        deadline = tournament.pick_deadline
+        if deadline and deadline.tzinfo is None:
+            deadline = CENTRAL_TZ.localize(deadline)
+        
+        deadline_str = deadline.strftime('%A, %B %d at %I:%M %p CT') if deadline else "TBD"
+        
+        subject = f"⚠️ ADMIN ALERT: Field sync issue for {tournament.name}"
+        
+        body = f"""Hi {ADMIN_NAME},
 
 This is an automated alert from Golf Pick 'Em.
 
@@ -447,8 +498,8 @@ This alert will only be sent once per tournament.
 ---
 Golf Pick 'Em Automated Alert System
 """
-    
-    return send_email(ADMIN_EMAIL, subject, body)
+        
+        return send_email(ADMIN_EMAIL, subject, body)
 
 
 # =============================================================================
@@ -469,15 +520,15 @@ def main():
         print("\n❌ Cannot proceed without email configuration")
         return
     
-    # Find upcoming tournament needing reminders
+    # Single app context for entire operation - all ORM objects stay attached
     with app.app_context():
-        tournament = get_upcoming_tournament()
+        # Get tournament (returns ORM object attached to this context)
+        tournament, deadline = get_upcoming_tournament_for_reminders()
         
         if not tournament:
             print("\n📭 No upcoming tournaments within reminder window (or field not ready)")
             return
         
-        deadline = tournament._aware_deadline
         print(f"\n🏌️ Tournament: {tournament.name}")
         print(f"📅 Deadline: {deadline.strftime('%A, %B %d at %I:%M %p %Z')}")
         print(f"⏱️ Time remaining: {format_time_remaining(deadline)}")
@@ -493,8 +544,8 @@ def main():
         
         print(f"\n📬 Active reminder window: {window['hours']}-hour ({window['type']})")
         
-        # Get users who need reminders
-        users_without_picks = get_users_without_picks(tournament)
+        # Get users who need reminders (returns ORM objects attached to this context)
+        users_without_picks = get_users_without_picks(tournament.id)
         
         if not users_without_picks:
             print(f"\n✅ All users have made their picks for {tournament.name}!")
@@ -502,11 +553,35 @@ def main():
         
         print(f"\n👥 Users without picks: {len(users_without_picks)}")
         
-        # Send reminders
+        # Extract tournament data we need for emails (primitives, not ORM references)
+        tournament_name = tournament.name
+        tournament_id = tournament.id
+        tournament_purse = tournament.purse
+        tournament_season_year = tournament.season_year
+        
+        # Send reminders - extract user data while still in context
         success_count = 0
         for user in users_without_picks:
-            subject, body = build_reminder_email(user, tournament, deadline, window)
-            if send_email(user.email, subject, body):
+            # Extract all user data we need (while ORM object is attached)
+            user_email = user.email
+            user_display_name = user.get_display_name()
+            user_total_points = user.total_points
+            user_golfers_used = len(user.get_used_player_ids())
+            
+            # Build email with primitive values
+            subject, body = build_reminder_email(
+                user_display_name=user_display_name,
+                user_total_points=user_total_points,
+                user_golfers_used=user_golfers_used,
+                tournament_name=tournament_name,
+                tournament_id=tournament_id,
+                tournament_purse=tournament_purse,
+                tournament_season_year=tournament_season_year,
+                deadline=deadline,
+                window=window
+            )
+            
+            if send_email(user_email, subject, body):
                 success_count += 1
         
         print()

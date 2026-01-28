@@ -4,7 +4,7 @@ Golf Pick 'Em League - API Sync Module
 Sync tournament data from SlashGolf API.
 
 Data Flow:
-1. sync_tournament_field() - Tuesday before tournament: Get players + tee times
+1. sync_tournament_field() - Tue/Wed: Get players + tee times (4 syncs: Tue AM/PM, Wed AM/PM)
 2. sync_live_leaderboard() - Thu-Sun 8 PM: Update positions + projected earnings
 3. sync_tournament_results() - Monday after tournament: Get actual earnings from API
 4. process_tournament_picks() - After results synced: Calculate points
@@ -15,9 +15,9 @@ API Endpoints Used:
 - /schedule - Season schedule (one-time import)
 - /tournament - Tournament details + full field
 
-Email Notifications (NEW):
+Email Notifications:
 - "Picks Are Open" - Sent when field syncs with ≥50 players
-- Admin Alert - Sent on Wednesday if field still has <50 players
+- Admin Alert - Sent on Wednesday evening if field still has <50 players
 """
 
 import logging
@@ -505,17 +505,17 @@ class TournamentSync:
         print(f"Imported {imported} tournaments for {year}")
         return imported
 
-    def sync_tournament_field(self, tournament: Tournament, is_wednesday: bool = False) -> Tuple[int, Optional[datetime]]:
+    def sync_tournament_field(self, tournament: Tournament, is_wednesday_evening: bool = False) -> Tuple[int, Optional[datetime]]:
         """
         Sync tournament field and get first tee time.
-        Call this Tuesday before the tournament.
+        Call this Tuesday/Wednesday before the tournament.
 
         Args:
             tournament: Tournament object to sync
-            is_wednesday: True if this is the Wednesday confirmation pass
+            is_wednesday_evening: True if this is the Wednesday evening pass (for admin alerts)
 
         Returns:
-            Tuple of (players_synced, first_tee_time)
+            Tuple of (new_players_synced, first_tee_time)
         """
         # Get leaderboard data (has field + tee times)
         data = self.api.get_leaderboard(tournament.api_tourn_id, str(tournament.season_year))
@@ -524,81 +524,94 @@ class TournamentSync:
             logger.error("Failed to fetch leaderboard for %s", tournament.name)
             return 0, None
 
-        players_synced = 0
+        new_players_synced = 0
+        existing_players = 0
         first_tee_time = None
         event_tz = self._get_event_timezone(data)
 
         try:
-            if True:  # removed db.session.begin() - Flask-SQLAlchemy manages transactions
-                for player_data in data["leaderboardRows"]:
-                    if player_data.get("isAmateur", False):
-                        continue
+            for player_data in data["leaderboardRows"]:
+                if player_data.get("isAmateur", False):
+                    continue
 
-                    player = Player.query.filter_by(
-                        api_player_id=player_data["playerId"]
-                    ).first()
+                player = Player.query.filter_by(
+                    api_player_id=player_data["playerId"]
+                ).first()
 
-                    if not player:
-                        player = Player(
-                            api_player_id=player_data["playerId"],
-                            first_name=player_data.get("firstName", ""),
-                            last_name=player_data.get("lastName", ""),
-                            is_amateur=player_data.get("isAmateur", False)
-                        )
-                        db.session.add(player)
-                        db.session.flush()
+                if not player:
+                    player = Player(
+                        api_player_id=player_data["playerId"],
+                        first_name=player_data.get("firstName", ""),
+                        last_name=player_data.get("lastName", ""),
+                        is_amateur=player_data.get("isAmateur", False)
+                    )
+                    db.session.add(player)
+                    db.session.flush()
 
-                    field_entry = TournamentField.query.filter_by(
+                field_entry = TournamentField.query.filter_by(
+                    tournament_id=tournament.id,
+                    player_id=player.id
+                ).first()
+
+                if not field_entry:
+                    field_entry = TournamentField(
                         tournament_id=tournament.id,
                         player_id=player.id
-                    ).first()
-
-                    if not field_entry:
-                        field_entry = TournamentField(
-                            tournament_id=tournament.id,
-                            player_id=player.id
-                        )
-                        db.session.add(field_entry)
-                        players_synced += 1
-
-                    # Prefer timestamp (timezone-safe) over string (ambiguous)
-                    tee_time = self._parse_tee_time_timestamp(player_data.get("teeTimeTimestamp"))
-                    if not tee_time:
-                        # Fallback to string parsing if timestamp not available
-                        tee_time = (
-                            self._parse_tee_time(player_data.get("teeTime"), tournament.start_date, event_tz)
-                            or self._parse_tee_time(player_data.get("teeTimeLocal"), tournament.start_date, event_tz)
-                        )
-                    if tee_time and (first_tee_time is None or tee_time < first_tee_time):
-                        first_tee_time = tee_time
-
-                if first_tee_time:
-                    # Convert to Central Time before storing (SQLite loses timezone info)
-                    if first_tee_time.tzinfo:
-                        first_tee_time_ct = first_tee_time.astimezone(LEAGUE_TZ)
-                        tournament.pick_deadline = first_tee_time_ct.replace(tzinfo=None)
-                    else:
-                        tournament.pick_deadline = first_tee_time
-                    logger.info("Set deadline for %s: %s CT", tournament.name, tournament.pick_deadline)
-
-                self._derive_status(tournament, data)
-
-                if not first_tee_time and self.is_free_mode:
-                    fallback_deadline = self._apply_fixed_deadline(tournament)
-                    logger.info(
-                        "Free tier: using fixed pick deadline %s for %s (tee times unavailable)",
-                        fallback_deadline,
-                        tournament.name,
                     )
-                elif not tournament.pick_deadline:
-                    fallback_deadline = self._apply_fixed_deadline(tournament)
-                    logger.info(
-                        "Applied fallback pick deadline %s for %s",
-                        fallback_deadline,
-                        tournament.name,
+                    db.session.add(field_entry)
+                    new_players_synced += 1
+                else:
+                    existing_players += 1
+
+                # Prefer timestamp (timezone-safe) over string (ambiguous)
+                tee_time = self._parse_tee_time_timestamp(player_data.get("teeTimeTimestamp"))
+                if not tee_time:
+                    # Fallback to string parsing if timestamp not available
+                    tee_time = (
+                        self._parse_tee_time(player_data.get("teeTime"), tournament.start_date, event_tz)
+                        or self._parse_tee_time(player_data.get("teeTimeLocal"), tournament.start_date, event_tz)
                     )
-                db.session.commit()
-            logger.info("Synced %s players for %s", players_synced, tournament.name)
+                if tee_time and (first_tee_time is None or tee_time < first_tee_time):
+                    first_tee_time = tee_time
+
+            if first_tee_time:
+                # Convert to Central Time before storing (SQLite loses timezone info)
+                if first_tee_time.tzinfo:
+                    first_tee_time_ct = first_tee_time.astimezone(LEAGUE_TZ)
+                    tournament.pick_deadline = first_tee_time_ct.replace(tzinfo=None)
+                else:
+                    tournament.pick_deadline = first_tee_time
+                logger.info("Set deadline for %s: %s CT", tournament.name, tournament.pick_deadline)
+
+            self._derive_status(tournament, data)
+
+            if not first_tee_time and self.is_free_mode:
+                fallback_deadline = self._apply_fixed_deadline(tournament)
+                logger.info(
+                    "Free tier: using fixed pick deadline %s for %s (tee times unavailable)",
+                    fallback_deadline,
+                    tournament.name,
+                )
+            elif not tournament.pick_deadline:
+                fallback_deadline = self._apply_fixed_deadline(tournament)
+                logger.info(
+                    "Applied fallback pick deadline %s for %s",
+                    fallback_deadline,
+                    tournament.name,
+                )
+            db.session.commit()
+            
+            # Get total field count after commit
+            total_field_count = TournamentField.query.filter_by(tournament_id=tournament.id).count()
+            
+            # Improved logging message
+            if new_players_synced > 0:
+                logger.info("Synced %s new players for %s (total field: %s)", 
+                           new_players_synced, tournament.name, total_field_count)
+            else:
+                logger.info("Field already synced for %s (total: %s players, no new additions)", 
+                           tournament.name, total_field_count)
+                           
         except Exception:
             db.session.rollback()
             logger.exception("Failed syncing field for %s", tournament.name)
@@ -606,33 +619,43 @@ class TournamentSync:
 
         # =================================================================
         # EMAIL NOTIFICATIONS (after successful sync)
+        # Store tournament_id before any session issues
         # =================================================================
-        field_count = TournamentField.query.filter_by(tournament_id=tournament.id).count()
+        tournament_id = tournament.id
+        field_count = TournamentField.query.filter_by(tournament_id=tournament_id).count()
         
         # Check if field is sufficient and we haven't sent the "picks open" email yet
         if field_count >= MIN_FIELD_SIZE and not tournament.picks_open_notified:
             try:
                 from send_reminders import send_picks_open_email
-                emails_sent = send_picks_open_email(tournament)
+                # Pass tournament_id instead of tournament object to avoid session issues
+                emails_sent = send_picks_open_email(tournament_id)
                 if emails_sent > 0:
+                    # Re-query tournament to update flag
+                    tournament = Tournament.query.get(tournament_id)
                     tournament.picks_open_notified = True
                     db.session.commit()
                     logger.info("Sent 'picks open' email to %s users for %s", emails_sent, tournament.name)
             except Exception as e:
-                logger.error("Failed to send 'picks open' email for %s: %s", tournament.name, e)
+                logger.error("Failed to send 'picks open' email for tournament %s: %s", tournament_id, e)
         
-        # Check if it's Wednesday and field is still insufficient - send admin alert
-        if is_wednesday and field_count < MIN_FIELD_SIZE and not tournament.field_alert_sent:
-            try:
-                from send_reminders import send_admin_field_alert
-                if send_admin_field_alert(tournament, field_count):
-                    tournament.field_alert_sent = True
-                    db.session.commit()
-                    logger.warning("Sent admin alert for %s - only %s players in field", tournament.name, field_count)
-            except Exception as e:
-                logger.error("Failed to send admin alert for %s: %s", tournament.name, e)
+        # Check if it's Wednesday evening and field is still insufficient - send admin alert
+        if is_wednesday_evening and field_count < MIN_FIELD_SIZE:
+            # Re-query tournament to check flag
+            tournament = Tournament.query.get(tournament_id)
+            if not tournament.field_alert_sent:
+                try:
+                    from send_reminders import send_admin_field_alert
+                    # Pass tournament_id instead of tournament object
+                    if send_admin_field_alert(tournament_id, field_count):
+                        tournament.field_alert_sent = True
+                        db.session.commit()
+                        logger.warning("Sent admin alert for tournament %s - only %s players in field", 
+                                      tournament_id, field_count)
+                except Exception as e:
+                    logger.error("Failed to send admin alert for tournament %s: %s", tournament_id, e)
 
-        return players_synced, first_tee_time
+        return new_players_synced, first_tee_time
 
     def sync_tournament_results(self, tournament: Tournament) -> int:
         """
@@ -1129,8 +1152,11 @@ def register_sync_commands(app):
             click.echo(f"Free tier mode: '{mode}' sync disabled to stay within RapidAPI limits")
             sys.exit(0)
 
-        # Determine if today is Wednesday (for admin alert logic)
-        is_wednesday = datetime.now(LEAGUE_TZ).weekday() == 2  # 0=Mon, 1=Tue, 2=Wed
+        # Determine timing for admin alert logic
+        now = datetime.now(LEAGUE_TZ)
+        is_wednesday = now.weekday() == 2  # 0=Mon, 1=Tue, 2=Wed
+        is_evening = now.hour >= 17  # 5 PM CT or later
+        is_wednesday_evening = is_wednesday and is_evening
 
         try:
             if mode in ('schedule', 'all'):
@@ -1142,15 +1168,21 @@ def register_sync_commands(app):
                     click.echo(f"Schedule sync complete ({imported} imported/updated)")
 
             if mode in ('field', 'all'):
-                if sync_mode == 'free' and datetime.now(LEAGUE_TZ).weekday() not in (1, 2):
+                # Allow field syncs on Tuesday (1) and Wednesday (2)
+                weekday = datetime.now(LEAGUE_TZ).weekday()
+                if sync_mode == 'free' and weekday not in (1, 2):
                     click.echo("Free tier: field sync limited to Tue/Wed to control API usage")
                 else:
                     upcoming = get_upcoming_tournaments_window()
                     if not upcoming:
                         click.echo("No upcoming tournaments to sync field for")
                     for tournament in upcoming:
-                        # Pass is_wednesday flag for admin alert logic
-                        sync.sync_tournament_field(tournament, is_wednesday=is_wednesday)
+                        new_players, _ = sync.sync_tournament_field(tournament, is_wednesday_evening=is_wednesday_evening)
+                        total_field = TournamentField.query.filter_by(tournament_id=tournament.id).count()
+                        if new_players > 0:
+                            click.echo(f"Synced {new_players} new players for {tournament.name} (total: {total_field})")
+                        else:
+                            click.echo(f"Field up-to-date for {tournament.name} (total: {total_field} players)")
 
             if mode in ('live', 'all'):
                 active = get_active_tournaments()
