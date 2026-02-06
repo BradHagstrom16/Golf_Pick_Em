@@ -74,6 +74,64 @@ def refresh_tournament_states():
 
 
 # ============================================================================
+# Helpers
+# ============================================================================
+
+def format_score_to_par(score):
+    """Format integer score to par for display."""
+    if score is None:
+        return None
+    if score == 0:
+        return "E"
+    elif score > 0:
+        return f"+{score}"
+    else:
+        return str(score)
+
+
+def get_cumulative_scores(users, season_year):
+    """
+    Calculate cumulative score to par for each user across all completed tournaments.
+
+    For each user, sums the score_to_par of their *active* pick's TournamentResult
+    across all completed tournaments. No pick = +0 contribution.
+
+    Returns:
+        dict mapping user_id -> {'total': int, 'display': str}
+    """
+    completed_tournaments = Tournament.query.filter_by(
+        status='complete',
+        season_year=season_year
+    ).all()
+
+    cumulative = {}
+
+    for user in users:
+        total_score = 0
+        for tournament in completed_tournaments:
+            pick = Pick.query.filter_by(
+                user_id=user.id,
+                tournament_id=tournament.id
+            ).first()
+
+            if pick and pick.active_player_id:
+                result = TournamentResult.query.filter_by(
+                    tournament_id=tournament.id,
+                    player_id=pick.active_player_id
+                ).first()
+                if result and result.score_to_par is not None:
+                    total_score += result.score_to_par
+            # No pick = +0, which is the default
+
+        cumulative[user.id] = {
+            'total': total_score,
+            'display': format_score_to_par(total_score)
+        }
+
+    return cumulative
+
+
+# ============================================================================
 # Decorators
 # ============================================================================
 
@@ -135,30 +193,27 @@ def index():
     ).order_by(Tournament.end_date.desc()).first()
 
     # Determine which tournament to feature
-    # Priority: active > upcoming with field > last completed
     featured_tournament = None
-    upcoming_tournament = None  # Secondary "coming up" info
+    upcoming_tournament = None
 
     if next_tournament:
         if next_tournament.status == 'active':
-            # Active tournament is always featured
             featured_tournament = next_tournament
         else:
-            # Check if upcoming tournament has a field
             field_count = TournamentField.query.filter_by(
                 tournament_id=next_tournament.id
             ).count()
 
             if field_count > 0:
-                # Field is available - feature the upcoming tournament
                 featured_tournament = next_tournament
             else:
-                # No field yet - feature last completed, show upcoming as secondary
                 featured_tournament = last_completed
                 upcoming_tournament = next_tournament
     else:
-        # No upcoming tournaments - show last completed
         featured_tournament = last_completed
+
+    # Determine if there's an active tournament (for showing season score vs active picks)
+    has_active_tournament = (featured_tournament and featured_tournament.status == 'active')
 
     # Get picks for featured tournament (if deadline passed or complete)
     tournament_picks = {}
@@ -174,7 +229,6 @@ def index():
 
             backup_activated = pick.is_backup_activated()
 
-            # If backup activated, get backup player's result for position/earnings
             backup_result = None
             if backup_activated and pick.backup_player_id:
                 backup_result = TournamentResult.query.filter_by(
@@ -191,15 +245,18 @@ def index():
             else:
                 earnings = result.earnings if result else 0
 
-            # Determine displayed position: use backup's position when activated
+            # Determine displayed position and score: use backup's when activated
             if backup_activated and backup_result:
                 display_position = backup_result.final_position
+                display_score = format_score_to_par(backup_result.score_to_par)
             else:
                 display_position = result.final_position if result else None
+                display_score = format_score_to_par(result.score_to_par) if result else None
 
             tournament_picks[pick.user_id] = {
                 'primary': pick.primary_player.full_name(),
                 'position': display_position,
+                'score': display_score,
                 'primary_position': result.final_position if result else None,
                 'earnings': earnings,
                 'admin_override': pick.admin_override,
@@ -216,6 +273,11 @@ def index():
             tournament_id=featured_tournament.id
         ).first()
 
+    # Calculate cumulative scores (shown when no active tournament)
+    cumulative_scores = {}
+    if not has_active_tournament and completed_tournaments > 0:
+        cumulative_scores = get_cumulative_scores(users, app.config['SEASON_YEAR'])
+
     return render_template('index.html',
                          users=users,
                          featured_tournament=featured_tournament,
@@ -224,7 +286,9 @@ def index():
                          show_picks=show_picks,
                          completed_tournaments=completed_tournaments,
                          total_tournaments=total_tournaments,
-                         user_pick=user_pick)
+                         user_pick=user_pick,
+                         has_active_tournament=has_active_tournament,
+                         cumulative_scores=cumulative_scores)
 
 
 @app.route('/leaderboard')
@@ -252,8 +316,8 @@ def tournament_detail(tournament_id):
     """
     Tournament detail page - shows different info based on tournament status:
     - Upcoming: Tournament info, deadline, field count
-    - Active: Picks table (primary only) with live position/earnings
-    - Complete: Full picks table with backup, active player, final points
+    - Active: Picks table with live position/score/earnings
+    - Complete: Picks table with final results, conditionally showing backup column
     """
     tournament = Tournament.query.get_or_404(tournament_id)
 
@@ -266,10 +330,12 @@ def tournament_detail(tournament_id):
 
     # Determine visibility flags
     show_picks = tournament.is_deadline_passed()
-    show_backup = (tournament.status == 'complete')
 
     # Get field count for upcoming tournaments
     field_count = TournamentField.query.filter_by(tournament_id=tournament_id).count()
+
+    # Track if any backup was activated (to conditionally show backup column)
+    any_backup_activated = False
 
     # Build results data for each user
     pick_results = []
@@ -277,64 +343,79 @@ def tournament_detail(tournament_id):
         pick = picks_by_user.get(user.id)
 
         if pick:
-            # Get result for primary player (position/earnings)
+            # Get result for primary player
             primary_result = TournamentResult.query.filter_by(
                 tournament_id=tournament_id,
                 player_id=pick.primary_player_id
             ).first()
 
-            # Get result for backup player (only needed for complete tournaments)
-            backup_result = None
-            if show_backup:
-                backup_result = TournamentResult.query.filter_by(
-                    tournament_id=tournament_id,
-                    player_id=pick.backup_player_id
-                ).first()
+            # Get result for backup player
+            backup_result = TournamentResult.query.filter_by(
+                tournament_id=tournament_id,
+                player_id=pick.backup_player_id
+            ).first()
 
-            # Determine display values
-            # For active tournaments, show primary's current earnings
-            # For complete tournaments, show resolved points_earned
+            # Determine backup activation
+            backup_activated = False
+            if tournament.status == 'complete' and pick.active_player_id:
+                backup_activated = (pick.active_player_id == pick.backup_player_id)
+            elif tournament.status == 'active' and primary_result:
+                backup_activated = primary_result.wd_before_round_2_complete()
+
+            if backup_activated:
+                any_backup_activated = True
+
+            # Determine display values based on tournament status
             if tournament.status == 'complete':
                 points = pick.points_earned or 0
-                position = None
-                # Get active player's final position
+                # Get active player's result for position/score
                 if pick.active_player_id:
                     active_result = TournamentResult.query.filter_by(
                         tournament_id=tournament_id,
                         player_id=pick.active_player_id
                     ).first()
                     position = active_result.final_position if active_result else None
+                    score = format_score_to_par(active_result.score_to_par) if active_result else None
+                else:
+                    position = None
+                    score = None
             else:
                 # Active tournament - show primary's current status
-                points = primary_result.earnings if primary_result else 0
-                position = primary_result.final_position if primary_result else None
+                # (or backup's if backup activated)
+                if backup_activated and backup_result:
+                    points = backup_result.earnings or 0
+                    position = backup_result.final_position
+                    score = format_score_to_par(backup_result.score_to_par)
+                else:
+                    points = primary_result.earnings if primary_result else 0
+                    position = primary_result.final_position if primary_result else None
+                    score = format_score_to_par(primary_result.score_to_par) if primary_result else None
 
             pick_results.append({
                 'user': user,
                 'pick': pick,
                 'primary_name': pick.primary_player.full_name(),
                 'backup_name': pick.backup_player.full_name(),
-                'active_name': pick.active_player.full_name() if pick.active_player else None,
                 'primary_result': primary_result,
                 'backup_result': backup_result,
                 'position': position,
+                'score': score,
                 'points': points,
-                'backup_activated': (pick.active_player_id == pick.backup_player_id) if pick.active_player_id else False,
+                'backup_activated': backup_activated,
                 'has_pick': True,
                 'admin_override': pick.admin_override,
                 'admin_override_note': pick.admin_override_note
             })
         else:
-            # User didn't submit a pick
             pick_results.append({
                 'user': user,
                 'pick': None,
                 'primary_name': None,
                 'backup_name': None,
-                'active_name': None,
                 'primary_result': None,
                 'backup_result': None,
                 'position': None,
+                'score': None,
                 'points': 0,
                 'backup_activated': False,
                 'has_pick': False,
@@ -343,21 +424,14 @@ def tournament_detail(tournament_id):
             })
 
     # Sort results
-    if tournament.status == 'complete':
-        # Sort by points earned (desc), then alphabetically
-        pick_results.sort(key=lambda x: (-x['points'], x['user'].get_display_name().lower()))
-    elif show_picks:
-        # Active tournament - sort by current earnings (desc)
+    if tournament.status == 'complete' or show_picks:
         pick_results.sort(key=lambda x: (-x['points'], x['user'].get_display_name().lower()))
     else:
-        # Upcoming - just alphabetical
         pick_results.sort(key=lambda x: x['user'].get_display_name().lower())
 
     # Calculate summary stats
     total_picks = sum(1 for r in pick_results if r['has_pick'])
     total_points = sum(r['points'] for r in pick_results)
-
-    # Find the leader for highlighting
     max_points = max((r['points'] for r in pick_results), default=0)
 
     # Get current user's pick for this tournament
@@ -372,7 +446,7 @@ def tournament_detail(tournament_id):
                          tournament=tournament,
                          pick_results=pick_results,
                          show_picks=show_picks,
-                         show_backup=show_backup,
+                         show_backup=any_backup_activated,
                          field_count=field_count,
                          total_picks=total_picks,
                          total_points=total_points,
@@ -387,7 +461,6 @@ def tournament_detail(tournament_id):
 @app.route('/results')
 def results():
     """Redirect to the most recently completed tournament."""
-    # Find most recent completed tournament
     tournament = Tournament.query.filter_by(
         status='complete',
         season_year=app.config['SEASON_YEAR']
@@ -396,7 +469,6 @@ def results():
     if tournament:
         return redirect(url_for('tournament_detail', tournament_id=tournament.id))
 
-    # No completed tournaments yet - redirect to schedule
     flash('No completed tournaments yet. Check back after the first tournament finishes!', 'info')
     return redirect(url_for('schedule'))
 
@@ -451,7 +523,6 @@ def register():
         confirm_password = request.form.get('confirm_password', '')
         display_name = request.form.get('display_name', '').strip() or None
 
-        # Validation
         errors = []
 
         if len(username) < 3:
@@ -462,7 +533,7 @@ def register():
 
         try:
             validated_email = validate_email(email, check_deliverability=False).email
-        except EmailNotValidError as exc:  # noqa: PERF203 - explicit error messaging is valuable here
+        except EmailNotValidError as exc:
             errors.append(str(exc))
             validated_email = None
 
@@ -507,12 +578,10 @@ def change_password():
         new_password = request.form.get('new_password', '')
         confirm_password = request.form.get('confirm_password', '')
 
-        # Verify current password
         if not current_user.check_password(current_password):
             flash('Current password is incorrect.', 'error')
             return redirect(url_for('change_password'))
 
-        # Validate new password
         if len(new_password) < 6:
             flash('New password must be at least 6 characters.', 'error')
             return redirect(url_for('change_password'))
@@ -525,7 +594,6 @@ def change_password():
             flash('New password must be different from current password.', 'error')
             return redirect(url_for('change_password'))
 
-        # Update password
         current_user.set_password(new_password)
         db.session.commit()
 
@@ -566,7 +634,6 @@ def admin_reset_password(user_id):
 @login_required
 def my_picks():
     """View user's picks for the season."""
-    # Get all tournaments for the season
     tournaments = Tournament.query.filter_by(
         season_year=app.config['SEASON_YEAR']
     ).order_by(Tournament.start_date).all()
@@ -577,10 +644,27 @@ def my_picks():
     # Get used player IDs
     used_player_ids = current_user.get_used_player_ids()
 
+    # Build result data for each pick (for CUT/WD/DQ badges and scores)
+    pick_results = {}
+    for tournament_id, pick in user_picks.items():
+        primary_result = TournamentResult.query.filter_by(
+            tournament_id=tournament_id,
+            player_id=pick.primary_player_id
+        ).first()
+        backup_result = TournamentResult.query.filter_by(
+            tournament_id=tournament_id,
+            player_id=pick.backup_player_id
+        ).first()
+        pick_results[tournament_id] = {
+            'primary_result': primary_result,
+            'backup_result': backup_result,
+        }
+
     return render_template('my_picks.html',
                          tournaments=tournaments,
                          user_picks=user_picks,
-                         used_player_ids=used_player_ids)
+                         used_player_ids=used_player_ids,
+                         pick_results=pick_results)
 
 
 @app.route('/pick/<int:tournament_id>', methods=['GET', 'POST'])
@@ -589,27 +673,22 @@ def make_pick(tournament_id):
     """Make or edit a pick for a tournament."""
     tournament = Tournament.query.get_or_404(tournament_id)
 
-    # Check if deadline passed
     if tournament.is_deadline_passed():
         flash('The deadline for this tournament has passed.', 'error')
         return redirect(url_for('my_picks'))
 
-    # Get existing pick if any
     existing_pick = Pick.query.filter_by(
         user_id=current_user.id,
         tournament_id=tournament_id
     ).first()
 
-    # Get used player IDs (excluding current pick's players if editing)
     used_player_ids = current_user.get_used_player_ids()
     if existing_pick:
-        # Remove current pick's players from used list so they can be re-selected
         if existing_pick.primary_player_id in used_player_ids:
             used_player_ids.remove(existing_pick.primary_player_id)
         if existing_pick.backup_player_id in used_player_ids:
             used_player_ids.remove(existing_pick.backup_player_id)
 
-    # Get available players (in field, not amateur, not used)
     available_players = Player.query.join(TournamentField).filter(
         TournamentField.tournament_id == tournament_id,
         Player.is_amateur == False,
@@ -620,7 +699,6 @@ def make_pick(tournament_id):
         primary_id = request.form.get('primary_player_id', type=int)
         backup_id = request.form.get('backup_player_id', type=int)
 
-        # Validation
         errors = []
 
         if not primary_id or not backup_id:
@@ -629,7 +707,6 @@ def make_pick(tournament_id):
         if primary_id == backup_id:
             errors.append('Primary and backup must be different players.')
 
-        # Verify players are in available list
         available_ids = [p.id for p in available_players]
         if primary_id not in available_ids:
             errors.append('Primary player is not available.')
@@ -641,7 +718,6 @@ def make_pick(tournament_id):
                 flash(error, 'error')
         else:
             if existing_pick:
-                # Update existing pick
                 existing_pick.primary_player_id = primary_id
                 existing_pick.backup_player_id = backup_id
                 existing_pick.updated_at = datetime.utcnow()
@@ -655,7 +731,6 @@ def make_pick(tournament_id):
                     db.session.commit()
                     return redirect(url_for('my_picks'))
             else:
-                # Create new pick
                 pick = Pick(
                     user_id=current_user.id,
                     tournament_id=tournament_id,
@@ -694,14 +769,12 @@ def admin_dashboard():
     total_users = User.query.count()
     paid_users = User.query.filter_by(has_paid=True).count()
 
-    # Get tournaments pending earnings finalization
     pending_finalization = Tournament.query.filter(
         Tournament.season_year == app.config['SEASON_YEAR'],
         Tournament.status == 'complete',
         Tournament.results_finalized == False
     ).order_by(Tournament.end_date.desc()).all()
 
-    # Get API usage statistics
     api_usage = parse_api_usage_logs()
 
     return render_template('admin/dashboard.html',
@@ -772,24 +845,20 @@ def admin_update_payment(user_id):
 def admin_override_pick():
     """Admin can create or modify picks after deadline has passed."""
 
-    # Get all tournaments and users for dropdowns
     tournaments = Tournament.query.filter_by(
         season_year=app.config['SEASON_YEAR']
     ).order_by(Tournament.start_date.desc()).all()
 
     users = User.query.order_by(func.lower(User.username)).all()
 
-    # Track which users have picks for selected tournament
     users_with_picks = set()
 
-    # Context for template
     selected_tournament = None
     selected_user = None
     field_players = None
     existing_pick = None
     used_player_ids = []
 
-    # Get recent override picks for sidebar
     recent_overrides = Pick.query.filter_by(admin_override=True).order_by(Pick.updated_at.desc()).limit(5).all()
 
     if request.method == 'POST':
@@ -802,7 +871,6 @@ def admin_override_pick():
 
         if tournament_id:
             selected_tournament = Tournament.query.get(tournament_id)
-            # Get users who already have picks for this tournament
             picks_for_tournament = Pick.query.filter_by(tournament_id=tournament_id).all()
             users_with_picks = {p.user_id for p in picks_for_tournament}
 
@@ -811,41 +879,35 @@ def admin_override_pick():
             if selected_user:
                 used_player_ids = selected_user.get_used_player_ids()
 
-        # If we have both tournament and user, load the field
         if selected_tournament and selected_user:
             field_players = Player.query.join(TournamentField).filter(
                 TournamentField.tournament_id==selected_tournament.id,
                 Player.is_amateur == False
             ).order_by(Player.last_name).all()
 
-            # Check for existing pick
             existing_pick = Pick.query.filter_by(
                 user_id=selected_user.id,
                 tournament_id=selected_tournament.id
             ).first()
 
-            # If existing pick, allow those players to be reselected
             if existing_pick:
                 if existing_pick.primary_player_id in used_player_ids:
                     used_player_ids.remove(existing_pick.primary_player_id)
                 if existing_pick.backup_player_id in used_player_ids:
                     used_player_ids.remove(existing_pick.backup_player_id)
 
-        # If we have all the data and it's not just a "load field" request
         if primary_id and backup_id and not load_field:
             errors = []
 
             if primary_id == backup_id:
                 errors.append('Primary and backup must be different players.')
 
-            # Validate players are in field
             field_ids = [p.id for p in field_players] if field_players else []
             if primary_id not in field_ids:
                 errors.append('Primary player is not in the tournament field.')
             if backup_id not in field_ids:
                 errors.append('Backup player is not in the tournament field.')
 
-            # Check if players are already used (but allow current pick's players)
             if primary_id in used_player_ids:
                 errors.append('Primary player has already been used by this user this season.')
             if backup_id in used_player_ids:
@@ -856,7 +918,6 @@ def admin_override_pick():
                     flash(error, 'error')
             else:
                 if existing_pick:
-                    # Update existing pick
                     existing_pick.primary_player_id = primary_id
                     existing_pick.backup_player_id = backup_id
                     existing_pick.admin_override = True
@@ -864,7 +925,6 @@ def admin_override_pick():
                     existing_pick.updated_at = datetime.utcnow()
                     flash(f'Override pick updated for {selected_user.get_display_name()}!', 'success')
                 else:
-                    # Create new pick
                     new_pick = Pick(
                         user_id=selected_user.id,
                         tournament_id=selected_tournament.id,
@@ -878,10 +938,8 @@ def admin_override_pick():
 
                 db.session.commit()
 
-                # Refresh recent overrides
                 recent_overrides = Pick.query.filter_by(admin_override=True).order_by(Pick.updated_at.desc()).limit(5).all()
 
-                # Reset form state
                 selected_tournament = None
                 selected_user = None
                 field_players = None
@@ -924,7 +982,7 @@ def process_tournament_results(tournament: Tournament):
 
                     pick.user.calculate_total_points()
                 processed += 1
-            except Exception as exc:  # noqa: BLE001 - log and continue with remaining picks
+            except Exception as exc:
                 logger.warning(
                     "Skipped pick %s for tournament %s: %s",
                     pick.id,
@@ -941,13 +999,6 @@ def process_tournament_results(tournament: Tournament):
 def parse_api_usage_logs(month=None, year=None):
     """
     Parse API call logs to track usage.
-
-    Args:
-        month: Month to filter (1-12), defaults to current month
-        year: Year to filter, defaults to current year
-
-    Returns:
-        dict with usage statistics
     """
     import os
     from datetime import datetime
@@ -978,31 +1029,24 @@ def parse_api_usage_logs(month=None, year=None):
         with open(log_path, 'r') as f:
             for line in f:
                 try:
-                    # Parse log line
-                    # Format: 2026-01-23 14:30:45\tcount=1\tmode=free\tendpoint=leaderboard...
                     parts = line.strip().split('\t')
                     if len(parts) < 2:
                         continue
 
-                    # Extract timestamp (handle milliseconds format from logging)
                     timestamp_str = parts[0]
-                    # Remove milliseconds if present (format: 2026-01-12 22:24:12,785)
                     if ',' in timestamp_str:
                         timestamp_str = timestamp_str.split(',')[0]
                     log_time = datetime.strptime(timestamp_str, '%Y-%m-%d %H:%M:%S')
 
-                    # Filter by month/year
                     if log_time.month != target_month or log_time.year != target_year:
                         continue
 
-                    # Extract details
                     details = {}
                     for part in parts[1:]:
                         if '=' in part:
                             key, value = part.split('=', 1)
                             details[key] = value
 
-                    # Count successful calls (status 200)
                     if details.get('status') == '200':
                         total_calls += 1
                         endpoint = details.get('endpoint', 'unknown')
@@ -1015,7 +1059,6 @@ def parse_api_usage_logs(month=None, year=None):
                             last_call = log_time
 
                 except Exception as e:
-                    # Skip malformed lines
                     continue
 
     except Exception as e:
@@ -1028,7 +1071,7 @@ def parse_api_usage_logs(month=None, year=None):
         'last_call': last_call,
         'month': target_month,
         'year': target_year,
-        'limit': 250,  # Free tier limit
+        'limit': 250,
         'percentage': round((total_calls / 250) * 100, 1)
     }
 

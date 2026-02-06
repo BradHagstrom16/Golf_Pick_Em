@@ -66,8 +66,14 @@
                     <th>Rank</th>
                     <th>Player</th>
                     <th class="text-end">Total Points</th>
+                    {% if not has_active_tournament and cumulative_scores %}
+                    <th class="text-end">Season Score</th>
+                    {% endif %}
                     {% if featured_tournament and show_picks %}
                     <th>{{ featured_tournament.name }} Pick</th>
+                    {% if has_active_tournament %}
+                    <th>Position</th>
+                    {% endif %}
                     <th class="text-end">
                         {% if featured_tournament.status == 'complete' %}Earned{% else %}Projected{% endif %}
                     </th>
@@ -90,6 +96,17 @@
                     <td class="text-end">
                         <span class="badge bg-success fs-6">${{ "{:,}".format(user.total_points) }}</span>
                     </td>
+                    {% if not has_active_tournament and cumulative_scores %}
+                    <td class="text-end">
+                        {% if user.id in cumulative_scores %}
+                            <span class="{% if cumulative_scores[user.id].total < 0 %}text-success{% elif cumulative_scores[user.id].total > 0 %}text-danger{% else %}text-muted{% endif %} fw-bold">
+                                {{ cumulative_scores[user.id].display }}
+                            </span>
+                        {% else %}
+                            <span class="text-muted">E</span>
+                        {% endif %}
+                    </td>
+                    {% endif %}
                     {% if featured_tournament and show_picks %}
                     <td>
                         {% if user.id in tournament_picks %}
@@ -102,17 +119,33 @@
                                 <br><small class="text-muted">WD</small>
                                 <br><small class="text-muted">↳ {{ tournament_picks[user.id].backup_name }}</small>
                                 {% if tournament_picks[user.id].position %}
-                                    <br><small class="text-muted" style="margin-left: 0.75em;">{{ tournament_picks[user.id].position }}</small>
+                                    <br><small class="text-muted" style="margin-left: 0.75em;">{{ tournament_picks[user.id].position }}{% if tournament_picks[user.id].score %} ({{ tournament_picks[user.id].score }}){% endif %}</small>
                                 {% endif %}
                             {% else %}
-                                {% if tournament_picks[user.id].position %}
-                                    <br><small class="text-muted">{{ tournament_picks[user.id].position }}</small>
+                                {% if not has_active_tournament and tournament_picks[user.id].position %}
+                                    <br><small class="text-muted">{{ tournament_picks[user.id].position }}{% if tournament_picks[user.id].score %} ({{ tournament_picks[user.id].score }}){% endif %}</small>
                                 {% endif %}
                             {% endif %}
                         {% else %}
                             <span class="text-muted">No Pick</span>
                         {% endif %}
                     </td>
+                    {% if has_active_tournament %}
+                    <td>
+                        {% if user.id in tournament_picks %}
+                            {% if tournament_picks[user.id].position %}
+                                {{ tournament_picks[user.id].position }}
+                                {% if tournament_picks[user.id].score %}
+                                    <small class="text-muted">({{ tournament_picks[user.id].score }})</small>
+                                {% endif %}
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        {% else %}
+                            <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    {% endif %}
                     <td class="text-end">
                         {% if user.id in tournament_picks %}
                             <span class="badge bg-{% if featured_tournament.status == 'complete' %}success{% else %}warning text-dark{% endif %}">
@@ -126,7 +159,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="{{ 5 if featured_tournament and show_picks else 3 }}" class="text-center text-muted">
+                    <td colspan="6" class="text-center text-muted">
                         No players yet. Be the first to register!
                     </td>
                 </tr>

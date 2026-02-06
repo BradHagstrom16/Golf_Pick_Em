@@ -119,6 +119,53 @@ PAYOUT_PERCENTAGES = {
 }
 
 
+def parse_score_to_par(total_str) -> Optional[int]:
+    """
+    Parse the 'total' field from API leaderboard into an integer score to par.
+
+    API returns values like: "-22", "+3", "E", "-", "", None
+    MongoDB number format also possible: {"$numberInt": "-22"}
+
+    Returns:
+        Integer score to par, or None if unparseable
+    """
+    if total_str is None:
+        return None
+
+    # Handle MongoDB-style number format
+    if isinstance(total_str, dict):
+        if '$numberInt' in total_str:
+            try:
+                return int(total_str['$numberInt'])
+            except (ValueError, TypeError):
+                return None
+        if '$numberLong' in total_str:
+            try:
+                return int(total_str['$numberLong'])
+            except (ValueError, TypeError):
+                return None
+        return None
+
+    # Handle numeric types directly
+    if isinstance(total_str, (int, float)):
+        return int(total_str)
+
+    # Handle string values
+    total_str = str(total_str).strip()
+
+    if not total_str or total_str in ('-', 'N/A', ''):
+        return None
+
+    if total_str.upper() == 'E':
+        return 0
+
+    try:
+        return int(total_str)
+    except ValueError:
+        logger.warning("Unable to parse score to par: '%s'", total_str)
+        return None
+
+
 def calculate_projected_earnings(position_str: str, purse: int, all_positions: List[str]) -> int:
     """
     Calculate projected earnings for a player based on position.
@@ -694,7 +741,7 @@ class TournamentSync:
             logger.error("Failed to fetch earnings for %s", tournament.name)
             return 0
 
-        # Build lookup from leaderboard for status/rounds info
+        # Build lookup from leaderboard for status/rounds/score info
         leaderboard_lookup = {}
         if "leaderboardRows" in leaderboard_data:
             for p in leaderboard_data["leaderboardRows"]:
@@ -738,6 +785,9 @@ class TournamentSync:
                 result.status = status
                 result.rounds_completed = rounds_completed
                 result.final_position = lb_info.get("position", "")
+
+                # Parse score to par from leaderboard "total" field
+                result.score_to_par = parse_score_to_par(lb_info.get("total"))
 
                 results_synced += 1
 
@@ -849,6 +899,7 @@ class TournamentSync:
                 result.status = "wd"
                 result.rounds_completed = rounds_completed
                 result.final_position = player_data.get("position", "")
+                result.score_to_par = parse_score_to_par(player_data.get("total"))
 
                 withdrawals.append({
                     "player_id": player_data["playerId"],
@@ -912,6 +963,9 @@ class TournamentSync:
                 result.status = player_data.get("status", result.status or "active")
                 result.rounds_completed = len(player_data.get("rounds", []))
                 result.final_position = player_data.get("position", result.final_position)
+
+                # Parse score to par from "total" field
+                result.score_to_par = parse_score_to_par(player_data.get("total"))
 
                 # Calculate projected earnings based on current position
                 position = player_data.get("position", "")

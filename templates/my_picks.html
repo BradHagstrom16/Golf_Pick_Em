@@ -21,6 +21,7 @@
             <tbody>
                 {% for tournament in tournaments %}
                 {% set pick = user_picks.get(tournament.id) %}
+                {% set results = pick_results.get(tournament.id) %}
                 <tr>
                     <td>
                         <a href="{{ url_for('tournament_detail', tournament_id=tournament.id) }}" class="text-decoration-none">
@@ -38,21 +39,24 @@
                         <br><small class="text-muted">{{ tournament.status|capitalize }}</small>
                     </td>
                     <td>
-                    
                         {% if pick %}
                             <strong>{{ pick.primary_player.full_name() }}</strong>
                             {% if pick.admin_override %}
                                 <span class="badge bg-warning text-dark" title="{{ pick.admin_override_note or 'Admin override pick' }}">👑</span>
                             {% endif %}
-                        {% if pick.is_backup_activated() %}
-                            <span class="badge bg-info" title="Backup activated - Primary withdrew early">🔄</span>
-                        {% endif %}
-                        {% if pick.primary_used %}
-                            <span class="badge bg-secondary">Used</span>
-                        {% endif %}
-                        {% if pick.active_player_id == pick.primary_player_id and tournament.status == 'complete' %}
-                            <span class="badge bg-success">Active</span>
-                        {% endif %}
+                            {# Show status badges for primary player #}
+                            {% if results and results.primary_result %}
+                                {% if results.primary_result.status == 'cut' %}
+                                    <span class="badge bg-danger">CUT</span>
+                                {% elif results.primary_result.status == 'wd' %}
+                                    <span class="badge bg-warning text-dark">WD</span>
+                                {% elif results.primary_result.status == 'dq' %}
+                                    <span class="badge bg-dark">DQ</span>
+                                {% endif %}
+                            {% endif %}
+                            {% if pick.primary_used %}
+                                <span class="badge bg-secondary" title="This golfer counted for points and is locked for the season">Used</span>
+                            {% endif %}
                         {% else %}
                             <span class="text-muted">-</span>
                         {% endif %}
@@ -60,11 +64,22 @@
                     <td>
                         {% if pick %}
                             {{ pick.backup_player.full_name() }}
-                            {% if pick.backup_used %}
-                                <span class="badge bg-secondary">Used</span>
+                            {# Show backup activated badge on the backup column #}
+                            {% if pick.is_backup_activated() %}
+                                <span class="badge bg-info" title="Backup activated - Primary withdrew before R2">🔄</span>
                             {% endif %}
-                            {% if pick.active_player_id == pick.backup_player_id and tournament.status == 'complete' %}
-                                <span class="badge bg-info">Activated</span>
+                            {# Show status badges for backup player #}
+                            {% if results and results.backup_result %}
+                                {% if results.backup_result.status == 'cut' %}
+                                    <span class="badge bg-danger">CUT</span>
+                                {% elif results.backup_result.status == 'wd' %}
+                                    <span class="badge bg-warning text-dark">WD</span>
+                                {% elif results.backup_result.status == 'dq' %}
+                                    <span class="badge bg-dark">DQ</span>
+                                {% endif %}
+                            {% endif %}
+                            {% if pick.backup_used %}
+                                <span class="badge bg-secondary" title="This golfer counted for points and is locked for the season">Used</span>
                             {% endif %}
                         {% else %}
                             <span class="text-muted">-</span>
@@ -155,9 +170,10 @@
             <div class="card-body small">
                 <p class="mb-1"><span class="badge bg-warning text-dark">👑</span> = Admin Override (pick made by commissioner)</p>
                 <p class="mb-1"><span class="badge bg-info">🔄</span> = Backup Activated (primary withdrew before R2)</p>
-                <p class="mb-1"><span class="badge bg-success">Active</span> = This golfer counted for points</p>
-                <p class="mb-1"><span class="badge bg-info">Activated</span> = Backup was used (primary WD early)</p>
-                <p class="mb-0"><span class="badge bg-secondary">Used</span> = Golfer locked for season</p>
+                <p class="mb-1"><span class="badge bg-secondary">Used</span> = This golfer counted for points and is locked for the season</p>
+                <p class="mb-1"><span class="badge bg-danger">CUT</span> = Missed Cut</p>
+                <p class="mb-1"><span class="badge bg-warning text-dark">WD</span> = Withdrew</p>
+                <p class="mb-0"><span class="badge bg-dark">DQ</span> = Disqualified</p>
             </div>
         </div>
     </div>

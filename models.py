@@ -269,6 +269,7 @@ class TournamentResult(db.Model):
     final_position = db.Column(db.String(20), nullable=True)  # "1", "T5", "CUT", etc.
     earnings = db.Column(db.Integer, default=0)  # Prize money in dollars
     rounds_completed = db.Column(db.Integer, default=0)  # 0-4, key for WD timing
+    score_to_par = db.Column(db.Integer, nullable=True)  # Total score relative to par (e.g., -22, +3)
 
     # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -282,6 +283,17 @@ class TournamentResult(db.Model):
     def wd_before_round_2_complete(self):
         """Check if this was a WD before completing round 2."""
         return self.status == 'wd' and self.rounds_completed < 2
+
+    def format_score_to_par(self):
+        """Format score to par for display (e.g., '-22', '+3', 'E')."""
+        if self.score_to_par is None:
+            return None
+        if self.score_to_par == 0:
+            return "E"
+        elif self.score_to_par > 0:
+            return f"+{self.score_to_par}"
+        else:
+            return str(self.score_to_par)
 
     def __repr__(self):
         return f'<TournamentResult {self.tournament_id} - {self.player_id}: {self.earnings}>'

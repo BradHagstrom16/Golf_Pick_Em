@@ -134,7 +134,7 @@
             Last synced: {{ tournament.updated_at.strftime('%b %d, %I:%M %p CT') if tournament.updated_at else 'Pending sync' }}
         </div>
         <div class="small mt-1">
-            💡 <em>Earnings shown are projections based on current standings. Final earnings from official PGA Tour results will be updated Monday.</em>
+            💡 <em>Earnings shown are projections based on current standings. Final results updated Monday.</em>
         </div>
     </div>
     {% endif %}
@@ -160,7 +160,6 @@
                             <th>Primary Pick</th>
                             {% if show_backup %}
                             <th>Backup Pick</th>
-                            <th>Active Pick</th>
                             {% endif %}
                             <th>Position</th>
                             <th class="text-end">
@@ -192,9 +191,6 @@
                                     {% if result.admin_override %}
                                         <span class="badge bg-warning text-dark" title="{{ result.admin_override_note or 'Admin override pick' }}">👑</span>
                                     {% endif %}
-                                    {% if result.backup_activated %}
-                                        <span class="badge bg-info" title="Backup activated - Primary withdrew before completing Round 2">🔄</span>
-                                    {% endif %}
                                     {% if result.primary_result %}
                                         {% if result.primary_result.status == 'cut' %}
                                             <span class="badge bg-danger">CUT</span>
@@ -212,6 +208,9 @@
                             <td>
                                 {% if result.has_pick %}
                                     {{ result.backup_name }}
+                                    {% if result.backup_activated %}
+                                        <span class="badge bg-info" title="Backup activated - Primary withdrew before completing Round 2">🔄</span>
+                                    {% endif %}
                                     {% if result.backup_result %}
                                         {% if result.backup_result.status == 'cut' %}
                                             <span class="badge bg-danger">CUT</span>
@@ -225,24 +224,13 @@
                                     <span class="text-muted">-</span>
                                 {% endif %}
                             </td>
-                            <td>
-                                {% if result.has_pick %}
-                                    {% if result.active_name %}
-                                        <strong>{{ result.active_name }}</strong>
-                                        {% if result.backup_activated %}
-                                            <span class="badge bg-info" title="Backup was activated">🔄</span>
-                                        {% endif %}
-                                    {% else %}
-                                        <span class="text-muted fst-italic">Pending</span>
-                                    {% endif %}
-                                {% else %}
-                                    <span class="text-muted">-</span>
-                                {% endif %}
-                            </td>
                             {% endif %}
                             <td>
                                 {% if result.has_pick and result.position %}
                                     {{ result.position }}
+                                    {% if result.score %}
+                                        <small class="text-muted">({{ result.score }})</small>
+                                    {% endif %}
                                 {% elif not result.has_pick %}
                                     <span class="text-muted">-</span>
                                 {% else %}
@@ -263,7 +251,7 @@
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="{% if show_backup %}7{% else %}5{% endif %}" class="text-center text-muted py-4">
+                            <td colspan="{% if show_backup %}6{% else %}5{% endif %}" class="text-center text-muted py-4">
                                 No picks submitted for this tournament.
                             </td>
                         </tr>
@@ -274,20 +262,18 @@
         </div>
     </div>
 
-    <!-- Legend for complete tournaments -->
-    {% if show_backup %}
+    <!-- Legend -->
     <div class="mt-3">
         <small class="text-muted">
             <strong>Legend:</strong>
             🏆 = Top Earner |
-            🔄 = Backup Activated |
+            {% if show_backup %}🔄 = Backup Activated |{% endif %}
             👑 = Admin Override |
             <span class="badge bg-danger">CUT</span> = Missed Cut |
             <span class="badge bg-warning text-dark">WD</span> = Withdrew |
             <span class="badge bg-dark">DQ</span> = Disqualified
         </small>
     </div>
-    {% endif %}
 
 {% endif %}
 
