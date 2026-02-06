@@ -71,9 +71,7 @@
                     {% endif %}
                     {% if featured_tournament and show_picks %}
                     <th>{{ featured_tournament.name }} Pick</th>
-                    {% if has_active_tournament %}
                     <th>Position</th>
-                    {% endif %}
                     <th class="text-end">
                         {% if featured_tournament.status == 'complete' %}Earned{% else %}Projected{% endif %}
                     </th>
@@ -118,19 +116,11 @@
                                 <span class="badge bg-info" title="Backup activated - {{ tournament_picks[user.id].backup_name }}">🔄</span>
                                 <br><small class="text-muted">WD</small>
                                 <br><small class="text-muted">↳ {{ tournament_picks[user.id].backup_name }}</small>
-                                {% if tournament_picks[user.id].position %}
-                                    <br><small class="text-muted" style="margin-left: 0.75em;">{{ tournament_picks[user.id].position }}{% if tournament_picks[user.id].score %} ({{ tournament_picks[user.id].score }}){% endif %}</small>
-                                {% endif %}
-                            {% else %}
-                                {% if not has_active_tournament and tournament_picks[user.id].position %}
-                                    <br><small class="text-muted">{{ tournament_picks[user.id].position }}{% if tournament_picks[user.id].score %} ({{ tournament_picks[user.id].score }}){% endif %}</small>
-                                {% endif %}
                             {% endif %}
                         {% else %}
                             <span class="text-muted">No Pick</span>
                         {% endif %}
                     </td>
-                    {% if has_active_tournament %}
                     <td>
                         {% if user.id in tournament_picks %}
                             {% if tournament_picks[user.id].position %}
@@ -145,7 +135,6 @@
                             <span class="text-muted">-</span>
                         {% endif %}
                     </td>
-                    {% endif %}
                     <td class="text-end">
                         {% if user.id in tournament_picks %}
                             <span class="badge bg-{% if featured_tournament.status == 'complete' %}success{% else %}warning text-dark{% endif %}">
