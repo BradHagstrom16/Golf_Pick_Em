@@ -1,32 +1,12 @@
 /* Golf Pick 'Em - Custom Styles */
 
+/* ============================================================================
+   Layout & Responsiveness
+   ============================================================================ */
+
 /* Ensure tables are responsive on mobile */
 .table-responsive {
     overflow-x: auto;
-}
-
-/* Navbar brand styling */
-.navbar-brand {
-    font-weight: bold;
-    font-size: 1.3rem;
-}
-
-/* Card hover effects */
-.card {
-    transition: box-shadow 0.2s ease-in-out;
-}
-
-.card:hover {
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-}
-
-/* Badge sizing for points */
-.badge.fs-5 {
-    font-size: 1rem !important;
-}
-
-.badge.fs-6 {
-    font-size: 0.9rem !important;
 }
 
 /* Make select dropdowns larger on mobile */
@@ -37,17 +17,78 @@
     }
 }
 
+/* ============================================================================
+   Navbar
+   ============================================================================ */
+
+.navbar-brand {
+    font-weight: bold;
+    font-size: 1.3rem;
+}
+
+.navbar .badge {
+    font-size: 0.7rem;
+}
+
+/* ============================================================================
+   Cards
+   ============================================================================ */
+
+.card {
+    transition: box-shadow 0.2s ease-in-out;
+}
+
+.card:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* ============================================================================
+   Table Enhancements
+   ============================================================================ */
+
+/* Column divider — subtle vertical separator between season data and
+   active tournament data on the homepage standings table */
+.column-divider {
+    border-left: 2px solid rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Ensure the divider is visible even on striped/highlighted rows */
+.table-striped > tbody > tr > td.column-divider,
+.table-warning > td.column-divider,
+tr.table-warning > td.column-divider {
+    border-left: 2px solid rgba(0, 0, 0, 0.15) !important;
+}
+
 /* Tournament row highlighting */
 tr.table-info {
     background-color: rgba(13, 202, 240, 0.15) !important;
 }
 
-/* Footer styling */
-footer {
-    border-top: 1px solid #dee2e6;
+/* ============================================================================
+   Badges & Points
+   ============================================================================ */
+
+.badge.fs-5 {
+    font-size: 1rem !important;
 }
 
-/* Admin badge in navbar */
-.navbar .badge {
-    font-size: 0.7rem;
+.badge.fs-6 {
+    font-size: 0.9rem !important;
+}
+
+/* ============================================================================
+   Progress Bar
+   ============================================================================ */
+
+/* Smooth fill animation when the season progress bar loads */
+.progress-bar {
+    transition: width 0.6s ease-in-out;
+}
+
+/* ============================================================================
+   Footer
+   ============================================================================ */
+
+footer {
+    border-top: 1px solid #dee2e6;
 }

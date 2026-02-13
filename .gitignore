@@ -2,6 +2,9 @@
 # Project-specific ignores - KEEP AT TOP
 # ===========================================
 
+# Claude working directories
+.claude/
+
 # Environment credentials for scheduled tasks (NEVER commit!)
 env_config.sh
 
