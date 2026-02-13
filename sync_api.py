@@ -41,9 +41,14 @@ logging.basicConfig(level=logging.INFO)
 API_CALL_LOGGER = logging.getLogger("api_calls")
 API_CALL_LOGGER.setLevel(logging.INFO)
 if not API_CALL_LOGGER.handlers:
+    from logging.handlers import RotatingFileHandler
     log_dir = os.path.join(os.path.dirname(__file__), "logs")
     os.makedirs(log_dir, exist_ok=True)
-    handler = logging.FileHandler(os.path.join(log_dir, "api_calls.log"))
+    handler = RotatingFileHandler(
+        os.path.join(log_dir, "api_calls.log"),
+        maxBytes=500_000,  # ~500KB per file
+        backupCount=3
+    )
     handler.setFormatter(logging.Formatter("%(asctime)s\t%(message)s"))
     API_CALL_LOGGER.addHandler(handler)
 

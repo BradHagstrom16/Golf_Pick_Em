@@ -6,18 +6,22 @@ Flask application with routes for the golf pick 'em fantasy league.
 
 import os
 from functools import wraps
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 
 import pytz
 from email_validator import EmailNotValidError, validate_email
+from urllib.parse import urlparse
 from flask import Flask, render_template, redirect, url_for, flash, request, jsonify
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from flask_wtf.csrf import CSRFProtect, generate_csrf
 from sqlalchemy import func
 
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+
 from config import config
-from models import db, User, Player, Tournament, TournamentField, TournamentResult, Pick, SeasonPlayerUsage, get_current_time, LEAGUE_TZ
+from models import db, User, Player, Tournament, TournamentField, TournamentResult, Pick, SeasonPlayerUsage, get_current_time, LEAGUE_TZ, format_score_to_par
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -29,6 +33,7 @@ logger = logging.getLogger(__name__)
 # Initialize extensions
 db.init_app(app)
 csrf = CSRFProtect(app)
+limiter = Limiter(get_remote_address, app=app, default_limits=["200 per hour"])
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
@@ -42,20 +47,17 @@ def load_user(user_id):
     return User.query.get(int(user_id))
 
 
-LAST_STATUS_REFRESH = None
-
-
 @app.before_request
 def refresh_tournament_states():
     """Ensure tournament statuses reflect current time without manual intervention."""
     if not request.endpoint or request.endpoint in {"static"}:
         return
 
-    global LAST_STATUS_REFRESH
     now = get_current_time()
     refresh_interval = app.config.get("STATUS_REFRESH_INTERVAL_SECONDS", 300)
+    last_refresh = app.config.get("_LAST_STATUS_REFRESH")
 
-    if LAST_STATUS_REFRESH and (now - LAST_STATUS_REFRESH).total_seconds() < refresh_interval:
+    if last_refresh and (now - last_refresh).total_seconds() < refresh_interval:
         return
 
     tournaments = Tournament.query.filter(
@@ -70,64 +72,49 @@ def refresh_tournament_states():
             logger.info("Auto-updated tournament %s status: %s -> %s", tournament.name, previous, tournament.status)
     if updated:
         db.session.commit()
-    LAST_STATUS_REFRESH = now
+    app.config["_LAST_STATUS_REFRESH"] = now
 
 
 # ============================================================================
 # Helpers
 # ============================================================================
 
-def format_score_to_par(score):
-    """Format integer score to par for display."""
-    if score is None:
-        return None
-    if score == 0:
-        return "E"
-    elif score > 0:
-        return f"+{score}"
-    else:
-        return str(score)
-
-
 def get_cumulative_scores(users, season_year):
-    """
-    Calculate cumulative score to par for each user across all completed tournaments.
+    """Calculate cumulative score to par using a single efficient query."""
+    from sqlalchemy import and_
 
-    For each user, sums the score_to_par of their *active* pick's TournamentResult
-    across all completed tournaments. No pick = +0 contribution.
+    rows = (
+        db.session.query(
+            Pick.user_id,
+            func.sum(TournamentResult.score_to_par)
+        )
+        .join(Tournament, Pick.tournament_id == Tournament.id)
+        .join(
+            TournamentResult,
+            and_(
+                TournamentResult.tournament_id == Pick.tournament_id,
+                TournamentResult.player_id == Pick.active_player_id
+            )
+        )
+        .filter(
+            Tournament.status == 'complete',
+            Tournament.season_year == season_year,
+            Pick.active_player_id.isnot(None),
+            TournamentResult.score_to_par.isnot(None)
+        )
+        .group_by(Pick.user_id)
+        .all()
+    )
 
-    Returns:
-        dict mapping user_id -> {'total': int, 'display': str}
-    """
-    completed_tournaments = Tournament.query.filter_by(
-        status='complete',
-        season_year=season_year
-    ).all()
+    score_map = {user_id: total for user_id, total in rows}
 
     cumulative = {}
-
     for user in users:
-        total_score = 0
-        for tournament in completed_tournaments:
-            pick = Pick.query.filter_by(
-                user_id=user.id,
-                tournament_id=tournament.id
-            ).first()
-
-            if pick and pick.active_player_id:
-                result = TournamentResult.query.filter_by(
-                    tournament_id=tournament.id,
-                    player_id=pick.active_player_id
-                ).first()
-                if result and result.score_to_par is not None:
-                    total_score += result.score_to_par
-            # No pick = +0, which is the default
-
+        total = score_map.get(user.id, 0) or 0
         cumulative[user.id] = {
-            'total': total_score,
-            'display': format_score_to_par(total_score)
+            'total': total,
+            'display': format_score_to_par(total)
         }
-
     return cumulative
 
 
@@ -479,6 +466,7 @@ def results():
 # ============================================================================
 
 @app.route('/login', methods=['GET', 'POST'])
+@limiter.limit("10 per minute")
 def login():
     """User login."""
     if current_user.is_authenticated:
@@ -494,6 +482,8 @@ def login():
             login_user(user, remember=True)
             flash(f'Welcome back, {user.get_display_name()}!', 'success')
             next_page = request.args.get('next')
+            if next_page and urlparse(next_page).netloc:
+                next_page = None  # Reject absolute URLs
             return redirect(next_page or url_for('index'))
         else:
             flash('Invalid username or password.', 'error')
@@ -621,7 +611,7 @@ def admin_reset_password(user_id):
     user.set_password(new_password)
     db.session.commit()
 
-    flash(f'Password reset for {user.get_display_name()}. New password: {new_password}', 'success')
+    flash(f'Password successfully reset for {user.get_display_name()}.', 'success')
     return redirect(url_for('admin_users'))
 
 
@@ -644,20 +634,26 @@ def my_picks():
     # Get used player IDs
     used_player_ids = current_user.get_used_player_ids()
 
-    # Build result data for each pick (for CUT/WD/DQ badges and scores)
+    # Batch load all results for this user's picks
+    all_player_ids = set()
+    all_tournament_ids = set()
+    for pick in user_picks.values():
+        all_player_ids.update([pick.primary_player_id, pick.backup_player_id])
+        all_tournament_ids.add(pick.tournament_id)
+
+    results = TournamentResult.query.filter(
+        TournamentResult.tournament_id.in_(all_tournament_ids),
+        TournamentResult.player_id.in_(all_player_ids)
+    ).all() if all_tournament_ids else []
+
+    # Index by (tournament_id, player_id)
+    result_lookup = {(r.tournament_id, r.player_id): r for r in results}
+
     pick_results = {}
     for tournament_id, pick in user_picks.items():
-        primary_result = TournamentResult.query.filter_by(
-            tournament_id=tournament_id,
-            player_id=pick.primary_player_id
-        ).first()
-        backup_result = TournamentResult.query.filter_by(
-            tournament_id=tournament_id,
-            player_id=pick.backup_player_id
-        ).first()
         pick_results[tournament_id] = {
-            'primary_result': primary_result,
-            'backup_result': backup_result,
+            'primary_result': result_lookup.get((tournament_id, pick.primary_player_id)),
+            'backup_result': result_lookup.get((tournament_id, pick.backup_player_id)),
         }
 
     return render_template('my_picks.html',
@@ -689,11 +685,13 @@ def make_pick(tournament_id):
         if existing_pick.backup_player_id in used_player_ids:
             used_player_ids.remove(existing_pick.backup_player_id)
 
-    available_players = Player.query.join(TournamentField).filter(
+    query = Player.query.join(TournamentField).filter(
         TournamentField.tournament_id == tournament_id,
-        Player.is_amateur == False,
-        ~Player.id.in_(used_player_ids) if used_player_ids else True
-    ).order_by(Player.last_name).all()
+        Player.is_amateur == False
+    )
+    if used_player_ids:
+        query = query.filter(~Player.id.in_(used_player_ids))
+    available_players = query.order_by(Player.last_name).all()
 
     if request.method == 'POST':
         primary_id = request.form.get('primary_player_id', type=int)
@@ -720,7 +718,7 @@ def make_pick(tournament_id):
             if existing_pick:
                 existing_pick.primary_player_id = primary_id
                 existing_pick.backup_player_id = backup_id
-                existing_pick.updated_at = datetime.utcnow()
+                existing_pick.updated_at = datetime.now(timezone.utc)
                 validation_errors = existing_pick.validate_availability(app.config['SEASON_YEAR'])
                 if validation_errors:
                     for error in validation_errors:
@@ -922,7 +920,7 @@ def admin_override_pick():
                     existing_pick.backup_player_id = backup_id
                     existing_pick.admin_override = True
                     existing_pick.admin_override_note = override_note or None
-                    existing_pick.updated_at = datetime.utcnow()
+                    existing_pick.updated_at = datetime.now(timezone.utc)
                     flash(f'Override pick updated for {selected_user.get_display_name()}!', 'success')
                 else:
                     new_pick = Pick(
@@ -965,31 +963,31 @@ def process_tournament_results(tournament: Tournament):
     processed = 0
     skipped = []
 
-    with db.session.begin():
-        for pick in picks:
-            try:
-                with db.session.begin_nested():
-                    SeasonPlayerUsage.query.filter(
-                        SeasonPlayerUsage.user_id == pick.user_id,
-                        SeasonPlayerUsage.season_year == tournament.season_year,
-                        SeasonPlayerUsage.player_id.in_([pick.primary_player_id, pick.backup_player_id])
-                    ).delete(synchronize_session=False)
+    for pick in picks:
+        try:
+            with db.session.begin_nested():
+                SeasonPlayerUsage.query.filter(
+                    SeasonPlayerUsage.user_id == pick.user_id,
+                    SeasonPlayerUsage.season_year == tournament.season_year,
+                    SeasonPlayerUsage.player_id.in_([pick.primary_player_id, pick.backup_player_id])
+                ).delete(synchronize_session=False)
 
-                    resolved = pick.resolve_pick()
-                    if not resolved:
-                        skipped.append(pick.id)
-                        raise RuntimeError("Pick resolution incomplete")
+                resolved = pick.resolve_pick()
+                if not resolved:
+                    skipped.append(pick.id)
+                    raise RuntimeError("Pick resolution incomplete")
 
-                    pick.user.calculate_total_points()
-                processed += 1
-            except Exception as exc:
-                logger.warning(
-                    "Skipped pick %s for tournament %s: %s",
-                    pick.id,
-                    tournament.id,
-                    exc,
-                )
+                pick.user.calculate_total_points()
+            processed += 1
+        except Exception as exc:
+            logger.warning(
+                "Skipped pick %s for tournament %s: %s",
+                pick.id,
+                tournament.id,
+                exc,
+            )
 
+    db.session.commit()
     return processed, skipped
 
 # ============================================================================
@@ -1000,8 +998,6 @@ def parse_api_usage_logs(month=None, year=None):
     """
     Parse API call logs to track usage.
     """
-    import os
-    from datetime import datetime
     from collections import defaultdict
 
     now = datetime.now(LEAGUE_TZ)
@@ -1093,6 +1089,20 @@ def admin_process_results(tournament_id):
         message += f" Skipped {len(skipped)} pick(s) awaiting missing results."
     flash(message, 'success' if not skipped else 'warning')
     return redirect(url_for('admin_tournaments'))
+
+
+# ============================================================================
+# Error Handlers
+# ============================================================================
+
+@app.errorhandler(404)
+def not_found(e):
+    return render_template('errors/404.html'), 404
+
+
+@app.errorhandler(500)
+def server_error(e):
+    return render_template('errors/500.html'), 500
 
 
 # ============================================================================

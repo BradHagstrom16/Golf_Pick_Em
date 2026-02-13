@@ -2,6 +2,11 @@
 
 {% block title %}Pick for {{ tournament.name }} - Golf Pick 'Em{% endblock %}
 
+{% block head %}
+<link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
+{% endblock %}
+
 {% block content %}
 <nav aria-label="breadcrumb">
     <ol class="breadcrumb">
@@ -30,7 +35,7 @@
                     </div>
                 </div>
 
-                <form method="POST">
+                <form method="POST" onsubmit="return confirmPick()">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <!-- Primary Pick -->
                     <div class="mb-4">
@@ -108,25 +113,44 @@
 
 {% block scripts %}
 <script>
+// Initialize searchable dropdowns
+var primarySelect = new TomSelect('#primary_player_id', {
+    placeholder: 'Search for a player...',
+    sortField: { field: 'text', direction: 'asc' }
+});
+var backupSelect = new TomSelect('#backup_player_id', {
+    placeholder: 'Search for a player...',
+    sortField: { field: 'text', direction: 'asc' }
+});
+
 // Prevent selecting same player for both picks
 document.getElementById('backup_player_id').addEventListener('change', function() {
     var primary = document.getElementById('primary_player_id').value;
     var backup = this.value;
-
     if (primary && backup && primary === backup) {
         alert('Primary and backup must be different players!');
-        this.value = '';
+        backupSelect.clear();
     }
 });
 
 document.getElementById('primary_player_id').addEventListener('change', function() {
     var primary = this.value;
     var backup = document.getElementById('backup_player_id').value;
-
     if (primary && backup && primary === backup) {
         alert('Primary and backup must be different players!');
-        document.getElementById('backup_player_id').value = '';
+        backupSelect.clear();
     }
 });
+
+// Confirmation before submitting pick
+function confirmPick() {
+    var primary = document.getElementById('primary_player_id');
+    var backup = document.getElementById('backup_player_id');
+    var primaryName = primary.options[primary.selectedIndex]?.text || 'None';
+    var backupName = backup.options[backup.selectedIndex]?.text || 'None';
+    return confirm(
+        'Confirm your pick:\n\nPrimary: ' + primaryName + '\nBackup: ' + backupName + '\n\nThese golfers will be locked for the season. Continue?'
+    );
+}
 </script>
 {% endblock %}

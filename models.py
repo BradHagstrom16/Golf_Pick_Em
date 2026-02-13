@@ -11,7 +11,7 @@ Core Concepts:
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytz
 from flask_login import UserMixin
@@ -21,6 +21,15 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 db = SQLAlchemy()
 logger = logging.getLogger(__name__)
+
+
+def format_score_to_par(score):
+    """Format integer score to par for display."""
+    if score is None:
+        return None
+    if score == 0:
+        return "E"
+    return f"+{score}" if score > 0 else str(score)
 
 # Timezone for the league (Central Time)
 LEAGUE_TZ = pytz.timezone('America/Chicago')
@@ -46,7 +55,7 @@ class User(UserMixin, db.Model):
     has_paid = db.Column(db.Boolean, default=False)
 
     # Timestamps
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     # Relationships
     picks = db.relationship('Pick', backref='user', lazy='dynamic')
@@ -72,10 +81,15 @@ class User(UserMixin, db.Model):
 
     def calculate_total_points(self):
         """Recalculate total points from all completed picks."""
-        total = 0
-        for pick in self.picks:
-            if pick.tournament.status == 'complete' and pick.points_earned:
-                total += pick.points_earned
+        from sqlalchemy import func as sqla_func
+        total = db.session.query(
+            sqla_func.coalesce(sqla_func.sum(Pick.points_earned), 0)
+        ).filter(
+            Pick.user_id == self.id,
+            Pick.points_earned.isnot(None)
+        ).join(Tournament).filter(
+            Tournament.status == 'complete'
+        ).scalar()
         self.total_points = total
         return total
 
@@ -96,8 +110,8 @@ class Player(db.Model):
     is_amateur = db.Column(db.Boolean, default=False)
 
     # Timestamps
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     # Relationships
     tournament_results = db.relationship('TournamentResult', backref='player', lazy='dynamic')
@@ -143,8 +157,8 @@ class Tournament(db.Model):
     week_number = db.Column(db.Integer, nullable=True)
 
     # Timestamps
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     # Relationships
     picks = db.relationship('Pick', backref='tournament', lazy='dynamic')
@@ -177,18 +191,24 @@ class Tournament(db.Model):
     def update_status_from_time(self, current_time: datetime = None):
         """Derive tournament status based on start/end dates and deadlines."""
         now = current_time or datetime.now(LEAGUE_TZ)
-        if self.status != 'complete':
-            deadline = self.pick_deadline or self.start_date
-            deadline_localized = deadline if deadline.tzinfo else LEAGUE_TZ.localize(deadline)
-            start_localized = self.start_date if self.start_date.tzinfo else LEAGUE_TZ.localize(self.start_date)
-            end_localized = self.end_date if self.end_date.tzinfo else LEAGUE_TZ.localize(self.end_date)
+        if self.status == 'complete':
+            return self.status  # Already complete, don't change
 
-            if now >= end_localized:
-                self.status = 'complete'
-            elif now >= start_localized:
+        deadline = self.pick_deadline or self.start_date
+        deadline_localized = deadline if deadline.tzinfo else LEAGUE_TZ.localize(deadline)
+        start_localized = self.start_date if self.start_date.tzinfo else LEAGUE_TZ.localize(self.start_date)
+        end_localized = self.end_date if self.end_date.tzinfo else LEAGUE_TZ.localize(self.end_date)
+
+        if now >= end_localized:
+            # Don't auto-set to 'complete' — only sync_api should do that
+            # after verifying results are finalized. Keep as 'active' until then.
+            if self.status != 'active':
                 self.status = 'active'
-            elif now >= deadline_localized:
-                self.status = 'upcoming'
+        elif now >= start_localized:
+            self.status = 'active'
+        elif now >= deadline_localized:
+            self.status = 'upcoming'
+
         return self.status
 
     def get_deadline_display(self):
@@ -221,7 +241,7 @@ class TournamentField(db.Model):
     is_alternate = db.Column(db.Boolean, default=False)
 
     # Timestamps
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     # Relationship to player
     player = db.relationship('Player', backref='field_entries')
@@ -244,7 +264,7 @@ class SeasonPlayerUsage(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     player_id = db.Column(db.Integer, db.ForeignKey('player.id'), nullable=False)
     season_year = db.Column(db.Integer, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (
         db.UniqueConstraint('user_id', 'player_id', 'season_year', name='unique_player_usage'),
@@ -272,8 +292,8 @@ class TournamentResult(db.Model):
     score_to_par = db.Column(db.Integer, nullable=True)  # Total score relative to par (e.g., -22, +3)
 
     # Timestamps
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     # Unique constraint: one result per player per tournament
     __table_args__ = (
@@ -286,14 +306,7 @@ class TournamentResult(db.Model):
 
     def format_score_to_par(self):
         """Format score to par for display (e.g., '-22', '+3', 'E')."""
-        if self.score_to_par is None:
-            return None
-        if self.score_to_par == 0:
-            return "E"
-        elif self.score_to_par > 0:
-            return f"+{self.score_to_par}"
-        else:
-            return str(self.score_to_par)
+        return format_score_to_par(self.score_to_par)
 
     def __repr__(self):
         return f'<TournamentResult {self.tournament_id} - {self.player_id}: {self.earnings}>'
@@ -337,8 +350,8 @@ class Pick(db.Model):
     admin_override_note = db.Column(db.String(200), nullable=True)  # Optional reason for override
 
     # Timestamps
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     # Relationships
     primary_player = db.relationship('Player', foreign_keys=[primary_player_id], backref='primary_picks')
@@ -499,23 +512,26 @@ class Pick(db.Model):
         """
         Get current earnings for display purposes.
         - Complete tournaments: returns points_earned (actual)
-        - Active tournaments: returns primary player's projected earnings from TournamentResult
+        - Active tournaments: returns active player's projected earnings from TournamentResult
         - Upcoming tournaments: returns None
         """
         if self.tournament.status == 'complete' and self.points_earned is not None:
             return self.points_earned
 
         if self.tournament.status == 'active':
+            # Use backup's earnings if backup has been activated
+            active_id = self.primary_player_id
+            if self.is_backup_activated():
+                active_id = self.backup_player_id
+
             result = TournamentResult.query.filter_by(
                 tournament_id=self.tournament_id,
-                player_id=self.primary_player_id
+                player_id=active_id
             ).first()
             if result and result.earnings:
                 earnings = result.earnings
-                # Apply team event divisor for projections
                 if self.tournament.is_team_event:
                     earnings = earnings // 2
-                # Apply major multiplier for projections
                 if self.tournament.is_major:
                     earnings = int(earnings * 1.5)
                 return earnings
