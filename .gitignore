@@ -4,6 +4,7 @@
 
 # Claude working directories
 .claude/
+CLAUDE.md
 
 # Environment credentials for scheduled tasks (NEVER commit!)
 env_config.sh
