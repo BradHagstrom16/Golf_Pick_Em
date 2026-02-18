@@ -149,7 +149,7 @@ function confirmPick() {
     var primaryName = primary.options[primary.selectedIndex]?.text || 'None';
     var backupName = backup.options[backup.selectedIndex]?.text || 'None';
     return confirm(
-        'Confirm your pick:\n\nPrimary: ' + primaryName + '\nBackup: ' + backupName + '\n\nThese golfers will be locked for the season. Continue?'
+    'Confirm your pick:\n\nPrimary: ' + primaryName + '\nBackup: ' + backupName + '\n\nThis pick is final once confirmed. Only one golfer will be marked as used — your backup activates only if your primary withdraws before Round 2.\n\nContinue?'
     );
 }
 </script>
