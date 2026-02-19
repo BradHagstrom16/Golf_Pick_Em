@@ -81,11 +81,11 @@
             {% if current_user.is_authenticated %}
             <div class="mt-4">
                 {% if user_pick %}
-                    <a href="..." class="btn btn-primary">Edit Your Pick →</a>
+                    <a href="{{ url_for('make_pick', tournament_id=tournament.id) }}" class="btn btn-primary">Edit Your Pick →</a>
                 {% else %}
-                    <a href="..." class="btn btn-primary">Make Your Pick →</a>
+                    <a href="{{ url_for('make_pick', tournament_id=tournament.id) }}" class="btn btn-primary">Make Your Pick →</a>
                 {% endif %}
-            </div>   <!-- ← This closing div is missing in your code -->
+            </div>
             {% else %}
             <div class="mt-4">
                 <a href="{{ url_for('login') }}" class="btn btn-outline-primary">
