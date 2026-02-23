@@ -74,6 +74,7 @@
             {% endif %}
         {% endif %}
 
+        <div class="table-responsive desktop-table-wrap">
         <table class="table table-striped table-hover">
             <thead class="table-success">
                 <tr>
@@ -82,14 +83,14 @@
                     <th>Player</th>
                     <th class="text-end">Total Points</th>
                     {% if not has_active_tournament and cumulative_scores %}
-                    <th class="text-end">Season Score</th>
+                    <th class="text-end d-none d-sm-table-cell">Season Score</th>
                     {% endif %}
 
                     {# --- Tournament columns (with divider on the first one) --- #}
                     {% if featured_tournament and show_picks %}
                     <th class="column-divider">{{ featured_tournament.name }} Pick</th>
                     {% if has_active_tournament %}
-                    <th>Position</th>
+                    <th class="d-none d-sm-table-cell">Position</th>
                     {% endif %}
                     <th class="text-end">
                         {% if featured_tournament.status == 'complete' %}Earned{% else %}Projected{% endif %}
@@ -115,7 +116,7 @@
                         <span class="badge bg-success fs-6">${{ "{:,}".format(user.total_points) }}</span>
                     </td>
                     {% if not has_active_tournament and cumulative_scores %}
-                    <td class="text-end">
+                    <td class="text-end d-none d-sm-table-cell">
                         {% if user.id in cumulative_scores %}
                             <span class="{% if cumulative_scores[user.id].total < 0 %}text-success{% elif cumulative_scores[user.id].total > 0 %}text-danger{% else %}text-muted{% endif %} fw-bold">
                                 {{ cumulative_scores[user.id].display }}
@@ -151,7 +152,7 @@
                         {% endif %}
                     </td>
                     {% if has_active_tournament %}
-                    <td>
+                    <td class="d-none d-sm-table-cell">
                         {% if user.id in tournament_picks %}
                             {% if tournament_picks[user.id].position %}
                                 {{ tournament_picks[user.id].position }}
@@ -186,6 +187,7 @@
                 {% endfor %}
             </tbody>
         </table>
+        </div>
     </div>
 
     <!-- Sidebar -->

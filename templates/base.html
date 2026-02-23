@@ -59,7 +59,7 @@
                             <a class="nav-link dropdown-toggle" href="#" id="userDropdown" 
                                 role="button" data-bs-toggle="dropdown" aria-expanded="false">
                                 👤 {{ current_user.get_display_name() }}
-                                <span class="badge bg-light text-success ms-1">
+                                <span class="badge bg-light text-success ms-1 d-none d-md-inline">
                                     ${{ "{:,}".format(current_user.total_points) }}
                                 </span>
                             </a>

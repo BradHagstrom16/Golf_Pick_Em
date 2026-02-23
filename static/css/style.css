@@ -92,3 +92,72 @@ tr.table-info {
 footer {
     border-top: 1px solid #dee2e6;
 }
+
+/* ============================================================================
+   Mobile Card Layout Utilities
+   ============================================================================ */
+
+/* Dual-render pattern: cards on mobile, table on desktop */
+.mobile-card-list { display: none; }
+
+@media (max-width: 767.98px) {
+    .mobile-card-list { display: block; }
+    .desktop-table { display: none !important; }
+    /* Hide the table-responsive wrapper too so it doesn't leave blank space */
+    .desktop-table-wrap { display: none !important; }
+}
+
+/* Coloured left-border cards for picks/results */
+.pick-card {
+    border-left: 4px solid #198754; /* green = upcoming/open */
+}
+.pick-card.active-tournament {
+    border-left-color: #0d6efd;     /* blue = in progress */
+}
+.pick-card.complete {
+    border-left-color: #6c757d;     /* grey = done */
+}
+
+/* ============================================================================
+   Mobile Global Touch & Spacing Improvements
+   ============================================================================ */
+
+@media (max-width: 767.98px) {
+
+    /* Slightly larger tap targets in collapsed navbar */
+    .navbar-nav .nav-link {
+        padding-top: 0.6rem;
+        padding-bottom: 0.6rem;
+    }
+
+    /* Tighter horizontal padding so tables/cards don't clip */
+    main.container {
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+    }
+
+    /* Tom Select: bigger touch targets */
+    .ts-control {
+        min-height: 48px !important;
+        font-size: 1rem !important;
+    }
+    .ts-dropdown .option {
+        padding: 0.6rem 0.75rem !important;
+        font-size: 1rem !important;
+    }
+
+    /* Compact the large dollar-amount badges in standings */
+    .badge.fs-6 {
+        font-size: 0.8rem !important;
+    }
+
+    /* Summary stat cards (tournament_detail): smaller headings */
+    .col-md-4 .card-body h2 {
+        font-size: 1.5rem;
+    }
+
+    /* Stack the Make a Pick sidebar below the form on mobile */
+    .make-pick-sidebar {
+        margin-top: 1.5rem;
+    }
+}
