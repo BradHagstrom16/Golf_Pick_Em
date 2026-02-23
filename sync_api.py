@@ -1149,13 +1149,35 @@ def register_sync_commands(app):
             print("Error: SLASHGOLF_API_KEY not set")
             return
 
-        pending = get_tournaments_pending_finalization()
-        if not pending:
-            print("No tournaments pending earnings finalization")
-            return
-
         api = SlashGolfAPI(api_key, sync_mode=sync_mode)
         sync = TournamentSync(api, sync_mode=sync_mode, fallback_deadline_hour=fallback_deadline_hour)
+
+        pending = get_tournaments_pending_finalization()
+
+        # Safety net: also catch "active" tournaments that are past their
+        # end date but were never transitioned to "complete" by a results
+        # sync.  This prevents tournaments from getting stuck as "active"
+        # indefinitely if the results sync didn't run or failed.
+        stale_active = Tournament.query.filter(
+            Tournament.status == "active",
+            Tournament.end_date < datetime.now(LEAGUE_TZ) - timedelta(hours=12),
+            Tournament.results_finalized == False
+        ).order_by(Tournament.end_date.desc()).all()
+
+        if stale_active:
+            print(f"Found {len(stale_active)} stale active tournament(s) past end date — attempting finalization")
+            for tournament in stale_active:
+                print(f"Attempting to finalize stale tournament {tournament.name}...")
+                results_count = sync.sync_tournament_results(tournament)
+                if results_count > 0:
+                    sync.process_tournament_picks(tournament)
+                    print(f"  ✓ Finalized {results_count} results for {tournament.name}")
+                else:
+                    print(f"  ✗ {tournament.name} not ready or failed (API may not have official results yet)")
+
+        if not pending and not stale_active:
+            print("No tournaments pending earnings finalization")
+            return
 
         for tournament in pending:
             print(f"Attempting to finalize earnings for {tournament.name}...")
@@ -1296,7 +1318,29 @@ def register_sync_commands(app):
             if mode in ('earnings', 'all'):
                 # Specifically for finalizing earnings on Monday
                 pending = get_tournaments_pending_finalization()
-                if not pending:
+
+                # Safety net: also catch "active" tournaments that are past their
+                # end date but were never transitioned to "complete" by a results
+                # sync.  This prevents tournaments from getting stuck as "active"
+                # indefinitely if the results sync didn't run or failed.
+                stale_active = Tournament.query.filter(
+                    Tournament.status == "active",
+                    Tournament.end_date < datetime.now(LEAGUE_TZ) - timedelta(hours=12),
+                    Tournament.results_finalized == False
+                ).order_by(Tournament.end_date.desc()).all()
+
+                if stale_active:
+                    click.echo(f"Found {len(stale_active)} stale active tournament(s) past end date — attempting finalization")
+                    for tournament in stale_active:
+                        click.echo(f"Finalizing stale tournament {tournament.name}...")
+                        results_count = sync.sync_tournament_results(tournament)
+                        if results_count:
+                            sync.process_tournament_picks(tournament)
+                            click.echo(f"  ✓ Finalized {results_count} results for {tournament.name}")
+                        else:
+                            click.echo(f"  ✗ {tournament.name} not ready (API status not Complete/Official yet)")
+
+                if not pending and not stale_active:
                     click.echo("No tournaments pending earnings finalization")
                 for tournament in pending:
                     click.echo(f"Finalizing earnings for {tournament.name}...")
