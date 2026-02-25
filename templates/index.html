@@ -54,7 +54,7 @@
                     {% endif %}
                 </div>
                 {% if results_tournament.status == 'complete' %}
-                    <a href="{{ url_for('tournament_detail', tournament_id=results_tournament.id) }}" class="btn btn-sm btn-outline-secondary">
+                    <a href="{{ url_for('tournament_detail', tournament_id=results_tournament.id) }}" class="btn btn-sm btn-outline-secondary d-none d-lg-block">
                         View Full Results →
                     </a>
                 {% endif %}
@@ -78,33 +78,21 @@
 
         {# ---- Mobile CTA (above standings, hidden on desktop) ---- #}
         {% set show_pick_cta = current_user.is_authenticated and upcoming_tournament and not upcoming_tournament.is_deadline_passed() %}
-        {% set show_results_link = results_tournament and results_tournament.status == 'complete' %}
-        {% if show_pick_cta or show_results_link %}
+        {% if show_pick_cta %}
         <div class="d-lg-none mb-3">
             <div class="card border-success">
                 <div class="card-body py-2 text-center">
-                    {% if show_pick_cta %}
-                        {% if user_pick %}
-                            <span class="text-success fw-bold">✅ Pick Submitted</span>
-                            <span class="text-muted mx-1">·</span>
-                            <span class="small">{{ user_pick.primary_player.full_name() }}</span>
-                            <span class="text-muted mx-1">·</span>
-                            <a href="{{ url_for('make_pick', tournament_id=upcoming_tournament.id) }}"
-                               class="btn btn-outline-primary btn-sm py-0">Edit</a>
-                        {% else %}
-                            <a href="{{ url_for('make_pick', tournament_id=upcoming_tournament.id) }}"
-                               class="btn btn-success btn-sm w-100">
-                                ⏰ Pick for {{ upcoming_tournament.name }}
-                            </a>
-                        {% endif %}
-                    {% endif %}
-                    {% if show_pick_cta and show_results_link %}
-                        <hr class="my-2">
-                    {% endif %}
-                    {% if show_results_link %}
-                        <a href="{{ url_for('tournament_detail', tournament_id=results_tournament.id) }}"
-                           class="btn btn-sm btn-outline-secondary {% if not show_pick_cta %}w-100{% endif %}">
-                            View {{ results_tournament.name }} Results →
+                    {% if user_pick %}
+                        <span class="text-success fw-bold">✅ Pick Submitted</span>
+                        <span class="text-muted mx-1">·</span>
+                        <span class="small">{{ user_pick.primary_player.full_name() }}</span>
+                        <span class="text-muted mx-1">·</span>
+                        <a href="{{ url_for('make_pick', tournament_id=upcoming_tournament.id) }}"
+                           class="btn btn-outline-primary btn-sm py-0">Edit</a>
+                    {% else %}
+                        <a href="{{ url_for('make_pick', tournament_id=upcoming_tournament.id) }}"
+                           class="btn btn-success btn-sm w-100">
+                            ⏰ Pick for {{ upcoming_tournament.name }}
                         </a>
                     {% endif %}
                 </div>
