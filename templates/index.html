@@ -11,48 +11,50 @@
             {{ completed_tournaments }} of {{ total_tournaments }} tournaments complete
         </p>
 
-        {# Coming Up Banner - shown when featuring completed tournament but next one is known #}
-        {% if upcoming_tournament %}
-        <div class="alert alert-primary d-flex justify-content-between align-items-center">
-            <div>
-                <strong>🗓️ Coming Up:</strong>
-                <a href="{{ url_for('tournament_detail', tournament_id=upcoming_tournament.id) }}" class="alert-link">
-                    {{ upcoming_tournament.name }}
-                </a>
-                <br><small>{{ upcoming_tournament.start_date.strftime('%B %d') }} - {{ upcoming_tournament.end_date.strftime('%B %d') }} · Field not yet available</small>
-            </div>
-            <span class="badge bg-primary">{{ upcoming_tournament.get_deadline_display() }}</span>
-        </div>
-        {% endif %}
-
-        {# Featured Tournament Info #}
-        {% if featured_tournament %}
-        <div class="alert {% if featured_tournament.status == 'active' %}alert-info{% elif featured_tournament.status == 'complete' %}alert-secondary{% else %}alert-success{% endif %}">
+        {# ---- Upcoming Tournament Pick CTA Banner ---- #}
+        {% if upcoming_tournament and not upcoming_tournament.is_deadline_passed() %}
+        <div class="alert alert-success">
             <div class="d-flex justify-content-between align-items-start">
                 <div>
-                    {% if featured_tournament.status == 'active' %}
-                        <strong>🏌️ In Progress:</strong>
-                    {% elif featured_tournament.status == 'complete' %}
-                        <strong>🏆 Latest Results:</strong>
-                    {% elif current_user.is_authenticated and user_pick %}
+                    {% if current_user.is_authenticated and user_pick %}
                         <strong>✏️ Edit Pick:</strong>
                     {% else %}
                         <strong>📋 Make Your Picks:</strong>
                     {% endif %}
-                    {% if featured_tournament.is_major %}
+                    {% if upcoming_tournament.is_major %}
                         <span class="badge bg-warning text-dark ms-2">⭐ 1.5x Major</span>
                     {% endif %}
-                    <a href="{{ url_for('tournament_detail', tournament_id=featured_tournament.id) }}" class="alert-link">
-                        {{ featured_tournament.name }}
+                    <a href="{{ url_for('tournament_detail', tournament_id=upcoming_tournament.id) }}" class="alert-link">
+                        {{ upcoming_tournament.name }}
                     </a>
-                    {% if featured_tournament.status == 'active' %}
+                    <br><small>⏰ Deadline: {{ upcoming_tournament.get_deadline_display() }}</small>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {# ---- Results Tournament Banner (active or last completed) ---- #}
+        {% if results_tournament %}
+        <div class="alert {% if results_tournament.status == 'active' %}alert-info{% else %}alert-secondary{% endif %}">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    {% if results_tournament.status == 'active' %}
+                        <strong>🏌️ In Progress:</strong>
+                    {% else %}
+                        <strong>🏆 Latest Results:</strong>
+                    {% endif %}
+                    {% if results_tournament.is_major %}
+                        <span class="badge bg-warning text-dark ms-2">⭐ 1.5x Major</span>
+                    {% endif %}
+                    <a href="{{ url_for('tournament_detail', tournament_id=results_tournament.id) }}" class="alert-link">
+                        {{ results_tournament.name }}
+                    </a>
+                    {% if results_tournament.status == 'active' %}
                         <br><small>💡 Earnings shown are projections. Final results updated Monday.</small>
-                    {% elif featured_tournament.status == 'upcoming' and not featured_tournament.is_deadline_passed() %}
-                        <br><small>⏰ Deadline: {{ featured_tournament.get_deadline_display() }}</small>
                     {% endif %}
                 </div>
-                {% if featured_tournament.status == 'complete' %}
-                    <a href="{{ url_for('tournament_detail', tournament_id=featured_tournament.id) }}" class="btn btn-sm btn-outline-secondary">
+                {% if results_tournament.status == 'complete' %}
+                    <a href="{{ url_for('tournament_detail', tournament_id=results_tournament.id) }}" class="btn btn-sm btn-outline-secondary">
                         View Full Results →
                     </a>
                 {% endif %}
@@ -67,7 +69,7 @@
         {% if not has_active_tournament and cumulative_scores %}
             {% set base_cols = base_cols + 1 %}
         {% endif %}
-        {% if featured_tournament and show_picks %}
+        {% if results_tournament and show_picks %}
             {% set base_cols = base_cols + 2 %}
             {% if has_active_tournament %}
                 {% set base_cols = base_cols + 1 %}
@@ -75,8 +77,8 @@
         {% endif %}
 
         {# ---- Mobile CTA (above standings, hidden on desktop) ---- #}
-        {% set show_pick_cta = current_user.is_authenticated and featured_tournament and featured_tournament.status != 'complete' and not featured_tournament.is_deadline_passed() %}
-        {% set show_results_link = last_completed and (not featured_tournament or featured_tournament.status != 'complete') %}
+        {% set show_pick_cta = current_user.is_authenticated and upcoming_tournament and not upcoming_tournament.is_deadline_passed() %}
+        {% set show_results_link = results_tournament and results_tournament.status == 'complete' %}
         {% if show_pick_cta or show_results_link %}
         <div class="d-lg-none mb-3">
             <div class="card border-success">
@@ -87,12 +89,12 @@
                             <span class="text-muted mx-1">·</span>
                             <span class="small">{{ user_pick.primary_player.full_name() }}</span>
                             <span class="text-muted mx-1">·</span>
-                            <a href="{{ url_for('make_pick', tournament_id=featured_tournament.id) }}"
+                            <a href="{{ url_for('make_pick', tournament_id=upcoming_tournament.id) }}"
                                class="btn btn-outline-primary btn-sm py-0">Edit</a>
                         {% else %}
-                            <a href="{{ url_for('make_pick', tournament_id=featured_tournament.id) }}"
+                            <a href="{{ url_for('make_pick', tournament_id=upcoming_tournament.id) }}"
                                class="btn btn-success btn-sm w-100">
-                                ⏰ Pick for {{ featured_tournament.name }}
+                                ⏰ Pick for {{ upcoming_tournament.name }}
                             </a>
                         {% endif %}
                     {% endif %}
@@ -100,9 +102,9 @@
                         <hr class="my-2">
                     {% endif %}
                     {% if show_results_link %}
-                        <a href="{{ url_for('tournament_detail', tournament_id=last_completed.id) }}"
+                        <a href="{{ url_for('tournament_detail', tournament_id=results_tournament.id) }}"
                            class="btn btn-sm btn-outline-secondary {% if not show_pick_cta %}w-100{% endif %}">
-                            View {{ last_completed.name }} Results →
+                            View {{ results_tournament.name }} Results →
                         </a>
                     {% endif %}
                 </div>
@@ -114,9 +116,9 @@
         <div class="mobile-card-list">
             {% for user in users %}
             <div class="card mb-2 pick-card
-                {% if featured_tournament %}
-                    {% if featured_tournament.status == 'active' %}active-tournament
-                    {% elif featured_tournament.status == 'complete' %}complete{% endif %}
+                {% if results_tournament %}
+                    {% if results_tournament.status == 'active' %}active-tournament
+                    {% elif results_tournament.status == 'complete' %}complete{% endif %}
                 {% endif %}">
                 <div class="card-body py-2
                     {% if current_user.is_authenticated and user.id == current_user.id %}bg-warning bg-opacity-25{% endif %}">
@@ -143,8 +145,8 @@
                         </span>
                     </div>
                     {% endif %}
-                    {# Row 3: Featured tournament pick + earnings #}
-                    {% if featured_tournament and show_picks %}
+                    {# Row 3: Results tournament pick + earnings #}
+                    {% if results_tournament and show_picks %}
                     <div class="row g-1 small mt-1">
                         <div class="col-7">
                             <span class="text-muted">Pick: </span>
@@ -165,7 +167,7 @@
                         </div>
                         <div class="col-5 text-end">
                             {% if user.id in tournament_picks %}
-                                <span class="badge bg-{% if featured_tournament.status == 'complete' %}success{% else %}warning text-dark{% endif %}">
+                                <span class="badge bg-{% if results_tournament.status == 'complete' %}success{% else %}warning text-dark{% endif %}">
                                     ${{ "{:,}".format(tournament_picks[user.id].earnings) }}
                                 </span>
                             {% else %}
@@ -197,13 +199,13 @@
                     {% endif %}
 
                     {# --- Tournament columns (with divider on the first one) --- #}
-                    {% if featured_tournament and show_picks %}
-                    <th class="column-divider">{{ featured_tournament.name }} Pick</th>
+                    {% if results_tournament and show_picks %}
+                    <th class="column-divider">{{ results_tournament.name }} Pick</th>
                     {% if has_active_tournament %}
                     <th class="d-none d-sm-table-cell">Position</th>
                     {% endif %}
                     <th class="text-end">
-                        {% if featured_tournament.status == 'complete' %}Earned{% else %}Projected{% endif %}
+                        {% if results_tournament.status == 'complete' %}Earned{% else %}Projected{% endif %}
                     </th>
                     {% endif %}
                 </tr>
@@ -238,7 +240,7 @@
                     {% endif %}
 
                     {# --- Tournament cells (divider on first cell) --- #}
-                    {% if featured_tournament and show_picks %}
+                    {% if results_tournament and show_picks %}
                     <td class="column-divider">
                         {% if user.id in tournament_picks %}
                             {{ tournament_picks[user.id].primary }}
@@ -279,7 +281,7 @@
                     {% endif %}
                     <td class="text-end">
                         {% if user.id in tournament_picks %}
-                            <span class="badge bg-{% if featured_tournament.status == 'complete' %}success{% else %}warning text-dark{% endif %}">
+                            <span class="badge bg-{% if results_tournament.status == 'complete' %}success{% else %}warning text-dark{% endif %}">
                                 ${{ "{:,}".format(tournament_picks[user.id].earnings) }}
                             </span>
                         {% else %}
@@ -303,41 +305,28 @@
 
     <!-- Sidebar -->
     <div class="col-lg-4">
-        <!-- Pick Status + Results (desktop only; mobile has CTA above standings) -->
-        {% if show_pick_cta or show_results_link %}
+        <!-- Pick Status (desktop only; mobile has CTA above standings) -->
+        {% if show_pick_cta %}
         <div class="card mb-3 border-success d-none d-lg-block">
             <div class="card-body">
-                {% if show_pick_cta %}
-                    {% if user_pick %}
-                        <h5 class="text-success text-center">✅ Pick Submitted!</h5>
-                        <hr>
-                        <p class="mb-1"><strong>Primary:</strong> {{ user_pick.primary_player.full_name() }}</p>
-                        <p class="mb-2"><strong>Backup:</strong> {{ user_pick.backup_player.full_name() }}</p>
-                        <p class="text-muted small mb-3">Deadline: {{ featured_tournament.get_deadline_display() }}</p>
-                        <div class="text-center">
-                            <a href="{{ url_for('make_pick', tournament_id=featured_tournament.id) }}"
-                                class="btn btn-outline-primary btn-sm fw-semibold">
-                                ✏️ Edit Pick
-                            </a>
-                        </div>
-                    {% else %}
-                        <h5 class="text-center">⏰ Make Your Pick!</h5>
-                        <p class="mb-2 text-center">Deadline: {{ featured_tournament.get_deadline_display() }}</p>
-                        <div class="text-center">
-                            <a href="{{ url_for('make_pick', tournament_id=featured_tournament.id) }}" class="btn btn-success btn-lg">
-                                Pick for {{ featured_tournament.name }}
-                            </a>
-                        </div>
-                    {% endif %}
-                {% endif %}
-                {% if show_pick_cta and show_results_link %}
+                {% if user_pick %}
+                    <h5 class="text-success text-center">✅ Pick Submitted!</h5>
                     <hr>
-                {% endif %}
-                {% if show_results_link %}
+                    <p class="mb-1"><strong>Primary:</strong> {{ user_pick.primary_player.full_name() }}</p>
+                    <p class="mb-2"><strong>Backup:</strong> {{ user_pick.backup_player.full_name() }}</p>
+                    <p class="text-muted small mb-3">Deadline: {{ upcoming_tournament.get_deadline_display() }}</p>
                     <div class="text-center">
-                        <a href="{{ url_for('tournament_detail', tournament_id=last_completed.id) }}"
-                           class="btn btn-sm btn-outline-secondary">
-                            View {{ last_completed.name }} Results →
+                        <a href="{{ url_for('make_pick', tournament_id=upcoming_tournament.id) }}"
+                            class="btn btn-outline-primary btn-sm fw-semibold">
+                            ✏️ Edit Pick
+                        </a>
+                    </div>
+                {% else %}
+                    <h5 class="text-center">⏰ Make Your Pick!</h5>
+                    <p class="mb-2 text-center">Deadline: {{ upcoming_tournament.get_deadline_display() }}</p>
+                    <div class="text-center">
+                        <a href="{{ url_for('make_pick', tournament_id=upcoming_tournament.id) }}" class="btn btn-success btn-lg">
+                            Pick for {{ upcoming_tournament.name }}
                         </a>
                     </div>
                 {% endif %}
@@ -369,8 +358,7 @@
             </div>
             <div class="card-body">
                 <p class="mb-0">
-                    $25 entry fee × {{ users|length }} players =
-                    <strong>${{ 25 * users|length }}</strong> pot
+                    $25 entry fee × {{ users|length }} players = <strong>${{ 25 * users|length }}</strong> pot
                 </p>
                 <p class="text-muted mb-0"><small>Venmo: @Bradley-Hagstrom or Zelle/AP: 630-408-3424</small></p>
             </div>

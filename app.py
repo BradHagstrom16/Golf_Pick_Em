@@ -179,38 +179,39 @@ def index():
         season_year=app.config['SEASON_YEAR']
     ).order_by(Tournament.end_date.desc()).first()
 
-    # Determine which tournament to feature
-    featured_tournament = None
-    upcoming_tournament = None
+    # ----------------------------------------------------------------
+    # Determine: results_tournament  (drives the table columns)
+    #            upcoming_tournament  (drives the pick CTA banner)
+    # ----------------------------------------------------------------
+    results_tournament = None    # shown in standings table columns
+    upcoming_tournament = None   # shown in pick CTA banner/sidebar
 
     if next_tournament:
         if next_tournament.status == 'active':
-            featured_tournament = next_tournament
+            # Active tournament: table shows live picks/projections
+            results_tournament = next_tournament
         else:
-            field_count = TournamentField.query.filter_by(
-                tournament_id=next_tournament.id
-            ).count()
-
-            if field_count > 0:
-                featured_tournament = next_tournament
-            else:
-                featured_tournament = last_completed
-                upcoming_tournament = next_tournament
+            # Next tournament is upcoming — table shows last completed results
+            upcoming_tournament = next_tournament
+            results_tournament = last_completed
     else:
-        featured_tournament = last_completed
+        # No upcoming/active — show last completed in table
+        results_tournament = last_completed
 
-    # Determine if there's an active tournament (for showing season score vs active picks)
-    has_active_tournament = (featured_tournament and featured_tournament.status == 'active')
+    # Determine if there's an active tournament (controls position column, season score)
+    has_active_tournament = (results_tournament and results_tournament.status == 'active')
 
-    # Get picks for featured tournament (if deadline passed or complete)
+    # ----------------------------------------------------------------
+    # Build picks data for the results_tournament (table columns)
+    # ----------------------------------------------------------------
     tournament_picks = {}
     show_picks = False
-    if featured_tournament and (featured_tournament.status == 'complete' or featured_tournament.is_deadline_passed()):
+    if results_tournament and (results_tournament.status == 'complete' or results_tournament.is_deadline_passed()):
         show_picks = True
-        picks = Pick.query.filter_by(tournament_id=featured_tournament.id).all()
+        picks = Pick.query.filter_by(tournament_id=results_tournament.id).all()
         for pick in picks:
             result = TournamentResult.query.filter_by(
-                tournament_id=featured_tournament.id,
+                tournament_id=results_tournament.id,
                 player_id=pick.primary_player_id
             ).first()
 
@@ -219,15 +220,15 @@ def index():
             backup_result = None
             if backup_activated and pick.backup_player_id:
                 backup_result = TournamentResult.query.filter_by(
-                    tournament_id=featured_tournament.id,
+                    tournament_id=results_tournament.id,
                     player_id=pick.backup_player_id
                 ).first()
 
-            if featured_tournament.status == 'active' and backup_activated and backup_result:
+            if results_tournament.status == 'active' and backup_activated and backup_result:
                 earnings = backup_result.earnings or 0
-            elif featured_tournament.status == 'active' and result:
+            elif results_tournament.status == 'active' and result:
                 earnings = result.earnings or 0
-            elif featured_tournament.status == 'complete' and pick.points_earned is not None:
+            elif results_tournament.status == 'complete' and pick.points_earned is not None:
                 earnings = pick.points_earned
             else:
                 earnings = result.earnings if result else 0
@@ -252,12 +253,12 @@ def index():
                 'backup_name': pick.backup_player.full_name() if pick.backup_player else None
             }
 
-    # Get current user's pick for featured tournament (if logged in)
+    # Get current user's pick for the UPCOMING tournament (for CTA sidebar/banner)
     user_pick = None
-    if featured_tournament and current_user.is_authenticated:
+    if upcoming_tournament and current_user.is_authenticated:
         user_pick = Pick.query.filter_by(
             user_id=current_user.id,
-            tournament_id=featured_tournament.id
+            tournament_id=upcoming_tournament.id
         ).first()
 
     # Calculate cumulative scores (shown when no active tournament)
@@ -267,7 +268,7 @@ def index():
 
     return render_template('index.html',
                          users=users,
-                         featured_tournament=featured_tournament,
+                         results_tournament=results_tournament,
                          upcoming_tournament=upcoming_tournament,
                          tournament_picks=tournament_picks,
                          show_picks=show_picks,
@@ -275,8 +276,7 @@ def index():
                          total_tournaments=total_tournaments,
                          user_pick=user_pick,
                          has_active_tournament=has_active_tournament,
-                         cumulative_scores=cumulative_scores,
-                         last_completed=last_completed)
+                         cumulative_scores=cumulative_scores)
 
 
 @app.route('/leaderboard')
