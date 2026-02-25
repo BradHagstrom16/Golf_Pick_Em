@@ -285,13 +285,22 @@
             </tbody>
         </table>
         </div>
+
+        {# ---- View Latest Results link (when featured tournament is not the completed one) ---- #}
+        {% if completed_tournaments > 0 and (not featured_tournament or featured_tournament.status != 'complete') %}
+        <div class="text-center mt-3 mb-2">
+            <a href="{{ url_for('results') }}" class="btn btn-sm btn-outline-secondary">
+                View Latest Results →
+            </a>
+        </div>
+        {% endif %}
     </div>
 
     <!-- Sidebar -->
     <div class="col-lg-4">
-        <!-- Pick Status - show if upcoming tournament with field -->
+        <!-- Pick Status - show if upcoming tournament with field (desktop only; mobile has CTA above standings) -->
         {% if current_user.is_authenticated and featured_tournament and featured_tournament.status != 'complete' and not featured_tournament.is_deadline_passed() %}
-        <div class="card mb-3 border-success">
+        <div class="card mb-3 border-success d-none d-lg-block">
             <div class="card-body">
                 {% if user_pick %}
                     <!-- User has a pick -->
