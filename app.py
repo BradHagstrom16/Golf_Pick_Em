@@ -275,7 +275,8 @@ def index():
                          total_tournaments=total_tournaments,
                          user_pick=user_pick,
                          has_active_tournament=has_active_tournament,
-                         cumulative_scores=cumulative_scores)
+                         cumulative_scores=cumulative_scores,
+                         last_completed=last_completed)
 
 
 @app.route('/leaderboard')
