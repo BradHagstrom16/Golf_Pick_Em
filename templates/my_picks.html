@@ -127,7 +127,10 @@
                 <!-- Card footer: action button -->
                 <div class="card-footer py-2 bg-transparent">
                     {% if tournament.status != 'complete' and not tournament.is_deadline_passed() %}
-                        {% if pick %}
+                        {% if field_counts.get(tournament.id, 0) == 0 %}
+                            <a href="{{ url_for('tournament_detail', tournament_id=tournament.id) }}"
+                               class="btn btn-sm btn-outline-primary w-100">View</a>
+                        {% elif pick %}
                             <a href="{{ url_for('make_pick', tournament_id=tournament.id) }}"
                                class="btn btn-sm btn-warning w-100">Edit Pick</a>
                         {% else %}
@@ -246,7 +249,9 @@
                         </td>
                         <td>
                             {% if tournament.status != 'complete' and not tournament.is_deadline_passed() %}
-                                {% if pick %}
+                                {% if field_counts.get(tournament.id, 0) == 0 %}
+                                    <a href="{{ url_for('tournament_detail', tournament_id=tournament.id) }}" class="btn btn-sm btn-outline-primary">View</a>
+                                {% elif pick %}
                                     <a href="{{ url_for('make_pick', tournament_id=tournament.id) }}" class="btn btn-sm btn-warning">Edit</a>
                                 {% else %}
                                     <a href="{{ url_for('make_pick', tournament_id=tournament.id) }}" class="btn btn-sm btn-primary">Pick</a>

@@ -657,11 +657,21 @@ def my_picks():
             'backup_result': result_lookup.get((tournament_id, pick.backup_player_id)),
         }
 
+    # Batch load field counts for all tournaments
+    field_counts_query = db.session.query(
+        TournamentField.tournament_id,
+        func.count(TournamentField.id)
+    ).filter(
+        TournamentField.tournament_id.in_([t.id for t in tournaments])
+    ).group_by(TournamentField.tournament_id).all()
+    field_counts = dict(field_counts_query)
+
     return render_template('my_picks.html',
                          tournaments=tournaments,
                          user_picks=user_picks,
                          used_player_ids=used_player_ids,
-                         pick_results=pick_results)
+                         pick_results=pick_results,
+                         field_counts=field_counts)
 
 
 @app.route('/pick/<int:tournament_id>', methods=['GET', 'POST'])
