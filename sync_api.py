@@ -63,6 +63,9 @@ EXCLUDED_TOURNAMENTS = {
     'Presidents Cup',
 }
 
+# Ignore any API events starting on or after this date.
+SEASON_CUTOFF_DATE = datetime(2026, 8, 24, tzinfo=pytz.UTC)
+
 # 2026 PGA Tour purse amounts (in dollars)
 # Use None for TBD tournaments (majors typically announce week-of)
 # Names must match exactly what API returns or what's in database
@@ -485,23 +488,27 @@ class TournamentSync:
 
     def sync_schedule(self, year: int, tournament_names: List[str] = None) -> int:
         """
-        Import season schedule from API.
+        Update season schedule from API.
+
+        Only updates tournaments that already exist in the database.
+        Will NOT create new tournaments — our 32-tournament schedule is locked.
+        Skips events in EXCLUDED_TOURNAMENTS and events starting on or after
+        SEASON_CUTOFF_DATE.
 
         Args:
             year: Season year (e.g., 2026)
             tournament_names: Optional list of tournament names to include.
-                            If None, imports all non-opposite-field events.
+                            If None, processes all non-excluded events.
 
         Returns:
-            Number of tournaments imported
+            Number of tournaments updated
         """
         data = self.api.get_schedule(str(year))
         if not data or "schedule" not in data:
             print("Failed to fetch schedule")
             return 0
 
-        imported = 0
-        week_number = 1
+        updated = 0
 
         for event in data["schedule"]:
             name = event.get("name", "")
@@ -514,48 +521,37 @@ class TournamentSync:
             if name in EXCLUDED_TOURNAMENTS:
                 continue
 
-            # Skip team events detection (Zurich) - we'll handle specially
-            is_team_event = event.get("format") == "team"
+            # Skip events that start on or after the season cutoff date
+            try:
+                start_ts = int(event["date"]["start"]["$date"]["$numberLong"]) / 1000
+                start_date = datetime.fromtimestamp(start_ts, tz=pytz.UTC)
+                if start_date >= SEASON_CUTOFF_DATE:
+                    continue
+            except (KeyError, ValueError, TypeError):
+                continue
 
-            # Check if already exists
+            # Only update existing tournaments — never create new ones
             existing = Tournament.query.filter_by(
                 api_tourn_id=event["tournId"],
                 season_year=year
             ).first()
 
-            if existing:
-                # Update existing
-                existing.name = name
-                # Only update purse if API provides non-zero value
-                api_purse = self._parse_api_number(event.get("purse", 0))
-                if api_purse > 0:
-                    existing.purse = api_purse
-                existing.is_team_event = is_team_event
-            else:
-                # Parse dates (MongoDB-style timestamp format)
-                start_ts = int(event["date"]["start"]["$date"]["$numberLong"]) / 1000
-                end_ts = int(event["date"]["end"]["$date"]["$numberLong"]) / 1000
-                start_date = datetime.fromtimestamp(start_ts, tz=pytz.UTC)
-                end_date = datetime.fromtimestamp(end_ts, tz=pytz.UTC)
+            if not existing:
+                # Tournament not in our league — skip it
+                continue
 
-                tournament = Tournament(
-                    api_tourn_id=event["tournId"],
-                    name=name,
-                    season_year=year,
-                    start_date=start_date,
-                    end_date=end_date,
-                    purse=self._parse_api_number(event.get("purse", 0)) or PURSE_ESTIMATES.get(name, DEFAULT_PURSE),
-                    is_team_event=is_team_event,
-                    week_number=week_number,
-                    status="upcoming"
-                )
-                db.session.add(tournament)
-                imported += 1
-                week_number += 1
+            # Update existing tournament data
+            existing.name = name
+            api_purse = self._parse_api_number(event.get("purse", 0))
+            if api_purse > 0:
+                existing.purse = api_purse
+            existing.is_team_event = event.get("format") == "team"
+            updated += 1
 
         db.session.commit()
-        print(f"Imported {imported} tournaments for {year}")
-        return imported
+        print(f"Updated {updated} tournaments for {year}")
+        return updated
+
 
     def sync_tournament_field(self, tournament: Tournament, is_wednesday_evening: bool = False) -> Tuple[int, Optional[datetime]]:
         """
