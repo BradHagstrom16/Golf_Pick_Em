@@ -35,7 +35,7 @@
                     </div>
                 </div>
 
-                <form method="POST" onsubmit="return confirmPick()">
+                <form method="POST">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <!-- Primary Pick -->
                     <div class="mb-4">
@@ -116,11 +116,13 @@
 // Initialize searchable dropdowns
 var primarySelect = new TomSelect('#primary_player_id', {
     placeholder: 'Search for a player...',
-    sortField: { field: 'text', direction: 'asc' }
+    sortField: { field: 'text', direction: 'asc' },
+    maxOptions: null
 });
 var backupSelect = new TomSelect('#backup_player_id', {
     placeholder: 'Search for a player...',
-    sortField: { field: 'text', direction: 'asc' }
+    sortField: { field: 'text', direction: 'asc' },
+    maxOptions: null
 });
 
 // Prevent selecting same player for both picks
@@ -142,15 +144,5 @@ document.getElementById('primary_player_id').addEventListener('change', function
     }
 });
 
-// Confirmation before submitting pick
-function confirmPick() {
-    var primary = document.getElementById('primary_player_id');
-    var backup = document.getElementById('backup_player_id');
-    var primaryName = primary.options[primary.selectedIndex]?.text || 'None';
-    var backupName = backup.options[backup.selectedIndex]?.text || 'None';
-    return confirm(
-    'Confirm your pick:\nPrimary: ' + primaryName + '\nBackup: ' + backupName + '\n\nThis pick is final once confirmed. Only one golfer will be marked as used — your backup activates only if your primary withdraws before Round 2.\nContinue?'
-    );
-}
 </script>
 {% endblock %}
