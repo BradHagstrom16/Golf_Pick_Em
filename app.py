@@ -44,7 +44,7 @@ login_manager.login_message_category = 'info'
 @login_manager.user_loader
 def load_user(user_id):
     """Load user by ID for Flask-Login."""
-    return User.query.get(int(user_id))
+    return db.session.get(User, int(user_id))
 
 
 @app.before_request
@@ -879,12 +879,12 @@ def admin_override_pick():
         load_field = request.form.get('load_field')
 
         if tournament_id:
-            selected_tournament = Tournament.query.get(tournament_id)
+            selected_tournament = db.session.get(Tournament, tournament_id)
             picks_for_tournament = Pick.query.filter_by(tournament_id=tournament_id).all()
             users_with_picks = {p.user_id for p in picks_for_tournament}
 
         if user_id:
-            selected_user = User.query.get(user_id)
+            selected_user = db.session.get(User, user_id)
             if selected_user:
                 used_player_ids = selected_user.get_used_player_ids()
 

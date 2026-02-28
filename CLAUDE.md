@@ -6,6 +6,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Golf Pick 'Em is a season-long PGA Tour fantasy league where users pick one golfer per tournament. Points equal actual prize money earned. Each golfer can only be used once per season. Deployed on PythonAnywhere with SQLite.
 
+## Available Tools
+
+The following Claude Code plugins are enabled. Use them proactively rather than relying on training knowledge:
+
+- **context7** — Fetch live documentation for any library. Use this when assessing breaking changes between package versions (e.g., Flask 2→3, Werkzeug 2→3, SQLAlchemy changelogs).
+- **pyright-lsp** — Static type checking and import validation. Use to catch deprecated API usage or import errors without running the app.
+- **code-review** — Structured code review. Use for systematic review tasks across multiple files.
+- **commit-commands** — Commit changes cleanly after making fixes.
+- **feature-dev** — Feature planning and implementation workflow.
+- **claude-md-management** — Update this CLAUDE.md file when project structure or conventions change.
+- **pr-review-toolkit** — Open pull requests for review rather than committing directly to main, especially for production changes.
+
 ## Commands
 
 ```bash

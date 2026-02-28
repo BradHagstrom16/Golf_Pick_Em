@@ -680,7 +680,7 @@ class TournamentSync:
                 emails_sent = send_picks_open_email(tournament_id)
                 if emails_sent > 0:
                     # Re-query tournament to update flag
-                    tournament = Tournament.query.get(tournament_id)
+                    tournament = db.session.get(Tournament, tournament_id)
                     tournament.picks_open_notified = True
                     db.session.commit()
                     logger.info("Sent 'picks open' email to %s users for %s", emails_sent, tournament.name)
@@ -690,7 +690,7 @@ class TournamentSync:
         # Check if it's Wednesday evening and field is still insufficient - send admin alert
         if is_wednesday_evening and field_count < MIN_FIELD_SIZE:
             # Re-query tournament to check flag
-            tournament = Tournament.query.get(tournament_id)
+            tournament = db.session.get(Tournament, tournament_id)
             if not tournament.field_alert_sent:
                 try:
                     from send_reminders import send_admin_field_alert

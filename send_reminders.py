@@ -341,7 +341,7 @@ def send_picks_open_email(tournament_id_or_obj) -> int:
     # Do everything inside a single app context to avoid session issues
     with app.app_context():
         # Re-query tournament to ensure it's bound to this session
-        tournament = Tournament.query.get(tournament_id)
+        tournament = db.session.get(Tournament, tournament_id)
         if not tournament:
             print(f"  ❌ Tournament ID {tournament_id} not found")
             return 0
@@ -452,7 +452,7 @@ def send_admin_field_alert(tournament_id_or_obj, field_count: int) -> bool:
 
     with app.app_context():
         # Re-query tournament to ensure it's bound to this session
-        tournament = Tournament.query.get(tournament_id)
+        tournament = db.session.get(Tournament, tournament_id)
         if not tournament:
             print(f"  ❌ Tournament ID {tournament_id} not found")
             return False
