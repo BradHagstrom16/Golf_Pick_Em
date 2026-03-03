@@ -452,7 +452,10 @@ class TournamentSync:
         if "complete" in status_hint or "official" in status_hint:
             tournament.status = "complete"
         elif now >= end:
-            tournament.status = "complete"
+            # Don't auto-set to 'complete' — only API confirmation should do that.
+            # Keep as 'active' until sync_tournament_results() verifies completion.
+            if tournament.status != 'active':
+                tournament.status = 'active'
         elif "progress" in status_hint or "live" in status_hint:
             tournament.status = "active"
         elif now >= start:
@@ -484,6 +487,8 @@ class TournamentSync:
                 return int(value['$numberInt'])
             if '$numberLong' in value:
                 return int(value['$numberLong'])
+            if '$numberDouble' in value:
+                return int(float(value['$numberDouble']))
         return int(value) if value else 0
 
     def sync_schedule(self, year: int, tournament_names: List[str] = None) -> int:
@@ -775,13 +780,7 @@ class TournamentSync:
                     db.session.add(result)
 
                 # Parse actual earnings from API
-                earnings_raw = player_data.get("earnings", 0)
-                if isinstance(earnings_raw, dict) and '$numberInt' in earnings_raw:
-                    result.earnings = int(earnings_raw['$numberInt'])
-                elif isinstance(earnings_raw, dict) and '$numberLong' in earnings_raw:
-                    result.earnings = int(earnings_raw['$numberLong'])
-                else:
-                    result.earnings = int(earnings_raw) if earnings_raw else 0
+                result.earnings = self._parse_api_number(player_data.get("earnings", 0))
 
                 result.status = status
                 result.rounds_completed = rounds_completed
