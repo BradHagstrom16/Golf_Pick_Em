@@ -209,20 +209,27 @@ def index():
     if results_tournament and (results_tournament.status == 'complete' or results_tournament.is_deadline_passed()):
         show_picks = True
         picks = Pick.query.filter_by(tournament_id=results_tournament.id).all()
-        for pick in picks:
-            result = TournamentResult.query.filter_by(
-                tournament_id=results_tournament.id,
-                player_id=pick.primary_player_id
-            ).first()
 
-            backup_activated = pick.is_backup_activated()
+        # Batch-load all results for this tournament to avoid N+1 queries
+        all_results = TournamentResult.query.filter_by(
+            tournament_id=results_tournament.id
+        ).all()
+        results_by_player = {r.player_id: r for r in all_results}
+
+        for pick in picks:
+            result = results_by_player.get(pick.primary_player_id)
+
+            # Determine backup activation using pre-loaded results (avoids extra query)
+            if results_tournament.status == 'complete' and pick.active_player_id:
+                backup_activated = (pick.active_player_id == pick.backup_player_id)
+            elif results_tournament.status == 'active' and result and result.wd_before_round_2_complete():
+                backup_activated = True
+            else:
+                backup_activated = False
 
             backup_result = None
             if backup_activated and pick.backup_player_id:
-                backup_result = TournamentResult.query.filter_by(
-                    tournament_id=results_tournament.id,
-                    player_id=pick.backup_player_id
-                ).first()
+                backup_result = results_by_player.get(pick.backup_player_id)
 
             if results_tournament.status == 'active' and backup_activated and backup_result:
                 earnings = backup_result.earnings or 0
@@ -314,7 +321,7 @@ def tournament_detail(tournament_id):
     - Active: Picks table with live position/score/earnings
     - Complete: Picks table with final results, conditionally showing backup column
     """
-    tournament = Tournament.query.get_or_404(tournament_id)
+    tournament = db.get_or_404(Tournament, tournament_id)
 
     # Get all users (to show even those without picks)
     all_users = User.query.order_by(func.lower(User.username)).all()
@@ -332,23 +339,18 @@ def tournament_detail(tournament_id):
     # Track if any backup was activated (to conditionally show backup column)
     any_backup_activated = False
 
+    # Batch-load all results for this tournament to avoid N+1 queries
+    all_results = TournamentResult.query.filter_by(tournament_id=tournament_id).all()
+    results_by_player = {r.player_id: r for r in all_results}
+
     # Build results data for each user
     pick_results = []
     for user in all_users:
         pick = picks_by_user.get(user.id)
 
         if pick:
-            # Get result for primary player
-            primary_result = TournamentResult.query.filter_by(
-                tournament_id=tournament_id,
-                player_id=pick.primary_player_id
-            ).first()
-
-            # Get result for backup player
-            backup_result = TournamentResult.query.filter_by(
-                tournament_id=tournament_id,
-                player_id=pick.backup_player_id
-            ).first()
+            primary_result = results_by_player.get(pick.primary_player_id)
+            backup_result = results_by_player.get(pick.backup_player_id)
 
             # Determine backup activation
             backup_activated = False
@@ -364,16 +366,9 @@ def tournament_detail(tournament_id):
             if tournament.status == 'complete':
                 points = pick.points_earned or 0
                 # Get active player's result for position/score
-                if pick.active_player_id:
-                    active_result = TournamentResult.query.filter_by(
-                        tournament_id=tournament_id,
-                        player_id=pick.active_player_id
-                    ).first()
-                    position = active_result.final_position if active_result else None
-                    score = format_score_to_par(active_result.score_to_par) if active_result else None
-                else:
-                    position = None
-                    score = None
+                active_result = results_by_player.get(pick.active_player_id) if pick.active_player_id else None
+                position = active_result.final_position if active_result else None
+                score = format_score_to_par(active_result.score_to_par) if active_result else None
             else:
                 # Active tournament - show primary's current status
                 # (or backup's if backup activated)
@@ -605,7 +600,7 @@ def change_password():
 @admin_required
 def admin_reset_password(user_id):
     """Admin can reset a user's password."""
-    user = User.query.get_or_404(user_id)
+    user = db.get_or_404(User, user_id)
     new_password = request.form.get('new_password', '').strip()
 
     if not new_password:
@@ -685,7 +680,7 @@ def my_picks():
 @login_required
 def make_pick(tournament_id):
     """Make or edit a pick for a tournament."""
-    tournament = Tournament.query.get_or_404(tournament_id)
+    tournament = db.get_or_404(Tournament, tournament_id)
 
     if tournament.is_deadline_passed():
         flash('The deadline for this tournament has passed.', 'error')
@@ -843,7 +838,7 @@ def admin_payments():
 @admin_required
 def admin_update_payment(user_id):
     """Toggle user payment status (AJAX)."""
-    user = User.query.get_or_404(user_id)
+    user = db.get_or_404(User, user_id)
     data = request.get_json()
 
     user.has_paid = data.get('has_paid', False)
@@ -1094,7 +1089,7 @@ def parse_api_usage_logs(month=None, year=None):
 @admin_required
 def admin_process_results(tournament_id):
     """Process tournament results and calculate points."""
-    tournament = Tournament.query.get_or_404(tournament_id)
+    tournament = db.get_or_404(Tournament, tournament_id)
 
     if tournament.status != 'complete':
         flash('Tournament must be complete before processing results.', 'error')
