@@ -44,6 +44,7 @@
             {% if upcoming_tournament.purse %}
                 &nbsp;· Purse: ${{ "{:,}".format(upcoming_tournament.purse) }}
             {% endif %}
+            <br><small class="text-muted">Field not yet available</small>
         </div>
         {% endif %}
         {% endif %}
@@ -95,7 +96,7 @@
         {% set show_upcoming_card = current_user.is_authenticated and upcoming_tournament %}
         {% set field_synced = upcoming_field_count > 0 %}
         {% set deadline_passed = upcoming_tournament.is_deadline_passed() if upcoming_tournament else true %}
-        {% if show_upcoming_card %}
+        {% if show_upcoming_card and (field_synced or deadline_passed) %}
         <div class="d-lg-none mb-3">
             <div class="card border-success">
                 <div class="card-body py-2 text-center">
