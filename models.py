@@ -181,7 +181,6 @@ class Tournament(db.Model):
 
     def get_field_count(self):
         """Get the number of players in the tournament field."""
-        from models import TournamentField
         return TournamentField.query.filter_by(tournament_id=self.id).count()
 
     def has_sufficient_field(self, minimum=50):
@@ -234,8 +233,8 @@ class TournamentField(db.Model):
     __tablename__ = 'tournament_field'
 
     id = db.Column(db.Integer, primary_key=True)
-    tournament_id = db.Column(db.Integer, db.ForeignKey('tournament.id'), nullable=False)
-    player_id = db.Column(db.Integer, db.ForeignKey('player.id'), nullable=False)
+    tournament_id = db.Column(db.Integer, db.ForeignKey('tournament.id'), nullable=False, index=True)
+    player_id = db.Column(db.Integer, db.ForeignKey('player.id'), nullable=False, index=True)
 
     # Field status
     is_alternate = db.Column(db.Boolean, default=False)
@@ -261,8 +260,8 @@ class SeasonPlayerUsage(db.Model):
     __tablename__ = 'season_player_usage'
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    player_id = db.Column(db.Integer, db.ForeignKey('player.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    player_id = db.Column(db.Integer, db.ForeignKey('player.id'), nullable=False, index=True)
     season_year = db.Column(db.Integer, nullable=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
@@ -273,6 +272,9 @@ class SeasonPlayerUsage(db.Model):
     user = db.relationship('User', backref='season_usages')
     player = db.relationship('Player')
 
+    def __repr__(self):
+        return f'<SeasonPlayerUsage User:{self.user_id} Player:{self.player_id} Year:{self.season_year}>'
+
 
 class TournamentResult(db.Model):
     """
@@ -281,8 +283,8 @@ class TournamentResult(db.Model):
     __tablename__ = 'tournament_result'
 
     id = db.Column(db.Integer, primary_key=True)
-    tournament_id = db.Column(db.Integer, db.ForeignKey('tournament.id'), nullable=False)
-    player_id = db.Column(db.Integer, db.ForeignKey('player.id'), nullable=False)
+    tournament_id = db.Column(db.Integer, db.ForeignKey('tournament.id'), nullable=False, index=True)
+    player_id = db.Column(db.Integer, db.ForeignKey('player.id'), nullable=False, index=True)
 
     # Result details
     status = db.Column(db.String(20), nullable=False)  # complete, cut, wd, dq
@@ -330,8 +332,8 @@ class Pick(db.Model):
     __tablename__ = 'pick'
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    tournament_id = db.Column(db.Integer, db.ForeignKey('tournament.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    tournament_id = db.Column(db.Integer, db.ForeignKey('tournament.id'), nullable=False, index=True)
 
     # The picks
     primary_player_id = db.Column(db.Integer, db.ForeignKey('player.id'), nullable=False)
