@@ -261,6 +261,12 @@ def index():
             tournament_id=upcoming_tournament.id
         ).first()
 
+    upcoming_field_count = 0
+    if upcoming_tournament:
+        upcoming_field_count = TournamentField.query.filter_by(
+            tournament_id=upcoming_tournament.id
+        ).count()
+
     # Calculate cumulative scores (shown when no active tournament)
     cumulative_scores = {}
     if not has_active_tournament and completed_tournaments > 0:
@@ -276,7 +282,8 @@ def index():
                          total_tournaments=total_tournaments,
                          user_pick=user_pick,
                          has_active_tournament=has_active_tournament,
-                         cumulative_scores=cumulative_scores)
+                         cumulative_scores=cumulative_scores,
+                         upcoming_field_count=upcoming_field_count)
 
 
 @app.route('/leaderboard')

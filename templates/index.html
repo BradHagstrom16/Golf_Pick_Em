@@ -13,6 +13,7 @@
 
         {# ---- Upcoming Tournament Pick CTA Banner ---- #}
         {% if upcoming_tournament and not upcoming_tournament.is_deadline_passed() %}
+        {% if upcoming_field_count > 0 %}
         <div class="alert alert-success">
             <div class="d-flex justify-content-between align-items-start">
                 <div>
@@ -31,6 +32,20 @@
                 </div>
             </div>
         </div>
+        {% else %}
+        <div class="alert alert-info">
+            <strong>Upcoming Tournament:</strong>
+            <a href="{{ url_for('tournament_detail', tournament_id=upcoming_tournament.id) }}" class="alert-link">
+                {{ upcoming_tournament.name }}
+            </a>
+            {% if upcoming_tournament.is_major %}
+                <span class="badge bg-warning text-dark ms-2">⭐ 1.5x Major</span>
+            {% endif %}
+            {% if upcoming_tournament.purse %}
+                &nbsp;· Purse: ${{ "{:,}".format(upcoming_tournament.purse) }}
+            {% endif %}
+        </div>
+        {% endif %}
         {% endif %}
 
         {# ---- Results Tournament Banner (active or last completed) ---- #}
@@ -77,23 +92,32 @@
         {% endif %}
 
         {# ---- Mobile CTA (above standings, hidden on desktop) ---- #}
-        {% set show_pick_cta = current_user.is_authenticated and upcoming_tournament and not upcoming_tournament.is_deadline_passed() %}
-        {% if show_pick_cta %}
+        {% set show_upcoming_card = current_user.is_authenticated and upcoming_tournament %}
+        {% set field_synced = upcoming_field_count > 0 %}
+        {% set deadline_passed = upcoming_tournament.is_deadline_passed() if upcoming_tournament else true %}
+        {% if show_upcoming_card %}
         <div class="d-lg-none mb-3">
             <div class="card border-success">
                 <div class="card-body py-2 text-center">
-                    {% if user_pick %}
-                        <span class="text-success fw-bold">✅ Pick Submitted</span>
-                        <span class="text-muted mx-1">·</span>
-                        <span class="small">{{ user_pick.primary_player.full_name() }}</span>
-                        <span class="text-muted mx-1">·</span>
-                        <a href="{{ url_for('make_pick', tournament_id=upcoming_tournament.id) }}"
-                           class="btn btn-outline-primary btn-sm py-0">Edit</a>
+                    {% if not deadline_passed and field_synced %}
+                        {% if user_pick %}
+                            <span class="text-success fw-bold">✅ Pick Submitted</span>
+                            <span class="text-muted mx-1">·</span>
+                            <span class="small">{{ user_pick.primary_player.full_name() }}</span>
+                            <span class="text-muted mx-1">·</span>
+                            <a href="{{ url_for('make_pick', tournament_id=upcoming_tournament.id) }}"
+                               class="btn btn-outline-primary btn-sm py-0">Edit</a>
+                        {% else %}
+                            <a href="{{ url_for('make_pick', tournament_id=upcoming_tournament.id) }}"
+                               class="btn btn-success btn-sm w-100">
+                                ⏰ Pick for {{ upcoming_tournament.name }}
+                            </a>
+                        {% endif %}
                     {% else %}
-                        <a href="{{ url_for('make_pick', tournament_id=upcoming_tournament.id) }}"
-                           class="btn btn-success btn-sm w-100">
-                            ⏰ Pick for {{ upcoming_tournament.name }}
-                        </a>
+                        <span class="fw-bold">{{ upcoming_tournament.name }}</span>
+                        {% if not field_synced %}
+                            <span class="text-muted small d-block">Field not yet available</span>
+                        {% endif %}
                     {% endif %}
                 </div>
             </div>
@@ -294,29 +318,42 @@
     <!-- Sidebar -->
     <div class="col-lg-4">
         <!-- Pick Status (desktop only; mobile has CTA above standings) -->
-        {% if show_pick_cta %}
+        {% if show_upcoming_card %}
         <div class="card mb-3 border-success d-none d-lg-block">
             <div class="card-body">
-                {% if user_pick %}
-                    <h5 class="text-success text-center">✅ Pick Submitted!</h5>
-                    <hr>
-                    <p class="mb-1"><strong>Primary:</strong> {{ user_pick.primary_player.full_name() }}</p>
-                    <p class="mb-2"><strong>Backup:</strong> {{ user_pick.backup_player.full_name() }}</p>
-                    <p class="text-muted small mb-3">Deadline: {{ upcoming_tournament.get_deadline_display() }}</p>
-                    <div class="text-center">
-                        <a href="{{ url_for('make_pick', tournament_id=upcoming_tournament.id) }}"
-                            class="btn btn-outline-primary btn-sm fw-semibold">
-                            ✏️ Edit Pick
-                        </a>
-                    </div>
+                {% if not deadline_passed and field_synced %}
+                    {% if user_pick %}
+                        <h5 class="text-success text-center">✅ Pick Submitted!</h5>
+                        <hr>
+                        <p class="mb-1"><strong>Primary:</strong> {{ user_pick.primary_player.full_name() }}</p>
+                        <p class="mb-2"><strong>Backup:</strong> {{ user_pick.backup_player.full_name() }}</p>
+                        <p class="text-muted small mb-3">Deadline: {{ upcoming_tournament.get_deadline_display() }}</p>
+                        <div class="text-center">
+                            <a href="{{ url_for('make_pick', tournament_id=upcoming_tournament.id) }}"
+                                class="btn btn-outline-primary btn-sm fw-semibold">
+                                ✏️ Edit Pick
+                            </a>
+                        </div>
+                    {% else %}
+                        <h5 class="text-center">⏰ Make Your Pick!</h5>
+                        <p class="mb-2 text-center">Deadline: {{ upcoming_tournament.get_deadline_display() }}</p>
+                        <div class="text-center">
+                            <a href="{{ url_for('make_pick', tournament_id=upcoming_tournament.id) }}" class="btn btn-success btn-lg">
+                                Pick for {{ upcoming_tournament.name }}
+                            </a>
+                        </div>
+                    {% endif %}
                 {% else %}
-                    <h5 class="text-center">⏰ Make Your Pick!</h5>
-                    <p class="mb-2 text-center">Deadline: {{ upcoming_tournament.get_deadline_display() }}</p>
-                    <div class="text-center">
-                        <a href="{{ url_for('make_pick', tournament_id=upcoming_tournament.id) }}" class="btn btn-success btn-lg">
-                            Pick for {{ upcoming_tournament.name }}
-                        </a>
-                    </div>
+                    <h5 class="text-center">{{ upcoming_tournament.name }}</h5>
+                    <p class="text-muted small text-center mb-1">
+                        {{ upcoming_tournament.start_date.strftime('%b %d') }} – {{ upcoming_tournament.end_date.strftime('%b %d') }}
+                    </p>
+                    {% if upcoming_tournament.purse %}
+                    <p class="text-muted small text-center mb-1">Purse: ${{ "{:,}".format(upcoming_tournament.purse) }}</p>
+                    {% endif %}
+                    {% if not field_synced %}
+                    <p class="text-muted small text-center mb-0"><em>Field not yet available</em></p>
+                    {% endif %}
                 {% endif %}
             </div>
         </div>
