@@ -13,10 +13,13 @@ The following Claude Code plugins are enabled. Use them proactively rather than 
 - **context7** — Fetch live documentation for any library. Use this when assessing breaking changes between package versions (e.g., Flask 2→3, Werkzeug 2→3, SQLAlchemy changelogs).
 - **pyright-lsp** — Static type checking and import validation. Use to catch deprecated API usage or import errors without running the app.
 - **code-review** — Structured code review. Use for systematic review tasks across multiple files.
+- **code-simplifier** — Review recently changed code for quality, reuse, and efficiency. Run proactively after completing a task.
 - **commit-commands** — Commit changes cleanly after making fixes.
 - **feature-dev** — Feature planning and implementation workflow.
+- **frontend-design** — Build polished, production-grade web components and pages. Use when working on Jinja2 templates or Bootstrap UI.
 - **claude-md-management** — Update this CLAUDE.md file when project structure or conventions change.
 - **pr-review-toolkit** — Open pull requests for review rather than committing directly to main, especially for production changes.
+- **superpowers** — Brainstorming, systematic debugging, test-driven development, parallel agent dispatch, and more. Use for complex multi-step problem solving.
 
 ## Commands
 
