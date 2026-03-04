@@ -6,6 +6,9 @@
 .claude/
 CLAUDE.md
 
+# Git worktrees
+.worktrees/
+
 # Environment credentials for scheduled tasks (NEVER commit!)
 env_config.sh
 
