@@ -52,9 +52,13 @@ No test suite exists. No linter is configured.
 
 ## Database Migrations
 
+This project uses Flask-Migrate (Alembic). Never use raw SQL to modify the schema.
+
 ```bash
 # Generate a new migration after changing models
 flask db migrate -m "description of change"
+
+# Review the generated file in migrations/versions/ before applying
 
 # Apply pending migrations
 flask db upgrade
@@ -67,11 +71,16 @@ flask db current
 
 # Check for unapplied model changes
 flask db check
+
+# Stamp without running (for existing databases only)
+flask db stamp head
 ```
 
-**Important:** After any change to `models.py`, always run `flask db migrate` to generate a migration, review it, then `flask db upgrade` to apply it. Never use raw SQL to modify the schema.
+**Workflow for any model change:** edit `models.py` → `flask db migrate -m "desc"` → review migration → `flask db upgrade` → commit migration file
 
-**On PythonAnywhere:** After `git pull`, run `flask db upgrade` to apply any new migrations before reloading the web app.
+**On PythonAnywhere:** After `git pull`, run `flask db upgrade` before reloading the web app.
+
+**Worktree gotcha:** `config.py` uses `BASE_DIR = os.path.abspath(os.path.dirname(__file__))`, so `flask db` commands run from a worktree point to the worktree's (empty) DB. Always pass `DATABASE_URL="sqlite:////absolute/path/to/golf_pickem.db"` when running `flask db` commands from a worktree.
 
 ## Architecture
 
@@ -116,6 +125,21 @@ flask db check
 - Flask-Limiter rate-limits login to 10/min
 - CSRF via Flask-WTF on all forms; AJAX calls include `X-CSRFToken` header
 - Open redirect prevention: login rejects absolute URLs in `next` param
+
+## PythonAnywhere Deployment
+
+- **Account:** GolfPickEm — https://golfpickem.pythonanywhere.com/
+- **Project path:** `/home/GolfPickEm/Golf_Pick_Em`
+- **Virtualenv:** `/home/GolfPickEm/Golf_Pick_Em/venv` (Python 3.13)
+- **WSGI file:** `/var/www/golfpickem_pythonanywhere_com_wsgi.py`
+- **Database:** `/home/GolfPickEm/Golf_Pick_Em/golf_pickem.db`
+
+**Deploy after pushing to GitHub:**
+1. Open PythonAnywhere Bash console (auto-activates venv, auto-cds to project)
+2. `git pull`
+3. `pip install -r requirements.txt` (if deps changed)
+4. `flask db upgrade` (if migrations added)
+5. Reload web app from the Web tab
 
 ## Environment Variables
 

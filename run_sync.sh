@@ -6,7 +6,7 @@ set -e
 
 # Define paths
 PROJECT_DIR="/home/GolfPickEm/Golf_Pick_Em"
-VENV_DIR="/home/GolfPickEm/.virtualenvs/golfpickem"
+VENV_DIR="/home/GolfPickEm/Golf_Pick_Em/venv"
 ENV_CONFIG="$PROJECT_DIR/env_config.sh"
 
 # Verify env_config.sh exists
