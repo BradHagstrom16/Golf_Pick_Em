@@ -1,0 +1,5 @@
+#!/bin/bash
+# Auto-install new dependencies after git pull
+source /home/GolfPickEm/Golf_Pick_Em/venv/bin/activate
+pip install -r /home/GolfPickEm/Golf_Pick_Em/requirements.txt --quiet
+echo "✓ Dependencies synced"
