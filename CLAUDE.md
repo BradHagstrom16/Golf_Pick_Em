@@ -6,20 +6,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Golf Pick 'Em is a season-long PGA Tour fantasy league where users pick one golfer per tournament. Points equal actual prize money earned. Each golfer can only be used once per season. Deployed on PythonAnywhere with SQLite.
 
-## Available Tools
+## Available Tools & Plugins
 
-The following Claude Code plugins are enabled. Use them proactively rather than relying on training knowledge:
+The following Claude Code plugins are installed and enabled. Use them proactively to enhance development workflows and code quality rather than relying solely on training knowledge:
 
-- **context7** — Fetch live documentation for any library. Use this when assessing breaking changes between package versions (e.g., Flask 2→3, Werkzeug 2→3, SQLAlchemy changelogs).
-- **pyright-lsp** — Static type checking and import validation. Use to catch deprecated API usage or import errors without running the app.
-- **code-review** — Structured code review. Use for systematic review tasks across multiple files.
-- **code-simplifier** — Review recently changed code for quality, reuse, and efficiency. Run proactively after completing a task.
-- **commit-commands** — Commit changes cleanly after making fixes.
-- **feature-dev** — Feature planning and implementation workflow.
-- **frontend-design** — Build polished, production-grade web components and pages. Use when working on Jinja2 templates or Bootstrap UI.
-- **claude-md-management** — Update this CLAUDE.md file when project structure or conventions change.
-- **pr-review-toolkit** — Open pull requests for review rather than committing directly to main, especially for production changes.
-- **superpowers** — Brainstorming, systematic debugging, test-driven development, parallel agent dispatch, and more. Use for complex multi-step problem solving.
+- **claude-code-setup** - Environment and project setup management
+- **claude-md-management** - Markdown file handling and organization
+- **code-review** - Automated code review and quality checks
+- **code-simplifier** - Code refactoring and simplification
+- **coderabbit** - AI-powered code analysis
+- **commit-commands** - Git commit management and automation
+- **context7** - Enhanced contextual awareness (includes MCP)
+- **feature-dev** - Feature development workflows
+- **frontend-design** - UI/UX design and styling assistance
+- **playwright** - Browser automation and testing (includes MCP)
+- **pr-review-toolkit** - Pull request review utilities
+- **pyright-lsp** - Python language server and type checking
+- **superpowers** - Advanced development capabilities
 
 ## Commands
 
