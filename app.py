@@ -19,6 +19,7 @@ from sqlalchemy import func
 
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from flask_migrate import Migrate
 
 from config import config
 from models import db, User, Player, Tournament, TournamentField, TournamentResult, Pick, SeasonPlayerUsage, get_current_time, LEAGUE_TZ, format_score_to_par
@@ -32,6 +33,7 @@ logger = logging.getLogger(__name__)
 
 # Initialize extensions
 db.init_app(app)
+migrate = Migrate(app, db)
 csrf = CSRFProtect(app)
 limiter = Limiter(get_remote_address, app=app, default_limits=["200 per hour"])
 login_manager = LoginManager()

@@ -50,6 +50,29 @@ python import_tournaments.py
 
 No test suite exists. No linter is configured.
 
+## Database Migrations
+
+```bash
+# Generate a new migration after changing models
+flask db migrate -m "description of change"
+
+# Apply pending migrations
+flask db upgrade
+
+# Rollback one migration
+flask db downgrade
+
+# Show current migration version
+flask db current
+
+# Check for unapplied model changes
+flask db check
+```
+
+**Important:** After any change to `models.py`, always run `flask db migrate` to generate a migration, review it, then `flask db upgrade` to apply it. Never use raw SQL to modify the schema.
+
+**On PythonAnywhere:** After `git pull`, run `flask db upgrade` to apply any new migrations before reloading the web app.
+
 ## Architecture
 
 **Single-process Flask app** — no blueprints, no API layer, no background workers. All server code lives in four Python files:
