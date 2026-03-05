@@ -18,7 +18,7 @@
 <div class="row">
     <div class="col-lg-8">
         <div class="card">
-            <div class="card-header bg-success text-white">
+            <div class="card-header card-header-green">
                 <h4 class="mb-0">{{ tournament.name }}</h4>
             </div>
             <div class="card-body">
@@ -30,7 +30,7 @@
                     <div class="col-sm-6">
                         <p class="mb-1"><strong>Deadline:</strong> {{ tournament.get_deadline_display() }}</p>
                         {% if tournament.is_team_event %}
-                            <p class="mb-1"><span class="badge bg-info">Team Event</span> Points will be divided by 2</p>
+                            <p class="mb-1"><span class="badge-team">Team Event</span> Points will be divided by 2</p>
                         {% endif %}
                     </div>
                 </div>
@@ -72,10 +72,10 @@
                     </div>
 
                     <div class="d-grid gap-2 d-md-flex">
-                        <button type="submit" class="btn btn-success btn-lg">
+                        <button type="submit" class="btn btn-greenside btn-lg">
                             {{ 'Update Pick' if existing_pick else 'Submit Pick' }}
                         </button>
-                        <a href="{{ url_for('my_picks') }}" class="btn btn-outline-secondary btn-lg">Cancel</a>
+                        <a href="{{ url_for('my_picks') }}" class="btn btn-outline-greenside btn-lg">Cancel</a>
                     </div>
                 </form>
             </div>
@@ -84,9 +84,9 @@
 
     <div class="col-lg-4 make-pick-sidebar">
         <!-- Rules Reminder -->
-        <div class="card">
-            <div class="card-header bg-info text-white">
-                <h6 class="mb-0">📋 Pick Rules</h6>
+        <div class="card sidebar-card">
+            <div class="card-header card-header-gold">
+                <h6 class="mb-0">Pick Rules</h6>
             </div>
             <div class="card-body">
                 <ul class="mb-0 small">
@@ -100,10 +100,10 @@
         </div>
 
         <!-- Available Players Count -->
-        <div class="card mt-3">
+        <div class="card sidebar-card mt-3">
             <div class="card-body text-center">
-                <h4>{{ available_players|length }}</h4>
-                <p class="text-muted mb-0">Available Golfers</p>
+                <div class="stat-card-value" style="font-size: 1.5rem;">{{ available_players|length }}</div>
+                <p class="text-muted mb-0 small">Available Golfers</p>
             </div>
         </div>
     </div>

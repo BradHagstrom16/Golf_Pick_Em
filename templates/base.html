@@ -6,10 +6,15 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{% block title %}Golf Pick 'Em{% endblock %}</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>&#x26F3;</text></svg>">
-    
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    
+
     <!-- Custom CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     
@@ -17,16 +22,16 @@
 </head>
 <body>
     <!-- Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-success">
+    <nav class="navbar navbar-expand-lg navbar-dark navbar-greenside">
         <div class="container">
             <a class="navbar-brand" href="{{ url_for('index') }}">
-                ⛳ Golf Pick 'Em {{ season_year }}
+                Golf Pick 'Em <span style="font-family: var(--font-body); font-weight: 600; font-size: 0.75rem; opacity: 0.7; vertical-align: middle; margin-left: 0.25rem;">{{ season_year }}</span>
             </a>
-            
+
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
-            
+
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
@@ -44,35 +49,35 @@
                     </li>
                     {% endif %}
                 </ul>
-                
+
                 <ul class="navbar-nav">
                     {% if current_user.is_authenticated %}
                         {% if current_user.is_admin %}
                         <li class="nav-item">
                             <a class="nav-link" href="{{ url_for('admin_dashboard') }}">
-                                <span class="badge bg-warning text-dark">Admin</span>
+                                <span class="badge-admin">Admin</span>
                             </a>
                         </li>
                         {% endif %}
                         <!-- User Dropdown Menu -->
                         <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" id="userDropdown" 
+                            <a class="nav-link dropdown-toggle" href="#" id="userDropdown"
                                 role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                👤 {{ current_user.get_display_name() }}
-                                <span class="badge bg-light text-success ms-1 d-none d-md-inline">
+                                {{ current_user.get_display_name() }}
+                                <span class="badge-points ms-1 d-none d-md-inline">
                                     ${{ "{:,}".format(current_user.total_points) }}
                                 </span>
                             </a>
                             <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
                                 <li>
                                     <a class="dropdown-item" href="{{ url_for('change_password') }}">
-                                        🔒 Change Password
+                                        Change Password
                                     </a>
                                 </li>
                                 <li><hr class="dropdown-divider"></li>
                                 <li>
                                     <a class="dropdown-item" href="{{ url_for('logout') }}">
-                                        🚪 Logout
+                                        Logout
                                     </a>
                                 </li>
                             </ul>
@@ -110,9 +115,9 @@
     </main>
     
     <!-- Footer -->
-    <footer class="bg-light py-3 mt-5">
-        <div class="container text-center text-muted">
-            <small>Golf Pick 'Em League {{ season_year }} | Points = Prize Money Earned</small>
+    <footer class="footer-greenside mt-5">
+        <div class="container text-center">
+            <small>Golf Pick 'Em {{ season_year }} &middot; Points = Prize Money Earned</small>
         </div>
     </footer>
     

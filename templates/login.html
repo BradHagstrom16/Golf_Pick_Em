@@ -5,9 +5,9 @@
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-md-6 col-lg-4">
-        <div class="card">
-            <div class="card-header bg-success text-white">
-                <h4 class="mb-0">Login</h4>
+        <div class="card auth-card">
+            <div class="card-header card-header-green" style="text-align: center; padding: 1.5rem;">
+                <h4 class="mb-0" style="font-family: var(--font-display); font-size: 1.5rem; color: var(--text-on-dark);">Login</h4>
             </div>
             <div class="card-body">
                 <form method="POST">
@@ -16,7 +16,7 @@
                         <label for="username" class="form-label">Username</label>
                         <input type="text" class="form-control" id="username" name="username" required autofocus>
                     </div>
-                    
+
                     <div class="mb-3">
                         <label for="password" class="form-label">Password</label>
                         <input type="password" class="form-control" id="password" name="password" required>
@@ -26,12 +26,12 @@
                             </a>
                         </div>
                     </div>
-                    
-                    <button type="submit" class="btn btn-success w-100">Login</button>
+
+                    <button type="submit" class="btn btn-greenside w-100">Login</button>
                 </form>
-                
+
                 <hr>
-                
+
                 <p class="text-center mb-0">
                     Don't have an account? <a href="{{ url_for('register') }}">Register here</a>
                 </p>
@@ -45,7 +45,7 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">🔒 Forgot Password?</h5>
+                <h5 class="modal-title font-display">Forgot Password?</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
@@ -60,7 +60,7 @@
                 </p>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-outline-greenside" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
     </div>

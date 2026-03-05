@@ -1,163 +1,818 @@
-/* Golf Pick 'Em - Custom Styles */
-
 /* ============================================================================
-   Layout & Responsiveness
+   Golf Pick 'Em — "The Greenside Ledger" Design System
    ============================================================================ */
 
-/* Ensure tables are responsive on mobile */
-.table-responsive {
-    overflow-x: auto;
+/* ----------------------------------------------------------------------------
+   CSS Custom Properties
+   ---------------------------------------------------------------------------- */
+:root {
+  /* Greens — Augusta-inspired */
+  --green-900: #00432e;
+  --green-800: #005c3f;
+  --green-700: #006747;
+  --green-600: #007a54;
+  --green-500: #1a8a6a;
+  --green-400: #4da88a;
+  --green-100: #e8f5ef;
+  --green-50:  #f0faf5;
+
+  /* Gold — warm accents */
+  --gold-600: #92722a;
+  --gold-500: #b8993e;
+  --gold-400: #c4a747;
+  --gold-300: #d4be6a;
+  --gold-100: #faf3e0;
+
+  /* Surfaces */
+  --cream:    #faf8f4;
+  --white:    #ffffff;
+
+  /* Text */
+  --text-primary:   #1a1f25;
+  --text-secondary: #4a5568;
+  --text-muted:     #8b95a2;
+  --text-on-dark:   #f7f8f9;
+
+  /* Status */
+  --status-active:   #2563eb;
+  --status-complete: #6b7280;
+  --status-upcoming: #006747;
+  --status-locked:   #92722a;
+
+  /* Semantic */
+  --danger:  #b91c1c;
+  --warning: #d97706;
+  --info:    #2563eb;
+  --success: #006747;
+
+  /* Typography */
+  --font-display: "DM Serif Display", Georgia, serif;
+  --font-body:    "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+
+  /* Spacing */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(0, 67, 46, 0.08);
+  --shadow-md: 0 4px 12px rgba(0, 67, 46, 0.10);
+  --shadow-lg: 0 8px 24px rgba(0, 67, 46, 0.12);
 }
 
-/* Make select dropdowns larger on mobile */
-@media (max-width: 768px) {
-    .form-select-lg {
-        font-size: 1rem;
-        padding: 0.75rem 1rem;
-    }
+/* ----------------------------------------------------------------------------
+   Base & Typography
+   ---------------------------------------------------------------------------- */
+body {
+  font-family: var(--font-body);
+  background-color: var(--cream);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* ============================================================================
+h1, h2, h3, h4, h5, .h1, .h2, .h3, .h4, .h5 {
+  font-family: var(--font-display);
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+h2 { font-size: 1.75rem; margin-bottom: 0.25rem; }
+h3 { font-size: 1.4rem; }
+
+.text-muted { color: var(--text-muted) !important; }
+
+a {
+  color: var(--green-700);
+  transition: color 0.15s ease;
+}
+a:hover { color: var(--green-500); }
+
+/* ----------------------------------------------------------------------------
    Navbar
-   ============================================================================ */
-
-.navbar-brand {
-    font-weight: bold;
-    font-size: 1.3rem;
+   ---------------------------------------------------------------------------- */
+.navbar-greenside {
+  background: linear-gradient(135deg, var(--green-900) 0%, var(--green-800) 100%);
+  box-shadow: 0 2px 12px rgba(0, 67, 46, 0.25);
+  padding-top: 0.6rem;
+  padding-bottom: 0.6rem;
+  border: none;
 }
 
-.navbar .badge {
-    font-size: 0.7rem;
+.navbar-greenside .navbar-brand {
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  color: var(--text-on-dark) !important;
+  letter-spacing: 0.01em;
 }
 
-/* ============================================================================
+.navbar-greenside .nav-link {
+  color: rgba(247, 248, 249, 0.8) !important;
+  font-weight: 500;
+  font-size: 0.9rem;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  transition: color 0.15s ease;
+  border-radius: var(--radius-sm);
+}
+.navbar-greenside .nav-link:hover,
+.navbar-greenside .nav-link.active {
+  color: var(--text-on-dark) !important;
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.navbar-greenside .badge-admin {
+  background-color: var(--gold-500);
+  color: var(--green-900);
+  font-weight: 600;
+  font-size: 0.7rem;
+  padding: 0.3em 0.6em;
+  border-radius: var(--radius-sm);
+}
+
+.navbar-greenside .badge-points {
+  background-color: rgba(255, 255, 255, 0.15);
+  color: var(--gold-300);
+  font-weight: 600;
+  font-size: 0.75rem;
+  padding: 0.25em 0.55em;
+  border-radius: var(--radius-sm);
+}
+
+.navbar-greenside .dropdown-menu {
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow-md);
+  border-radius: var(--radius-md);
+}
+
+.navbar-greenside .navbar-toggler {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+.navbar-greenside .navbar-toggler-icon {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%28247, 248, 249, 0.85%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+}
+
+/* ----------------------------------------------------------------------------
    Cards
-   ============================================================================ */
-
+   ---------------------------------------------------------------------------- */
 .card {
-    transition: box-shadow 0.2s ease-in-out;
+  border: 1px solid rgba(0, 67, 46, 0.08);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.2s ease;
+  background-color: var(--white);
 }
-
 .card:hover {
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-md);
 }
 
-/* ============================================================================
-   Table Enhancements
-   ============================================================================ */
+.card-header-green {
+  background-color: var(--green-700);
+  color: var(--text-on-dark);
+  border-radius: var(--radius-md) var(--radius-md) 0 0 !important;
+  border-bottom: none;
+  padding: 0.75rem 1.25rem;
+}
+.card-header-green h3,
+.card-header-green h4,
+.card-header-green h5,
+.card-header-green h6 {
+  color: var(--text-on-dark);
+  margin-bottom: 0;
+}
 
-/* Column divider — subtle vertical separator between season data and
-   active tournament data on the homepage standings table */
+.card-header-dark {
+  background-color: var(--green-800);
+  color: var(--text-on-dark);
+  border-radius: var(--radius-md) var(--radius-md) 0 0 !important;
+  border-bottom: none;
+}
+.card-header-dark h5 { color: var(--text-on-dark); margin-bottom: 0; }
+
+.card-header-gold {
+  background-color: var(--gold-100);
+  color: var(--gold-600);
+  border-bottom: 1px solid rgba(184, 153, 62, 0.2);
+}
+.card-header-gold h5, .card-header-gold h6 {
+  color: var(--gold-600);
+  margin-bottom: 0;
+}
+
+.card-header-muted {
+  background-color: #f1f3f5;
+  color: var(--text-secondary);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+.card-header-muted h5, .card-header-muted h6 {
+  color: var(--text-secondary);
+  margin-bottom: 0;
+}
+
+/* ----------------------------------------------------------------------------
+   Tables — Leaderboard Styling
+   ---------------------------------------------------------------------------- */
+.table-greenside {
+  --bs-table-bg: var(--white);
+  --bs-table-striped-bg: var(--cream);
+  --bs-table-hover-bg: var(--green-50);
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.table-greenside > thead > tr > th {
+  background-color: var(--green-800);
+  color: var(--text-on-dark);
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.7rem 0.75rem;
+  border-bottom: 2px solid var(--green-900);
+  white-space: nowrap;
+}
+
+.table-greenside > tbody > tr > td {
+  padding: 0.6rem 0.75rem;
+  vertical-align: middle;
+  border-bottom: 1px solid rgba(0, 67, 46, 0.06);
+}
+
+.table-greenside > tbody > tr:nth-child(even) > td {
+  background-color: var(--cream);
+}
+
+.table-greenside > tbody > tr:hover > td {
+  background-color: var(--green-50);
+}
+
+/* Current user row highlighting */
+.table-greenside .row-current-user > td {
+  background-color: var(--gold-100) !important;
+  border-left: 3px solid var(--gold-500);
+}
+.table-greenside .row-current-user > td:first-child {
+  border-left: 3px solid var(--gold-500);
+}
+
+/* Leader row */
+.table-greenside .row-leader > td {
+  background-color: var(--green-50) !important;
+}
+
+/* Column divider */
 .column-divider {
-    border-left: 2px solid rgba(0, 0, 0, 0.15) !important;
+  border-left: 2px solid rgba(0, 103, 71, 0.15) !important;
+}
+.table-greenside > tbody > tr > td.column-divider {
+  border-left: 2px solid rgba(0, 103, 71, 0.15) !important;
+}
+.table-greenside > thead > tr > th.column-divider {
+  border-left: 2px solid rgba(0, 103, 71, 0.25) !important;
 }
 
-/* Ensure the divider is visible even on striped/highlighted rows */
-.table-striped > tbody > tr > td.column-divider,
-.table-warning > td.column-divider,
-tr.table-warning > td.column-divider {
-    border-left: 2px solid rgba(0, 0, 0, 0.15) !important;
+/* Active tournament row highlight */
+.table-greenside tr.row-active-tournament > td {
+  background-color: rgba(37, 99, 235, 0.04) !important;
 }
 
-/* Tournament row highlighting */
-tr.table-info {
-    background-color: rgba(13, 202, 240, 0.15) !important;
+/* Complete tournament row */
+.table-greenside tr.row-complete > td {
+  opacity: 0.85;
 }
 
-/* ============================================================================
-   Badges & Points
-   ============================================================================ */
-
-.badge.fs-5 {
-    font-size: 1rem !important;
+/* ----------------------------------------------------------------------------
+   Badges — Custom Palette
+   ---------------------------------------------------------------------------- */
+.badge-earnings {
+  background-color: var(--green-700);
+  color: var(--text-on-dark);
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: 0.35em 0.7em;
+  border-radius: var(--radius-sm);
+}
+.badge-earnings-projected {
+  background-color: var(--gold-400);
+  color: var(--green-900);
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: 0.35em 0.7em;
+  border-radius: var(--radius-sm);
 }
 
-.badge.fs-6 {
-    font-size: 0.9rem !important;
+.badge-status-active {
+  background-color: var(--status-active);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.75rem;
+  padding: 0.3em 0.65em;
+  border-radius: var(--radius-sm);
+}
+.badge-status-complete {
+  background-color: var(--status-complete);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.75rem;
+  padding: 0.3em 0.65em;
+  border-radius: var(--radius-sm);
+}
+.badge-status-upcoming {
+  background-color: var(--status-upcoming);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.75rem;
+  padding: 0.3em 0.65em;
+  border-radius: var(--radius-sm);
+}
+.badge-status-locked {
+  background-color: var(--gold-100);
+  color: var(--gold-600);
+  font-weight: 600;
+  font-size: 0.75rem;
+  padding: 0.3em 0.65em;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(184, 153, 62, 0.3);
+}
+.badge-status-open {
+  background-color: var(--green-100);
+  color: var(--green-700);
+  font-weight: 600;
+  font-size: 0.75rem;
+  padding: 0.3em 0.65em;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(0, 103, 71, 0.2);
 }
 
-/* ============================================================================
+.badge-major {
+  background-color: var(--gold-100);
+  color: var(--gold-600);
+  font-weight: 700;
+  font-size: 0.7rem;
+  padding: 0.3em 0.6em;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(184, 153, 62, 0.3);
+}
+
+.badge-team {
+  background-color: rgba(37, 99, 235, 0.1);
+  color: var(--status-active);
+  font-weight: 600;
+  font-size: 0.7rem;
+  padding: 0.3em 0.6em;
+  border-radius: var(--radius-sm);
+}
+
+.badge-cut {
+  background-color: var(--danger);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.7rem;
+}
+.badge-wd {
+  background-color: var(--gold-100);
+  color: var(--gold-600);
+  font-weight: 600;
+  font-size: 0.7rem;
+  border: 1px solid rgba(184, 153, 62, 0.3);
+}
+.badge-dq {
+  background-color: var(--text-primary);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.7rem;
+}
+.badge-used {
+  background-color: #f1f3f5;
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.65rem;
+}
+.badge-backup {
+  background-color: rgba(37, 99, 235, 0.1);
+  color: var(--status-active);
+  font-weight: 600;
+  font-size: 0.65rem;
+}
+.badge-override {
+  background-color: var(--gold-100);
+  color: var(--gold-600);
+  font-weight: 600;
+  font-size: 0.65rem;
+  border: 1px solid rgba(184, 153, 62, 0.3);
+}
+.badge-unpaid {
+  background-color: #f1f3f5;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.65rem;
+}
+
+/* ----------------------------------------------------------------------------
+   Buttons
+   ---------------------------------------------------------------------------- */
+.btn-greenside {
+  background-color: var(--green-700);
+  color: var(--text-on-dark);
+  border: none;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+.btn-greenside:hover {
+  background-color: var(--green-600);
+  color: var(--text-on-dark);
+  box-shadow: 0 2px 8px rgba(0, 103, 71, 0.25);
+}
+
+.btn-outline-greenside {
+  color: var(--green-700);
+  border: 1.5px solid var(--green-700);
+  background: transparent;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  transition: all 0.15s ease;
+}
+.btn-outline-greenside:hover {
+  background-color: var(--green-700);
+  color: var(--text-on-dark);
+}
+
+.btn-gold {
+  background-color: var(--gold-500);
+  color: var(--green-900);
+  border: none;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+}
+.btn-gold:hover {
+  background-color: var(--gold-400);
+  color: var(--green-900);
+}
+
+/* ----------------------------------------------------------------------------
+   Alerts
+   ---------------------------------------------------------------------------- */
+.alert-greenside {
+  background-color: var(--green-100);
+  border: 1px solid rgba(0, 103, 71, 0.15);
+  color: var(--green-800);
+  border-radius: var(--radius-md);
+}
+.alert-greenside .alert-link {
+  color: var(--green-700);
+  font-weight: 700;
+}
+
+.alert-tournament-active {
+  background-color: rgba(37, 99, 235, 0.06);
+  border: 1px solid rgba(37, 99, 235, 0.15);
+  color: var(--text-primary);
+  border-radius: var(--radius-md);
+}
+
+.alert-tournament-complete {
+  background-color: #f4f5f6;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  color: var(--text-secondary);
+  border-radius: var(--radius-md);
+}
+
+.alert-tournament-warning {
+  background-color: var(--gold-100);
+  border: 1px solid rgba(184, 153, 62, 0.2);
+  color: var(--gold-600);
+  border-radius: var(--radius-md);
+}
+
+.alert-info-greenside {
+  background-color: rgba(37, 99, 235, 0.06);
+  border: 1px solid rgba(37, 99, 235, 0.12);
+  color: var(--text-primary);
+  border-radius: var(--radius-md);
+}
+
+/* Keep Bootstrap alert colors working for flash messages */
+.alert-success {
+  background-color: var(--green-100);
+  border-color: rgba(0, 103, 71, 0.15);
+  color: var(--green-800);
+}
+.alert-danger {
+  background-color: #fef2f2;
+  border-color: rgba(185, 28, 28, 0.15);
+  color: #991b1b;
+}
+.alert-warning {
+  background-color: var(--gold-100);
+  border-color: rgba(184, 153, 62, 0.2);
+  color: var(--gold-600);
+}
+.alert-info {
+  background-color: rgba(37, 99, 235, 0.06);
+  border-color: rgba(37, 99, 235, 0.12);
+  color: #1e40af;
+}
+
+/* ----------------------------------------------------------------------------
    Progress Bar
-   ============================================================================ */
-
-/* Smooth fill animation when the season progress bar loads */
+   ---------------------------------------------------------------------------- */
+.progress {
+  border-radius: var(--radius-sm);
+  background-color: var(--green-50);
+}
 .progress-bar {
-    transition: width 0.6s ease-in-out;
+  background-color: var(--green-700) !important;
+  transition: width 0.6s ease-in-out;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
 }
 
-/* ============================================================================
+/* ----------------------------------------------------------------------------
    Footer
-   ============================================================================ */
-
-footer {
-    border-top: 1px solid #dee2e6;
+   ---------------------------------------------------------------------------- */
+footer.footer-greenside {
+  background-color: var(--green-900);
+  color: rgba(247, 248, 249, 0.6);
+  border-top: none;
+  padding: 1.25rem 0;
+}
+footer.footer-greenside a {
+  color: var(--gold-300);
 }
 
-/* ============================================================================
-   Mobile Card Layout Utilities
-   ============================================================================ */
+/* ----------------------------------------------------------------------------
+   Breadcrumbs
+   ---------------------------------------------------------------------------- */
+.breadcrumb {
+  background: none;
+  padding: 0;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+}
+.breadcrumb-item a {
+  color: var(--green-700);
+  text-decoration: none;
+}
+.breadcrumb-item a:hover {
+  color: var(--green-500);
+  text-decoration: underline;
+}
+.breadcrumb-item.active {
+  color: var(--text-muted);
+}
 
-/* Dual-render pattern: cards on mobile, table on desktop */
+/* ----------------------------------------------------------------------------
+   Forms
+   ---------------------------------------------------------------------------- */
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--green-400);
+  box-shadow: 0 0 0 0.2rem rgba(0, 103, 71, 0.15);
+}
+
+/* ----------------------------------------------------------------------------
+   Mobile Card Layout Utilities
+   ---------------------------------------------------------------------------- */
 .mobile-card-list { display: none; }
 
 @media (max-width: 767.98px) {
-    .mobile-card-list { display: block; }
-    .desktop-table { display: none !important; }
-    /* Hide the table-responsive wrapper too so it doesn't leave blank space */
-    .desktop-table-wrap { display: none !important; }
+  .mobile-card-list { display: block; }
+  .desktop-table { display: none !important; }
+  .desktop-table-wrap { display: none !important; }
 }
 
-/* Coloured left-border cards for picks/results */
+/* Pick cards — custom palette borders */
 .pick-card {
-    border-left: 4px solid #198754; /* green = upcoming/open */
+  border-left: 4px solid var(--green-700);
+  border-radius: var(--radius-md);
+  overflow: hidden;
 }
 .pick-card.active-tournament {
-    border-left-color: #0d6efd;     /* blue = in progress */
+  border-left-color: var(--status-active);
 }
 .pick-card.complete {
-    border-left-color: #6c757d;     /* grey = done */
+  border-left-color: var(--status-complete);
 }
 
-/* ============================================================================
-   Mobile Global Touch & Spacing Improvements
-   ============================================================================ */
+.pick-card .card-header {
+  background-color: var(--cream);
+  border-bottom: 1px solid rgba(0, 67, 46, 0.06);
+  font-size: 0.9rem;
+}
 
+.pick-card .card-footer {
+  border-top: 1px solid rgba(0, 67, 46, 0.06);
+}
+
+/* Current user card highlight */
+.card-highlight-user {
+  background-color: var(--gold-100) !important;
+}
+
+/* Standings mobile card rank */
+.rank-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background-color: var(--green-100);
+  color: var(--green-700);
+  font-weight: 700;
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+.rank-badge-leader {
+  background-color: var(--gold-100);
+  color: var(--gold-600);
+}
+
+/* ----------------------------------------------------------------------------
+   Stat Cards (tournament detail summary)
+   ---------------------------------------------------------------------------- */
+.stat-card {
+  text-align: center;
+  border: 1px solid rgba(0, 67, 46, 0.08);
+  border-radius: var(--radius-md);
+  padding: 1.25rem 1rem;
+  background-color: var(--white);
+  box-shadow: var(--shadow-sm);
+}
+.stat-card-label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.35rem;
+  font-weight: 600;
+}
+.stat-card-value {
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  color: var(--green-700);
+  line-height: 1.1;
+}
+
+/* ----------------------------------------------------------------------------
+   Tournament Header Card
+   ---------------------------------------------------------------------------- */
+.tournament-header {
+  background: linear-gradient(135deg, var(--green-800) 0%, var(--green-700) 100%);
+  color: var(--text-on-dark);
+  border-radius: var(--radius-lg);
+  border: none;
+  overflow: hidden;
+}
+.tournament-header h3 {
+  color: var(--text-on-dark);
+  font-family: var(--font-display);
+}
+.tournament-header .card-body {
+  background-color: var(--white);
+  color: var(--text-primary);
+}
+
+/* ----------------------------------------------------------------------------
+   Pick Submission Sidebar
+   ---------------------------------------------------------------------------- */
+.make-pick-sidebar .card-header {
+  font-size: 0.85rem;
+}
+
+/* ----------------------------------------------------------------------------
+   Auth Pages (Login / Register / Change Password)
+   ---------------------------------------------------------------------------- */
+.auth-card {
+  border: none;
+  box-shadow: var(--shadow-md);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.auth-card .card-header-green {
+  text-align: center;
+  padding: 1.5rem;
+}
+.auth-card .card-header-green h4 {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  margin-bottom: 0;
+}
+
+/* ----------------------------------------------------------------------------
+   Error Pages
+   ---------------------------------------------------------------------------- */
+.error-page h1 {
+  font-family: var(--font-display);
+  font-size: 5rem;
+  color: var(--green-700);
+  line-height: 1;
+}
+
+/* ----------------------------------------------------------------------------
+   Sidebar Cards
+   ---------------------------------------------------------------------------- */
+.sidebar-card {
+  border: 1px solid rgba(0, 67, 46, 0.08);
+}
+
+/* Pick status CTA card */
+.pick-cta-card {
+  border: 2px solid var(--green-700);
+  border-radius: var(--radius-md);
+}
+
+/* ----------------------------------------------------------------------------
+   Legend
+   ---------------------------------------------------------------------------- */
+.legend-bar {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  padding: 0.75rem 0;
+}
+
+/* ----------------------------------------------------------------------------
+   Mobile-Specific
+   ---------------------------------------------------------------------------- */
 @media (max-width: 767.98px) {
+  /* Larger tap targets in collapsed navbar */
+  .navbar-greenside .navbar-nav .nav-link {
+    padding-top: 0.65rem;
+    padding-bottom: 0.65rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  }
 
-    /* Slightly larger tap targets in collapsed navbar */
-    .navbar-nav .nav-link {
-        padding-top: 0.6rem;
-        padding-bottom: 0.6rem;
-    }
+  /* Tighter container padding */
+  main.container {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
 
-    /* Tighter horizontal padding so tables/cards don't clip */
-    main.container {
-        padding-left: 0.75rem;
-        padding-right: 0.75rem;
-    }
+  /* Tom Select: comfortable touch targets */
+  .ts-control {
+    min-height: 48px !important;
+    font-size: 1rem !important;
+    border-color: rgba(0, 67, 46, 0.2) !important;
+    border-radius: var(--radius-sm) !important;
+  }
+  .ts-control:focus-within {
+    border-color: var(--green-400) !important;
+    box-shadow: 0 0 0 0.2rem rgba(0, 103, 71, 0.15) !important;
+  }
+  .ts-dropdown .option {
+    padding: 0.6rem 0.75rem !important;
+    font-size: 1rem !important;
+  }
 
-    /* Tom Select: bigger touch targets */
-    .ts-control {
-        min-height: 48px !important;
-        font-size: 1rem !important;
-    }
-    .ts-dropdown .option {
-        padding: 0.6rem 0.75rem !important;
-        font-size: 1rem !important;
-    }
+  /* Compact earnings badges on mobile */
+  .badge-earnings, .badge-earnings-projected {
+    font-size: 0.8rem !important;
+  }
 
-    /* Compact the large dollar-amount badges in standings */
-    .badge.fs-6 {
-        font-size: 0.8rem !important;
-    }
+  /* Stat cards smaller on mobile */
+  .stat-card-value {
+    font-size: 1.4rem;
+  }
 
-    /* Summary stat cards (tournament_detail): smaller headings */
-    .col-md-4 .card-body h2 {
-        font-size: 1.5rem;
-    }
+  /* Sidebar stacks below on mobile */
+  .make-pick-sidebar {
+    margin-top: 1.5rem;
+  }
 
-    /* Stack the Make a Pick sidebar below the form on mobile */
-    .make-pick-sidebar {
-        margin-top: 1.5rem;
-    }
+  /* More breathing room between mobile cards */
+  .pick-card {
+    margin-bottom: 0.75rem;
+  }
+
+  /* Page heading sizing */
+  h2 { font-size: 1.4rem; }
 }
+
+/* Tom Select desktop overrides */
+.ts-control {
+  border-color: rgba(0, 67, 46, 0.15);
+  border-radius: var(--radius-sm);
+}
+.ts-control:focus-within {
+  border-color: var(--green-400);
+  box-shadow: 0 0 0 0.2rem rgba(0, 103, 71, 0.15);
+}
+.ts-dropdown {
+  border-color: rgba(0, 67, 46, 0.12);
+  box-shadow: var(--shadow-md);
+  border-radius: var(--radius-sm);
+}
+.ts-dropdown .option.active {
+  background-color: var(--green-100);
+  color: var(--green-800);
+}
+
+/* ----------------------------------------------------------------------------
+   Utility Classes
+   ---------------------------------------------------------------------------- */
+.text-green { color: var(--green-700) !important; }
+.text-gold { color: var(--gold-500) !important; }
+.bg-cream { background-color: var(--cream) !important; }
+.font-display { font-family: var(--font-display) !important; }
