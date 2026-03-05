@@ -84,7 +84,7 @@ REMINDER_WINDOWS = [
 ]
 
 # Tolerance window (minutes) - send reminder if within this window of the target time
-TOLERANCE_MINUTES = 30
+TOLERANCE_MINUTES = 35
 
 
 def get_current_time():
@@ -113,10 +113,14 @@ def is_field_ready(tournament_id, minimum=MIN_FIELD_SIZE):
 def get_upcoming_tournament_for_reminders():
     """
     Find the next tournament that:
-    - Has status 'upcoming'
-    - Has a deadline in the future
-    - Has a deadline within the next 24 hours (for reminders)
+    - Has a pick_deadline in the future
+    - Has a deadline within the next 24 hours + tolerance (for reminders)
     - Has a synced field (≥50 players)
+    - Is NOT already complete
+
+    NOTE: We intentionally do NOT filter on status == 'upcoming' because
+    the tournament can flip to 'active' (via start_date) before the
+    pick deadline. Reminders should keep firing until the deadline passes.
 
     NOTE: Must be called within an app context.
 
@@ -126,10 +130,11 @@ def get_upcoming_tournament_for_reminders():
     now = get_current_time()
     max_future = now + timedelta(hours=24, minutes=TOLERANCE_MINUTES)
 
+    # Find tournaments with a future deadline, regardless of upcoming/active status
     tournament = Tournament.query.filter(
-        Tournament.status == 'upcoming',
+        Tournament.status != 'complete',
         Tournament.pick_deadline.isnot(None)
-    ).order_by(Tournament.start_date).first()
+    ).order_by(Tournament.pick_deadline).first()
 
     if not tournament:
         return None, None

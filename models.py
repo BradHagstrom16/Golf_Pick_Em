@@ -195,7 +195,6 @@ class Tournament(db.Model):
 
         deadline = self.pick_deadline or self.start_date
         deadline_localized = deadline if deadline.tzinfo else LEAGUE_TZ.localize(deadline)
-        start_localized = self.start_date if self.start_date.tzinfo else LEAGUE_TZ.localize(self.start_date)
         end_localized = self.end_date if self.end_date.tzinfo else LEAGUE_TZ.localize(self.end_date)
 
         if now >= end_localized:
@@ -203,9 +202,11 @@ class Tournament(db.Model):
             # after verifying results are finalized. Keep as 'active' until then.
             if self.status != 'active':
                 self.status = 'active'
-        elif now >= start_localized:
-            self.status = 'active'
         elif now >= deadline_localized:
+            # Use deadline (first tee time) as the active transition point,
+            # not start_date (which is midnight and hours too early)
+            self.status = 'active'
+        else:
             self.status = 'upcoming'
 
         return self.status
