@@ -545,8 +545,8 @@ class TournamentSync:
                 # Tournament not in our league — skip it
                 continue
 
-            # Update existing tournament data
-            existing.name = name
+            # Update existing tournament data (name intentionally NOT overwritten —
+            # league names are locked and cleaned of sponsor suffixes)
             api_purse = self._parse_api_number(event.get("purse", 0))
             if api_purse > 0:
                 existing.purse = api_purse
