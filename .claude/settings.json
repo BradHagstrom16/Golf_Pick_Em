@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if echo \"$CLAUDE_TOOL_INPUT\" | grep -qE 'email_config\\.py|env_config\\.sh|\\.env'; then echo 'BLOCKED: Credential file is protected. Never commit credentials.' && exit 1; fi"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if echo \"$CLAUDE_TOOL_INPUT\" | grep -qE '(app|models|sync_api)\\.py'; then cd \"$(git rev-parse --show-toplevel)\" && FLASK_ENV=testing python -c \"from app import app; app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'; from models import db; ctx = app.app_context(); ctx.push(); db.create_all(); print('Smoke test OK')\" 2>&1 | tail -5; fi"
+          }
+        ]
+      }
+    ]
+  }
+}
