@@ -1166,6 +1166,18 @@ def register_sync_commands(app):
                 if results_count > 0:
                     sync.process_tournament_picks(tournament)
                     print(f"  ✓ Finalized {results_count} results for {tournament.name}")
+                    # Send results recap email (once per tournament)
+                    tournament = db.session.get(Tournament, tournament.id)
+                    if not tournament.recap_email_sent:
+                        try:
+                            from send_reminders import send_results_recap_email
+                            emails_sent = send_results_recap_email(tournament.id)
+                            if emails_sent > 0:
+                                tournament.recap_email_sent = True
+                                db.session.commit()
+                                logger.info("Sent results recap email to %s users for %s", emails_sent, tournament.name)
+                        except Exception as e:
+                            logger.error("Failed to send results recap for tournament %s: %s", tournament.id, e)
                 else:
                     print(f"  ✗ {tournament.name} not ready or failed (API may not have official results yet)")
 
@@ -1179,6 +1191,18 @@ def register_sync_commands(app):
             if results_count > 0:
                 sync.process_tournament_picks(tournament)
                 print(f"  ✓ Finalized {results_count} results")
+                # Send results recap email (once per tournament)
+                tournament = db.session.get(Tournament, tournament.id)
+                if not tournament.recap_email_sent:
+                    try:
+                        from send_reminders import send_results_recap_email
+                        emails_sent = send_results_recap_email(tournament.id)
+                        if emails_sent > 0:
+                            tournament.recap_email_sent = True
+                            db.session.commit()
+                            logger.info("Sent results recap email to %s users for %s", emails_sent, tournament.name)
+                    except Exception as e:
+                        logger.error("Failed to send results recap for tournament %s: %s", tournament.id, e)
             else:
                 print(f"  ✗ Not ready or failed (API may not have official results yet)")
 
@@ -1308,6 +1332,18 @@ def register_sync_commands(app):
                         results_count = sync.sync_tournament_results(tournament)
                         if results_count:
                             sync.process_tournament_picks(tournament)
+                            # Send results recap email (once per tournament)
+                            tournament = db.session.get(Tournament, tournament.id)
+                            if not tournament.recap_email_sent:
+                                try:
+                                    from send_reminders import send_results_recap_email
+                                    emails_sent = send_results_recap_email(tournament.id)
+                                    if emails_sent > 0:
+                                        tournament.recap_email_sent = True
+                                        db.session.commit()
+                                        logger.info("Sent results recap email to %s users for %s", emails_sent, tournament.name)
+                                except Exception as e:
+                                    logger.error("Failed to send results recap for tournament %s: %s", tournament.id, e)
 
             if mode in ('earnings', 'all'):
                 # Specifically for finalizing earnings on Monday
@@ -1331,6 +1367,18 @@ def register_sync_commands(app):
                         if results_count:
                             sync.process_tournament_picks(tournament)
                             click.echo(f"  ✓ Finalized {results_count} results for {tournament.name}")
+                            # Send results recap email (once per tournament)
+                            tournament = db.session.get(Tournament, tournament.id)
+                            if not tournament.recap_email_sent:
+                                try:
+                                    from send_reminders import send_results_recap_email
+                                    emails_sent = send_results_recap_email(tournament.id)
+                                    if emails_sent > 0:
+                                        tournament.recap_email_sent = True
+                                        db.session.commit()
+                                        logger.info("Sent results recap email to %s users for %s", emails_sent, tournament.name)
+                                except Exception as e:
+                                    logger.error("Failed to send results recap for tournament %s: %s", tournament.id, e)
                         else:
                             click.echo(f"  ✗ {tournament.name} not ready (API status not Complete/Official yet)")
 
@@ -1342,6 +1390,18 @@ def register_sync_commands(app):
                     if results_count:
                         sync.process_tournament_picks(tournament)
                         click.echo(f"  ✓ Finalized {results_count} results")
+                        # Send results recap email (once per tournament)
+                        tournament = db.session.get(Tournament, tournament.id)
+                        if not tournament.recap_email_sent:
+                            try:
+                                from send_reminders import send_results_recap_email
+                                emails_sent = send_results_recap_email(tournament.id)
+                                if emails_sent > 0:
+                                    tournament.recap_email_sent = True
+                                    db.session.commit()
+                                    logger.info("Sent results recap email to %s users for %s", emails_sent, tournament.name)
+                            except Exception as e:
+                                logger.error("Failed to send results recap for tournament %s: %s", tournament.id, e)
                     else:
                         click.echo(f"  ✗ Not ready (API status not Complete/Official yet)")
 
