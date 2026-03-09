@@ -931,12 +931,37 @@ def admin_override_pick():
                     flash(error, 'error')
             else:
                 if existing_pick:
+                    # Capture old player IDs before overwriting (for season usage cleanup)
+                    old_primary_id = existing_pick.primary_player_id
+                    old_backup_id = existing_pick.backup_player_id
+                    old_active_id = existing_pick.active_player_id
+
                     existing_pick.primary_player_id = primary_id
                     existing_pick.backup_player_id = backup_id
                     existing_pick.admin_override = True
                     existing_pick.admin_override_note = override_note or None
                     existing_pick.updated_at = datetime.now(timezone.utc)
-                    flash(f'Override pick updated for {selected_user.get_display_name()}!', 'success')
+
+                    # Re-resolve if tournament is complete
+                    if selected_tournament.status == 'complete':
+                        # Clean up old season usage (old active + old primary/backup)
+                        stale_ids = {old_primary_id, old_backup_id}
+                        if old_active_id:
+                            stale_ids.add(old_active_id)
+                        SeasonPlayerUsage.query.filter(
+                            SeasonPlayerUsage.user_id == selected_user.id,
+                            SeasonPlayerUsage.season_year == selected_tournament.season_year,
+                            SeasonPlayerUsage.player_id.in_(stale_ids)
+                        ).delete(synchronize_session=False)
+
+                        if existing_pick.resolve_pick():
+                            selected_user.calculate_total_points()
+                            flash(f'Override pick updated and re-resolved for {selected_user.get_display_name()}!', 'success')
+                        else:
+                            selected_user.calculate_total_points()
+                            flash(f'Override pick updated but resolution failed — check tournament results.', 'warning')
+                    else:
+                        flash(f'Override pick updated for {selected_user.get_display_name()}!', 'success')
                 else:
                     new_pick = Pick(
                         user_id=selected_user.id,
@@ -947,7 +972,17 @@ def admin_override_pick():
                         admin_override_note=override_note or None
                     )
                     db.session.add(new_pick)
-                    flash(f'Override pick created for {selected_user.get_display_name()}!', 'success')
+
+                    # Resolve immediately if tournament is already complete
+                    if selected_tournament.status == 'complete':
+                        db.session.flush()  # Ensure new_pick has an ID
+                        if new_pick.resolve_pick():
+                            selected_user.calculate_total_points()
+                            flash(f'Override pick created and resolved for {selected_user.get_display_name()}!', 'success')
+                        else:
+                            flash(f'Override pick created but resolution failed — check tournament results.', 'warning')
+                    else:
+                        flash(f'Override pick created for {selected_user.get_display_name()}!', 'success')
 
                 db.session.commit()
 
@@ -981,10 +1016,15 @@ def process_tournament_results(tournament: Tournament):
     for pick in picks:
         try:
             with db.session.begin_nested():
+                # Clean up season usage for primary, backup, AND old active player
+                # (active may differ from primary/backup after an admin override)
+                cleanup_ids = {pick.primary_player_id, pick.backup_player_id}
+                if pick.active_player_id:
+                    cleanup_ids.add(pick.active_player_id)
                 SeasonPlayerUsage.query.filter(
                     SeasonPlayerUsage.user_id == pick.user_id,
                     SeasonPlayerUsage.season_year == tournament.season_year,
-                    SeasonPlayerUsage.player_id.in_([pick.primary_player_id, pick.backup_player_id])
+                    SeasonPlayerUsage.player_id.in_(cleanup_ids)
                 ).delete(synchronize_session=False)
 
                 resolved = pick.resolve_pick()

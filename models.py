@@ -304,8 +304,8 @@ class TournamentResult(db.Model):
     )
 
     def wd_before_round_2_complete(self):
-        """Check if this was a WD before completing round 2."""
-        return self.status == 'wd' and self.rounds_completed < 2
+        """Check if this was a WD or never started before completing round 2."""
+        return self.status in ('wd', 'not started') and self.rounds_completed < 2
 
     def format_score_to_par(self):
         """Format score to par for display (e.g., '-22', '+3', 'E')."""
@@ -421,19 +421,19 @@ class Pick(db.Model):
             self.backup_used = False
             return False
 
-        # Determine if primary WD'd before completing R2
+        # Determine if primary WD'd before completing R2 or never started
         primary_wd_early = (
             primary_result and
-            primary_result.status == 'wd' and
+            primary_result.status in ('wd', 'not started') and
             primary_result.rounds_completed < 2
         )
 
-        # Case 1: Primary WD before R2 - backup activates
+        # Case 1: Primary WD before R2 (or never started) - backup activates
         if primary_wd_early:
-            # Check if backup also WD'd before R2
+            # Check if backup also WD'd before R2 or never started
             backup_wd_early = (
                 backup_result and
-                backup_result.status == 'wd' and
+                backup_result.status in ('wd', 'not started') and
                 backup_result.rounds_completed < 2
             )
 
