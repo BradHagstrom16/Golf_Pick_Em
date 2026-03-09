@@ -1172,10 +1172,12 @@ def register_sync_commands(app):
                         try:
                             from send_reminders import send_results_recap_email
                             emails_sent = send_results_recap_email(tournament.id)
+                            tournament.recap_email_sent = True
+                            db.session.commit()
                             if emails_sent > 0:
-                                tournament.recap_email_sent = True
-                                db.session.commit()
                                 logger.info("Sent results recap email to %s users for %s", emails_sent, tournament.name)
+                            else:
+                                logger.warning("Results recap attempted but 0 emails sent for %s (check SMTP config)", tournament.name)
                         except Exception as e:
                             logger.error("Failed to send results recap for tournament %s: %s", tournament.id, e)
                 else:
@@ -1338,10 +1340,12 @@ def register_sync_commands(app):
                                 try:
                                     from send_reminders import send_results_recap_email
                                     emails_sent = send_results_recap_email(tournament.id)
+                                    tournament.recap_email_sent = True
+                                    db.session.commit()
                                     if emails_sent > 0:
-                                        tournament.recap_email_sent = True
-                                        db.session.commit()
                                         logger.info("Sent results recap email to %s users for %s", emails_sent, tournament.name)
+                                    else:
+                                        logger.warning("Results recap attempted but 0 emails sent for %s (check SMTP config)", tournament.name)
                                 except Exception as e:
                                     logger.error("Failed to send results recap for tournament %s: %s", tournament.id, e)
 
@@ -1373,10 +1377,12 @@ def register_sync_commands(app):
                                 try:
                                     from send_reminders import send_results_recap_email
                                     emails_sent = send_results_recap_email(tournament.id)
+                                    tournament.recap_email_sent = True
+                                    db.session.commit()
                                     if emails_sent > 0:
-                                        tournament.recap_email_sent = True
-                                        db.session.commit()
                                         logger.info("Sent results recap email to %s users for %s", emails_sent, tournament.name)
+                                    else:
+                                        logger.warning("Results recap attempted but 0 emails sent for %s (check SMTP config)", tournament.name)
                                 except Exception as e:
                                     logger.error("Failed to send results recap for tournament %s: %s", tournament.id, e)
                         else:
@@ -1396,10 +1402,12 @@ def register_sync_commands(app):
                             try:
                                 from send_reminders import send_results_recap_email
                                 emails_sent = send_results_recap_email(tournament.id)
+                                tournament.recap_email_sent = True
+                                db.session.commit()
                                 if emails_sent > 0:
-                                    tournament.recap_email_sent = True
-                                    db.session.commit()
                                     logger.info("Sent results recap email to %s users for %s", emails_sent, tournament.name)
+                                else:
+                                    logger.warning("Results recap attempted but 0 emails sent for %s (check SMTP config)", tournament.name)
                             except Exception as e:
                                 logger.error("Failed to send results recap for tournament %s: %s", tournament.id, e)
                     else:
