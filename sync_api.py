@@ -1040,17 +1040,16 @@ def get_upcoming_tournaments_window(days_ahead: int = 10) -> List[Tournament]:
     return tournaments
 
 
-def get_active_tournaments(include_upcoming_hours: int = 12) -> List[Tournament]:
-    now = datetime.now(LEAGUE_TZ)
-    window_start = now - timedelta(hours=6)
-    window_end = now + timedelta(hours=include_upcoming_hours)
-    tournaments = Tournament.query.filter(
-        Tournament.start_date <= window_end,
-        Tournament.end_date >= window_start,
-        Tournament.status != "complete",
+def get_active_tournaments() -> List[Tournament]:
+    """
+    Return all tournaments currently in 'active' status.
+    Queries by status directly — the authoritative field maintained by
+    update_status_from_time(). Avoids brittle end_date window math that
+    breaks when end_date is stored as midnight UTC rather than end-of-day.
+    """
+    return Tournament.query.filter(
+        Tournament.status == "active"
     ).order_by(Tournament.start_date).all()
-    _refresh_statuses(tournaments)
-    return tournaments
 
 
 def get_recently_completed_tournaments(days_back: int = 2) -> List[Tournament]:
@@ -1223,7 +1222,7 @@ def register_sync_commands(app):
         exit_code = 0
         year = app.config.get('SEASON_YEAR', datetime.now().year)
 
-        free_tier_blocked = {'withdrawals'}  # 'live' now allowed for projected earnings
+        free_tier_blocked = set()
         if sync_mode == 'free' and mode in free_tier_blocked:
             click.echo(f"Free tier mode: '{mode}' sync disabled to stay within RapidAPI limits")
             sys.exit(0)
@@ -1294,7 +1293,7 @@ def register_sync_commands(app):
                 if not active:
                     click.echo("No active tournaments for withdrawal checks")
                 for tournament in active:
-                    withdrawals = sync.check_withdrawals(tournament)
+                    withdrawals = sync.check_withdrawals(tournament, force=True)
                     if withdrawals:
                         click.echo(f"Withdrawals detected for {tournament.name}: {len(withdrawals)}")
 
