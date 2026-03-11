@@ -8,21 +8,66 @@ Golf Pick 'Em is a season-long PGA Tour fantasy league where users pick one golf
 
 ## Available Tools & Plugins
 
-The following Claude Code plugins are installed and enabled. Use them proactively to enhance development workflows and code quality rather than relying solely on training knowledge:
+Two distinct mechanisms — use them correctly:
 
-- **claude-code-setup** - Environment and project setup management
-- **claude-md-management** - Markdown file handling and organization
-- **code-review** - Automated code review and quality checks
-- **code-simplifier** - Code refactoring and simplification
-- **coderabbit** - AI-powered code analysis
-- **commit-commands** - Git commit management and automation
-- **context7** - Enhanced contextual awareness (includes MCP)
-- **feature-dev** - Feature development workflows
-- **frontend-design** - UI/UX design and styling assistance
-- **playwright** - Browser automation and testing (includes MCP)
-- **pr-review-toolkit** - Pull request review utilities
-- **pyright-lsp** - Python language server and type checking
-- **superpowers** - Advanced development capabilities
+- **Plugins** are invoked by mentioning the plugin name in task instructions (e.g., "use `commit-commands`")
+- **Skills** are invoked by skill name using the `Skill` tool (e.g., invoke `brainstorming`, `pick-resolution-audit`)
+
+### Installed Plugins (13)
+
+| Plugin | Purpose |
+|--------|---------|
+| `claude-code-setup` | Environment and project setup management |
+| `claude-md-management` | Markdown file handling and organization |
+| `code-review` | Automated code review and quality checks |
+| `code-simplifier` | Code refactoring and simplification |
+| `coderabbit` | AI-powered holistic code analysis |
+| `commit-commands` | Git commit management and automation |
+| `context7` | Upstream library/framework docs awareness (MCP-connected) |
+| `feature-dev` | Feature development scaffolding workflows |
+| `frontend-design` | Design-forward UI/UX implementation |
+| `playwright` | Browser automation and testing (MCP-connected) |
+| `pr-review-toolkit` | Pull request review utilities |
+| `pyright-lsp` | Python type checking via language server |
+| `superpowers` | Advanced multi-file analysis and development capabilities |
+
+### Available Skills
+
+**Project skills** (`.claude/skills` and `.claude/agents`):
+
+| Skill | Purpose |
+|-------|---------|
+| `pick-resolution-audit` | Audit pick resolution, WD/backup logic, earnings multipliers — invoke before/after any change to `Pick.resolve_pick()` |
+| `migration-reviewer` | Review SQLite migrations for safety before `flask db upgrade` — invoke on every new migration |
+
+**`superpowers` plugin skills** (most commonly used):
+
+| Skill | Purpose |
+|-------|---------|
+| `brainstorming` | Explore requirements and design before building anything |
+| `writing-plans` | Draft implementation plans before executing |
+| `executing-plans` | Work through a structured plan step-by-step |
+| `systematic-debugging` | Methodical debugging across multiple files |
+| `test-driven-development` | TDD workflow — write tests before implementation |
+| `verification-before-completion` | Verify correctness before marking work done |
+| `finishing-a-development-branch` | Complete and close out a development branch |
+
+### Plugin Prescription Reference
+
+| When to prescribe | Plugin or Skill |
+|-------------------|----------------|
+| Any new feature or non-trivial change — before writing code | `brainstorming` skill |
+| Implementing any feature or bugfix | `test-driven-development` skill |
+| Any change to `Pick.resolve_pick()`, `process_tournament_results()`, or earnings logic | `pick-resolution-audit` skill |
+| Any new migration file before `flask db upgrade` | `migration-reviewer` agent |
+| After implementing any route/model change | `coderabbit` review |
+| After modifying `.py` files | `pyright-lsp` |
+| After completing a feature — reduce complexity | `code-simplifier` |
+| UI changes needing browser verification | `playwright` |
+| Needs awareness of library/framework APIs | `context7` |
+| End of each logical unit of work | `commit-commands` |
+| Before merging any branch to main | `pr-review-toolkit` |
+| Modifying templates or CSS | `frontend-design` skill |
 
 ## Commands
 
