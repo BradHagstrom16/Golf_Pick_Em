@@ -308,6 +308,17 @@ class TournamentResult(db.Model):
         """Check if this was a WD or never started before completing round 2."""
         return self.status in ('wd', 'not started') and self.rounds_completed < 2
 
+    def is_wd_before_round_2(self):
+        """Check if player actually withdrew before completing Round 2.
+
+        Use this during ACTIVE tournaments where 'not started' just means
+        the player hasn't teed off yet, not that they withdrew.
+
+        For completed tournaments, use wd_before_round_2_complete() instead,
+        which also treats 'not started' as a withdrawal.
+        """
+        return self.status == 'wd' and self.rounds_completed < 2
+
     def format_score_to_par(self):
         """Format score to par for display (e.g., '-22', '+3', 'E')."""
         return format_score_to_par(self.score_to_par)
@@ -562,9 +573,9 @@ class Pick(db.Model):
                 player_id=self.primary_player_id
             ).first()
         
-            if primary_result and primary_result.wd_before_round_2_complete():
+            if primary_result and primary_result.is_wd_before_round_2():
                 return True
-    
+
         return False
 
     def __repr__(self):

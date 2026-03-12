@@ -224,7 +224,7 @@ def index():
             # Determine backup activation using pre-loaded results (avoids extra query)
             if results_tournament.status == 'complete' and pick.active_player_id:
                 backup_activated = (pick.active_player_id == pick.backup_player_id)
-            elif results_tournament.status == 'active' and result and result.wd_before_round_2_complete():
+            elif results_tournament.status == 'active' and result and result.is_wd_before_round_2():
                 backup_activated = True
             else:
                 backup_activated = False
@@ -359,7 +359,7 @@ def tournament_detail(tournament_id):
             if tournament.status == 'complete' and pick.active_player_id:
                 backup_activated = (pick.active_player_id == pick.backup_player_id)
             elif tournament.status == 'active' and primary_result:
-                backup_activated = primary_result.wd_before_round_2_complete()
+                backup_activated = primary_result.is_wd_before_round_2()
 
             if backup_activated:
                 any_backup_activated = True
