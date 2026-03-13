@@ -396,11 +396,7 @@ a:hover { color: var(--green-500); }
   font-size: inherit;
 }
 .badge-override {
-  background-color: var(--gold-100);
-  color: var(--gold-600);
-  font-weight: 600;
   font-size: inherit;
-  border: 1px solid rgba(184, 153, 62, 0.3);
 }
 .badge-unpaid {
   background-color: #f1f3f5;
