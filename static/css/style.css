@@ -390,9 +390,6 @@ a:hover { color: var(--green-500); }
   font-size: 0.65rem;
 }
 .badge-backup {
-  background-color: rgba(37, 99, 235, 0.1);
-  color: var(--status-active);
-  font-weight: 600;
   font-size: inherit;
 }
 .badge-override {
