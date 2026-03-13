@@ -810,6 +810,15 @@ footer.footer-greenside a {
 }
 
 /* ----------------------------------------------------------------------------
+   Pick Display
+   ---------------------------------------------------------------------------- */
+/* Backup-activated pick name — subtle visual distinction to indicate active pick */
+.pick-backup-active {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* ----------------------------------------------------------------------------
    Utility Classes
    ---------------------------------------------------------------------------- */
 .text-green { color: var(--green-700) !important; }
