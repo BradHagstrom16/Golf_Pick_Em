@@ -393,13 +393,13 @@ a:hover { color: var(--green-500); }
   background-color: rgba(37, 99, 235, 0.1);
   color: var(--status-active);
   font-weight: 600;
-  font-size: 0.65rem;
+  font-size: inherit;
 }
 .badge-override {
   background-color: var(--gold-100);
   color: var(--gold-600);
   font-weight: 600;
-  font-size: 0.65rem;
+  font-size: inherit;
   border: 1px solid rgba(184, 153, 62, 0.3);
 }
 .badge-unpaid {
