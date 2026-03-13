@@ -189,9 +189,10 @@
                             <div class="col-7">
                                 <span class="text-muted">Pick: </span>
                                 {% if result.has_pick %}
-                                    {{ result.primary_name }}
                                     {% if result.backup_activated %}
-                                        <span class="badge-backup ms-1">🔄 Backup</span>
+                                        {{ result.backup_name }} <span class="badge-backup ms-1">🔄 Backup</span>
+                                    {% else %}
+                                        {{ result.primary_name }}
                                     {% endif %}
                                     {% if result.admin_override %}
                                         <span class="badge-override">👑</span>
