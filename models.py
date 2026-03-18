@@ -153,6 +153,7 @@ class Tournament(db.Model):
     picks_open_notified = db.Column(db.Boolean, default=False)  # True once "picks are open" email sent
     field_alert_sent = db.Column(db.Boolean, default=False)  # True once admin alert sent for missing field
     recap_email_sent = db.Column(db.Boolean, default=False)  # True once results recap email sent
+    last_reminder_type = db.Column(db.String(10), nullable=True)  # Most recent reminder tier sent: '24h', '12h', '1h'
 
     # Week number in our league (1-32)
     week_number = db.Column(db.Integer, nullable=True)

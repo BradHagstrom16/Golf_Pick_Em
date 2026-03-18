@@ -296,20 +296,34 @@ def get_active_reminder_window(deadline):
 
 
 def format_time_remaining(deadline):
-    """Format the time remaining until deadline."""
+    """Format time remaining with clean rounding."""
     now = get_current_time()
     delta = deadline - now
-    total_hours = int(delta.total_seconds() // 3600)
-    minutes = int((delta.total_seconds() % 3600) // 60)
+    total_hours = delta.total_seconds() / 3600
 
-    if total_hours >= 24:
-        days = total_hours // 24
-        hours = total_hours % 24
-        return f"{days} day{'s' if days != 1 else ''}, {hours} hour{'s' if hours != 1 else ''}"
-    elif total_hours >= 1:
-        return f"{total_hours} hour{'s' if total_hours != 1 else ''}, {minutes} minute{'s' if minutes != 1 else ''}"
+    if total_hours >= 36:
+        days = round(total_hours / 24)
+        return f"{days} days"
+    elif total_hours >= 18:
+        return "1 day"
+    elif total_hours >= 1.5:
+        hours = round(total_hours)
+        return f"{hours} hours"
+    elif total_hours >= 0.75:
+        return "1 hour"
     else:
-        return f"{minutes} minute{'s' if minutes != 1 else ''}"
+        minutes = max(1, round(total_hours * 60))
+        return f"{minutes} minutes"
+
+
+def get_time_remaining_display(window):
+    """Return a clean, rounded time-remaining string based on the reminder window."""
+    display_map = {
+        'warning': '24 hours',
+        'reminder': '12 hours',
+        'final': '1 hour',
+    }
+    return display_map.get(window['type'], f"{window['hours']} hours")
 
 
 # ============================================================================
@@ -447,7 +461,7 @@ def build_reminder_email(user_display_name, user_total_points, user_golfers_used
     Returns:
         Tuple of (subject, plain_body, html_body)
     """
-    time_remaining = format_time_remaining(deadline)
+    time_remaining = get_time_remaining_display(window)
     pick_url = f"{SITE_URL}/pick/{tournament_id}"
     deadline_str = deadline.strftime('%A, %B %d at %I:%M %p %Z')
 
@@ -940,6 +954,17 @@ def main():
 
         print(f"\n📬 Active reminder window: {window['hours']}-hour ({window['type']})")
 
+        # Dedup: skip if this tier (or a later tier) was already sent
+        REMINDER_ORDER = {'24h': 0, '12h': 1, '1h': 2}
+
+        current_tier = f"{window['hours']}h"
+        if tournament.last_reminder_type:
+            last_order = REMINDER_ORDER.get(tournament.last_reminder_type, -1)
+            current_order = REMINDER_ORDER.get(current_tier, -1)
+            if current_order <= last_order:
+                print(f"\n✅ {current_tier} reminder already sent (last sent: {tournament.last_reminder_type}). Skipping.")
+                return
+
         users_without_picks = get_users_without_picks(tournament.id)
 
         if not users_without_picks:
@@ -975,6 +1000,10 @@ def main():
 
             if send_email(user_email, subject, plain, html_body=html):
                 success_count += 1
+
+        tournament.last_reminder_type = current_tier
+        db.session.commit()
+        print(f"📝 Recorded {current_tier} reminder as sent")
 
         print()
         print("-" * 60)
