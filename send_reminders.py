@@ -1001,9 +1001,12 @@ def main():
             if send_email(user_email, subject, plain, html_body=html):
                 success_count += 1
 
-        tournament.last_reminder_type = current_tier
-        db.session.commit()
-        print(f"📝 Recorded {current_tier} reminder as sent")
+        if success_count > 0:
+            tournament.last_reminder_type = current_tier
+            db.session.commit()
+            print(f"📝 Recorded {current_tier} reminder as sent")
+        else:
+            print(f"⚠️ No emails sent successfully — not recording {current_tier} as sent")
 
         print()
         print("-" * 60)
