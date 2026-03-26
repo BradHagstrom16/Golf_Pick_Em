@@ -529,8 +529,23 @@ class TournamentSync:
 
             # Skip events that start on or after the season cutoff date
             try:
-                start_ts = int(event["date"]["start"]["$date"]["$numberLong"]) / 1000
-                start_date = datetime.fromtimestamp(start_ts, tz=pytz.UTC)
+                start_val = event["date"]["start"]
+                # EJSON: {"$date": {"$numberLong": "..."}}
+                if isinstance(start_val, dict):
+                    if '$date' in start_val:
+                        date_val = start_val['$date']
+                        if isinstance(date_val, dict) and '$numberLong' in date_val:
+                            ts_ms = int(date_val['$numberLong'])
+                        else:
+                            ts_ms = int(date_val)
+                    elif '$numberLong' in start_val:
+                        ts_ms = int(start_val['$numberLong'])
+                    else:
+                        continue
+                else:
+                    # Clean JSON: plain number or numeric string (milliseconds)
+                    ts_ms = int(start_val)
+                start_date = datetime.fromtimestamp(ts_ms / 1000, tz=pytz.UTC)
                 if start_date >= SEASON_CUTOFF_DATE:
                     continue
             except (KeyError, ValueError, TypeError):
