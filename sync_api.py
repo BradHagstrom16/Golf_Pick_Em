@@ -252,7 +252,8 @@ class SlashGolfAPI:
         self.api_key = api_key
         self.headers = {
             "X-RapidAPI-Key": api_key,
-            "X-RapidAPI-Host": api_host
+            "X-RapidAPI-Host": api_host,
+            "Accept": "application/json"
         }
         self.org_id = "1"  # PGA Tour
         self.sync_mode = (sync_mode or "standard").lower()
