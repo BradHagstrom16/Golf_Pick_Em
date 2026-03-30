@@ -784,8 +784,17 @@ def _build_recap_plain_text(display_name, tournament_name, golfer_name, position
     top3_lines = ""
     for i, entry in enumerate(top_3, 1):
         marker = " ← YOU" if entry['user_id'] == user_id else ""
-        score_part = f" ({entry['score_to_par']})" if entry['score_to_par'] else ""
-        top3_lines += f"  {i}. {entry['user_name']} — {entry['golfer_name']}{score_part} — ${entry['earnings']:,}{marker}\n"
+        pos = entry.get('position') or ''
+        if pos in ('1', 'T1'):
+            pos_label = 'Win'
+        elif pos:
+            pos_label = pos
+        else:
+            pos_label = ''
+        score_part = entry['score_to_par'] if entry['score_to_par'] else ''
+        detail_parts = [p for p in [pos_label, score_part] if p]
+        detail = f" ({', '.join(detail_parts)})" if detail_parts else ''
+        top3_lines += f"  {i}. {entry['user_name']} — {entry['golfer_name']}{detail} — ${entry['earnings']:,}{marker}\n"
 
     text = f"""Hi {display_name},
 
@@ -880,16 +889,56 @@ def _build_recap_html(display_name, tournament_name, golfer_name, position,
     top3_rows = ""
     for i, entry in enumerate(top_3):
         is_self = entry['user_id'] == user_id
-        row_bg = _GOLD_100 if is_self else (_CREAM if i % 2 == 1 else _WHITE)
+        pos = entry.get('position') or ''
+        is_winner = pos in ('1', 'T1')
+
+        # Row background: winner gets gold, self gets gold, else alternating
+        if is_winner:
+            row_bg = _GOLD_100
+        elif is_self:
+            row_bg = _GOLD_100
+        else:
+            row_bg = _CREAM if i % 2 == 1 else _WHITE
+
         bold = "font-weight: 700;" if is_self else ""
         self_marker = f' <span style="color: {_GOLD_500}; font-size: 11px; font-weight: 700;">★</span>' if is_self else ""
         score_part = f' <span style="color: {_TEXT_MUTED}; font-size: 12px;">({entry["score_to_par"]})</span>' if entry['score_to_par'] else ""
 
+        # Position badge
+        if is_winner:
+            pos_badge = (
+                f'<span style="font-size: 16px; line-height: 1;">&#127942;</span> '
+                f'<span style="display: inline-block; background-color: {_GOLD_500}; '
+                f'color: {_WHITE}; font-size: 10px; font-weight: 700; '
+                f'letter-spacing: 0.08em; padding: 2px 8px; '
+                f'border-radius: 3px; vertical-align: middle; '
+                f'text-transform: uppercase;">WIN</span> '
+            )
+        elif pos in ('CUT', 'WD'):
+            pos_badge = (
+                f'<span style="color: {_TEXT_MUTED}; font-size: 11px; '
+                f'font-style: italic; vertical-align: middle;">{pos}</span> '
+            )
+        elif pos:
+            pos_badge = (
+                f'<span style="display: inline-block; background-color: {_GREEN_100}; '
+                f'color: {_GREEN_700}; font-size: 11px; font-weight: 600; '
+                f'padding: 1px 7px; border-radius: 10px; '
+                f'vertical-align: middle;">{pos}</span> '
+            )
+        else:
+            pos_badge = ''
+
+        # Winner row: gold left border + gold earnings
+        row_border_left = f'border-left: 3px solid {_GOLD_500};' if is_winner else ''
+        rank_color = _GOLD_500 if is_winner else _TEXT_PRIMARY
+        earn_color = _GOLD_500 if is_winner else _GREEN_700
+
         top3_rows += f'''<tr>
-<td style="padding: 10px 12px; border-bottom: 1px solid rgba(0,67,46,0.06); background-color: {row_bg}; {bold} font-size: 14px; color: {_TEXT_PRIMARY}; text-align: center; width: 36px;">{i + 1}</td>
+<td style="padding: 10px 12px; border-bottom: 1px solid rgba(0,67,46,0.06); background-color: {row_bg}; {row_border_left} {bold} font-size: 14px; color: {rank_color}; text-align: center; width: 36px; font-weight: 700;">{i + 1}</td>
 <td style="padding: 10px 12px; border-bottom: 1px solid rgba(0,67,46,0.06); background-color: {row_bg}; {bold} font-size: 14px; color: {_TEXT_PRIMARY};">{entry['user_name']}{self_marker}</td>
-<td style="padding: 10px 12px; border-bottom: 1px solid rgba(0,67,46,0.06); background-color: {row_bg}; font-size: 14px; color: {_TEXT_SECONDARY};">{entry['golfer_name']}{score_part}</td>
-<td style="padding: 10px 12px; border-bottom: 1px solid rgba(0,67,46,0.06); background-color: {row_bg}; {bold} font-size: 14px; color: {_GREEN_700}; text-align: right;">${entry['earnings']:,}</td>
+<td style="padding: 10px 12px; border-bottom: 1px solid rgba(0,67,46,0.06); background-color: {row_bg}; font-size: 14px; color: {_TEXT_SECONDARY};">{pos_badge}{entry['golfer_name']}{score_part}</td>
+<td style="padding: 10px 12px; border-bottom: 1px solid rgba(0,67,46,0.06); background-color: {row_bg}; {bold} font-size: 14px; color: {earn_color}; text-align: right;">${entry['earnings']:,}</td>
 </tr>'''
 
     leaderboard = f'''<p style="margin: 0 0 12px 0; font-family: {_FONT_DISPLAY}; font-size: 18px; color: {_TEXT_PRIMARY};">This Week&#8217;s Top 3</p>
