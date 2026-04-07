@@ -82,21 +82,21 @@ PURSE_ESTIMATES = {
     'Valspar Championship': 9_100_000,
     "Texas Children's Houston Open": 9_900_000,
     'Valero Texas Open': 9_800_000,
-    'Masters Tournament': None,  # TBD - Major
+    'Masters Tournament': 21_000_000,  # Estimate - Major (announced week-of)
     'RBC Heritage': 20_000_000,
     'Zurich Classic of New Orleans': 9_500_000,
     'Cadillac Championship': 20_000_000,
     'Truist Championship': 20_000_000,
-    'PGA Championship': None,  # TBD - Major
+    'PGA Championship': 19_000_000,  # Estimate - Major (announced week-of)
     'THE CJ CUP Byron Nelson': 10_300_000,
     'Charles Schwab Challenge': 9_900_000,
     'the Memorial Tournament presented by Workday': 20_000_000,
     'RBC Canadian Open': 9_800_000,
-    'U.S. Open': None,  # TBD - Major
+    'U.S. Open': 21_500_000,  # Estimate - Major (announced week-of)
     'Travelers Championship': 20_000_000,
     'John Deere Classic': 8_800_000,
     'Genesis Scottish Open': 9_000_000,
-    'The Open Championship': None,  # TBD - Major
+    'The Open Championship': 17_000_000,  # Estimate - Major (announced week-of)
     '3M Open': 8_800_000,
     'Rocket Classic': 10_000_000,
     'Wyndham Championship': 8_500_000,
@@ -956,6 +956,12 @@ class TournamentSync:
         # Collect all positions for tie calculation
         all_positions = [p.get("position", "") for p in leaderboard_rows]
 
+        # Use API purse if available; fall back to estimate only when purse is $0
+        purse = tournament.purse
+        if not purse or purse <= 0:
+            purse = PURSE_ESTIMATES.get(tournament.name) or DEFAULT_PURSE
+            logger.info("Using purse estimate $%s for %s (API purse not yet available)", f"{purse:,}", tournament.name)
+
         try:
             self._derive_status(tournament, data)
 
@@ -987,7 +993,7 @@ class TournamentSync:
                 position = player_data.get("position", "")
                 projected_earnings = calculate_projected_earnings(
                     position_str=position,
-                    purse=tournament.purse,
+                    purse=purse,
                     all_positions=all_positions
                 )
                 result.earnings = projected_earnings
