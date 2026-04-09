@@ -363,6 +363,8 @@ class TournamentSync:
                 return pytz.timezone(tz_name)
             except Exception:
                 logger.warning("Unknown timezone '%s', falling back to league TZ", tz_name)
+        else:
+            logger.debug("No timezone field in API response, using league TZ")
         return LEAGUE_TZ
 
     @staticmethod

@@ -56,3 +56,20 @@ class TestParseTeeTimeTimestamp:
         ct = result.astimezone(pytz.timezone("America/Chicago"))
         assert ct.hour == 6
         assert ct.minute == 40
+
+
+class TestGetEventTimezone:
+    """Tests for _get_event_timezone fallback behavior."""
+
+    def test_returns_league_tz_when_no_timezone_field(self):
+        from models import LEAGUE_TZ
+        result = TournamentSync._get_event_timezone({})
+        assert result == LEAGUE_TZ
+
+    def test_returns_event_tz_when_present(self):
+        result = TournamentSync._get_event_timezone({"timeZone": "America/New_York"})
+        assert result == pytz.timezone("America/New_York")
+
+    def test_tries_multiple_key_names(self):
+        result = TournamentSync._get_event_timezone({"tz": "US/Eastern"})
+        assert result == pytz.timezone("US/Eastern")
