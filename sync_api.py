@@ -366,12 +366,14 @@ class TournamentSync:
         return LEAGUE_TZ
 
     @staticmethod
-    def _parse_tee_time_timestamp(tee_time_ts: Optional[Dict]) -> Optional[datetime]:
+    def _parse_tee_time_timestamp(tee_time_ts) -> Optional[datetime]:
         """
         Parse teeTimeTimestamp from API (preferred method - timezone-safe).
 
-        The API provides timestamps in MongoDB format: {"$date": {"$numberLong": "1768497660000"}}
-        These are Unix timestamps in milliseconds, representing the exact moment in time.
+        Handles three formats:
+        1. MongoDB dict: {"$date": {"$numberLong": "1768497660000"}}
+        2. Raw integer: milliseconds since epoch
+        3. ISO 8601 string: "2026-04-09T13:19:00" (treated as UTC)
         """
         if not tee_time_ts:
             return None
@@ -389,10 +391,18 @@ class TournamentSync:
                     ts_ms = int(tee_time_ts['$numberLong'])
                 else:
                     return None
-            else:
-                ts_ms = int(tee_time_ts)
+                ts_sec = ts_ms / 1000
+                return datetime.fromtimestamp(ts_sec, tz=pytz.UTC)
 
-            # Convert milliseconds to seconds and create timezone-aware datetime
+            # Handle ISO 8601 string (new API format)
+            if isinstance(tee_time_ts, str) and "T" in tee_time_ts:
+                dt = datetime.fromisoformat(tee_time_ts.replace("Z", "+00:00"))
+                if dt.tzinfo is None:
+                    dt = pytz.UTC.localize(dt)
+                return dt
+
+            # Handle raw millisecond integer
+            ts_ms = int(tee_time_ts)
             ts_sec = ts_ms / 1000
             return datetime.fromtimestamp(ts_sec, tz=pytz.UTC)
         except Exception as e:
