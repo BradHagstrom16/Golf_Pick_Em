@@ -93,7 +93,12 @@ flask process-results
 python import_tournaments.py
 ```
 
-No test suite exists. No linter is configured.
+```bash
+# Run tests
+python -m pytest tests/ -v
+```
+
+No linter is configured.
 
 ## Database Migrations
 
@@ -165,7 +170,7 @@ flask db stamp head
 - All timestamps use `datetime.now(timezone.utc)` (not deprecated `utcnow()`)
 - League timezone is `America/Chicago` (Central Time), stored as `LEAGUE_TZ` in models.py
 - Pick deadlines stored in CT as naive datetimes in SQLite (timezone stripped after conversion)
-- API responses use MongoDB-style number format (`{"$numberInt": "123"}`) — helper `_parse_api_number()` handles this
+- API responses use MongoDB-style number format (`{"$numberInt": "123"}`) — helper `_parse_api_number()` handles this. Tee time timestamps may arrive as ISO 8601 strings (e.g., `"2026-04-09T13:19:00"` in UTC) — `_parse_tee_time_timestamp()` handles both formats.
 - `format_score_to_par()` is a module-level function in models.py (also exists as instance method on TournamentResult that delegates to it)
 - Flask-Limiter rate-limits login to 10/min
 - CSRF via Flask-WTF on all forms; AJAX calls include `X-CSRFToken` header
