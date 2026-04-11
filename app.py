@@ -259,7 +259,8 @@ def index():
                 'admin_override': pick.admin_override,
                 'admin_override_note': pick.admin_override_note,
                 'backup_activated': backup_activated,
-                'backup_name': pick.backup_player.full_name() if pick.backup_player else None
+                'backup_name': pick.backup_player.full_name() if pick.backup_player else None,
+                'penalty_triggered': pick.penalty_triggered,
             }
 
     # Get current user's pick for the UPCOMING tournament (for CTA sidebar/banner)
@@ -281,6 +282,18 @@ def index():
     if not has_active_tournament and completed_tournaments > 0:
         cumulative_scores = get_cumulative_scores(users, app.config['SEASON_YEAR'])
 
+    # Aggregate season penalty pot (batched; no N+1)
+    from sqlalchemy import func as sqla_func
+    penalty_counts = dict(db.session.query(
+        Pick.user_id, sqla_func.count(Pick.id)
+    ).join(Tournament, Pick.tournament_id == Tournament.id).filter(
+        Pick.penalty_triggered.is_(True),
+        Tournament.season_year == app.config['SEASON_YEAR'],
+    ).group_by(Pick.user_id).all())
+    penalty_owed_by_user = {uid: cnt * PENALTY_PER_INCIDENT for uid, cnt in penalty_counts.items()}
+    total_penalty_pot = sum(penalty_owed_by_user.values())
+    entry_fee = app.config['ENTRY_FEE']
+
     return render_template('index.html',
                          users=users,
                          results_tournament=results_tournament,
@@ -292,7 +305,11 @@ def index():
                          user_pick=user_pick,
                          has_active_tournament=has_active_tournament,
                          cumulative_scores=cumulative_scores,
-                         upcoming_field_count=upcoming_field_count)
+                         upcoming_field_count=upcoming_field_count,
+                         penalty_owed_by_user=penalty_owed_by_user,
+                         total_penalty_pot=total_penalty_pot,
+                         entry_fee=entry_fee,
+                         penalty_per_incident=PENALTY_PER_INCIDENT)
 
 
 @app.route('/leaderboard')
