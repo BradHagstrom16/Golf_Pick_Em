@@ -174,7 +174,7 @@ def parse_score_to_par(total_str) -> Optional[int]:
         return None
 
 
-def calculate_projected_earnings(position_str: str, purse: int, all_positions: List[str]) -> int:
+def calculate_projected_earnings(position_str: str, purse: int, all_positions: List[str], is_major: bool = False) -> int:
     """
     Calculate projected earnings for a player based on position.
 
@@ -231,7 +231,10 @@ def calculate_projected_earnings(position_str: str, purse: int, all_positions: L
     # Split evenly among tied players
     player_percentage = total_percentage / tie_count if tie_count > 0 else 0
 
-    return int(purse * player_percentage)
+    earnings = int(purse * player_percentage)
+    if is_major:
+        earnings = int(earnings * 1.5)
+    return earnings
 
 
 class SlashGolfAPI:
@@ -1006,7 +1009,8 @@ class TournamentSync:
                 projected_earnings = calculate_projected_earnings(
                     position_str=position,
                     purse=purse,
-                    all_positions=all_positions
+                    all_positions=all_positions,
+                    is_major=tournament.is_major
                 )
                 result.earnings = projected_earnings
 
