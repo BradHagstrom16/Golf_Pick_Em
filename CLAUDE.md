@@ -79,12 +79,16 @@ flask run                    # or: python app.py
 flask init-db                # Create tables
 flask create-admin           # Interactive admin user creation
 
-# API sync (requires SLASHGOLF_API_KEY env var)
-flask sync-run --mode schedule    # Import season schedule (Mon only)
+# API sync — requires SLASHGOLF_API_KEY, only configured on PythonAnywhere.
+# Run via ./run_sync.sh <mode> on PythonAnywhere, not locally.
+flask sync-run --mode schedule    # Import season schedule (Mon only — gated by weekday check)
 flask sync-run --mode field       # Sync tournament field + tee times (Tue/Wed)
 flask sync-run --mode live        # Update leaderboard with projected earnings
 flask sync-run --mode results     # Finalize results + process picks (Sun/Mon)
 flask sync-run --mode earnings    # Retry earnings finalization for pending tournaments
+
+# Force schedule sync any day (bypasses Monday gate — use mid-week for purse announcements)
+python force_schedule_sync.py
 
 # Process results manually (all completed tournaments)
 flask process-results
@@ -145,6 +149,7 @@ flask db stamp head
 - `send_reminders.py` — Email notifications (picks open, deadline reminders, admin alerts). Called from `sync_api.py` after field sync and also runs standalone via scheduled task.
 - `email_config.py` — SMTP credentials (gitignored, never committed).
 - `import_tournaments.py` — One-time bootstrap script with hardcoded 2026 schedule.
+- `force_schedule_sync.py` — Forces `sync_schedule()` any day of the week, bypassing the Monday gate. Use when a major announces its purse mid-week.
 
 **Frontend:** Jinja2 templates with Bootstrap 5. Tom Select for player dropdowns on `make_pick.html`. No build step.
 
@@ -155,7 +160,7 @@ flask db stamp head
 - Primary WDs after Round 2 → primary counts with 0 pts, backup stays unused
 - Both WD before R2 → primary used (0 pts), backup returns to pool
 - Team events (Zurich Classic): earnings // 2
-- Majors: earnings * 1.5
+- Majors: earnings * 1.5 (applied in both `resolve_pick()` for final earnings and `sync_live_leaderboard()` for projected earnings)
 
 **Tournament Status:**
 - Transitions: `upcoming` → `active` → `complete`
