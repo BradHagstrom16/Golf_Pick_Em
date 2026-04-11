@@ -383,6 +383,15 @@ a:hover { color: var(--green-500); }
   font-weight: 600;
   font-size: 0.7rem;
 }
+.badge-penalty {
+  background-color: #fef2f2;
+  color: var(--danger);
+  font-weight: 700;
+  font-size: 0.7rem;
+  padding: 0.3em 0.6em;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(185, 28, 28, 0.3);
+}
 .badge-used {
   background-color: #f1f3f5;
   color: var(--text-secondary);
