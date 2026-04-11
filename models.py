@@ -521,6 +521,16 @@ class Pick(db.Model):
             self.primary_used = True
             self.backup_used = False
 
+        # $15 penalty when active pick at a major finishes cut/dq
+        active_result = (
+            primary_result if self.active_player_id == self.primary_player_id else backup_result
+        )
+        self.penalty_triggered = bool(
+            self.tournament.is_major
+            and active_result is not None
+            and active_result.status in ('cut', 'dq')
+        )
+
         # Record season usage for active player
         stmt = insert(SeasonPlayerUsage).values(
             user_id=self.user_id,
