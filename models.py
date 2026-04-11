@@ -97,6 +97,22 @@ class User(UserMixin, db.Model):
         self.total_points = total
         return total
 
+    def penalty_owed(self, season_year):
+        """Total $ owed from penalty-triggered picks for the given season."""
+        from sqlalchemy import func as sqla_func
+        count = db.session.query(sqla_func.count(Pick.id)).join(
+            Tournament, Pick.tournament_id == Tournament.id
+        ).filter(
+            Pick.user_id == self.id,
+            Pick.penalty_triggered.is_(True),
+            Tournament.season_year == season_year,
+        ).scalar() or 0
+        return count * PENALTY_PER_INCIDENT
+
+    def penalty_outstanding(self, season_year):
+        """Penalty owed minus already-paid, clamped at zero."""
+        return max(0, self.penalty_owed(season_year) - (self.penalty_paid or 0))
+
     def __repr__(self):
         return f'<User {self.username}>'
 
