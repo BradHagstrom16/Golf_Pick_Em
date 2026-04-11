@@ -82,7 +82,7 @@ PURSE_ESTIMATES = {
     'Valspar Championship': 9_100_000,
     "Texas Children's Houston Open": 9_900_000,
     'Valero Texas Open': 9_800_000,
-    'Masters Tournament': 21_000_000,  # Estimate - Major (announced week-of)
+    'Masters Tournament': 22_500_000,  # 2026 confirmed purse
     'RBC Heritage': 20_000_000,
     'Zurich Classic of New Orleans': 9_500_000,
     'Cadillac Championship': 20_000_000,
