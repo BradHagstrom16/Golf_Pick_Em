@@ -162,6 +162,13 @@ flask db stamp head
 - Team events (Zurich Classic): earnings // 2
 - Majors: earnings * 1.5 (applied in both `resolve_pick()` for final earnings and `sync_live_leaderboard()` for projected earnings)
 
+**Missed-Cut-At-Major Penalty:**
+- If a user's **active** pick at a major (Masters, PGA, US Open, The Open) finishes with status `cut` or `dq`, `Pick.penalty_triggered` is set and the user owes `PENALTY_PER_INCIDENT` ($15) to the season pot. WDs never trigger — backup-activation logic handles them.
+- Flag is written in two places: `Pick.resolve_pick()` at finalization (authoritative), and `Pick.refresh_live_penalty()` invoked from `sync_live_leaderboard()` during active majors so the UI shows penalties in real time.
+- `User.penalty_owed(season_year)` and `User.penalty_outstanding(season_year)` derive totals from `Pick.penalty_triggered` counts minus `User.penalty_paid`. Never denormalize.
+- Penalty does NOT affect `User.total_points` — it's a side-pot mechanic. Admin tracks collected cash via the Penalty column on `/admin/payments`.
+- `flask refresh-live-penalties` is a one-shot CLI that re-evaluates the flag for every active-major pick. Useful after dropping in a fresh DB copy for local testing.
+
 **Tournament Status:**
 - Transitions: `upcoming` → `active` → `complete`
 - `update_status_from_time()` auto-sets `upcoming`/`active` based on dates, but **never** auto-sets `complete`
