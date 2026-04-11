@@ -88,6 +88,9 @@
                                             <span class="badge badge-dq">DQ</span>
                                         {% endif %}
                                     {% endif %}
+                                    {% if pick.penalty_triggered and pick.active_player_id == pick.primary_player_id %}
+                                        <span class="badge-penalty">+${{ penalty_per_incident }}</span>
+                                    {% endif %}
                                     {% if pick.primary_used %}
                                         <span class="badge-used">Used</span>
                                     {% endif %}
@@ -112,6 +115,9 @@
                                         {% elif results.backup_result.status == 'dq' %}
                                             <span class="badge badge-dq">DQ</span>
                                         {% endif %}
+                                    {% endif %}
+                                    {% if pick.penalty_triggered and pick.active_player_id == pick.backup_player_id %}
+                                        <span class="badge-penalty">+${{ penalty_per_incident }}</span>
                                     {% endif %}
                                     {% if pick.backup_used %}
                                         <span class="badge-used">Used</span>
@@ -208,6 +214,9 @@
                                         <span class="badge badge-dq">DQ</span>
                                     {% endif %}
                                 {% endif %}
+                                {% if pick.penalty_triggered and pick.active_player_id == pick.primary_player_id %}
+                                    <span class="badge-penalty">+${{ penalty_per_incident }}</span>
+                                {% endif %}
                                 {% if pick.primary_used %}
                                     <span class="badge-used" title="This golfer counted for points and is locked for the season">Used</span>
                                 {% endif %}
@@ -231,6 +240,9 @@
                                     {% elif results.backup_result.status == 'dq' %}
                                         <span class="badge badge-dq">DQ</span>
                                     {% endif %}
+                                {% endif %}
+                                {% if pick.penalty_triggered and pick.active_player_id == pick.backup_player_id %}
+                                    <span class="badge-penalty">+${{ penalty_per_incident }}</span>
                                 {% endif %}
                                 {% if pick.backup_used %}
                                     <span class="badge-used" title="This golfer counted for points and is locked for the season">Used</span>
@@ -294,6 +306,18 @@
 
                 <p class="mb-1"><strong>Picks Made:</strong> {{ user_picks|length }} / {{ tournaments|length }}</p>
                 <p class="mb-0"><strong>Golfers Used:</strong> {{ used_player_ids|length }}</p>
+
+                {% set owed = current_user.penalty_owed(season_year) %}
+                {% if owed > 0 %}
+                <hr>
+                <p class="mb-0" style="color: var(--danger);">
+                    <strong>Penalty Owed:</strong> ${{ owed }}
+                    {% set outstanding = current_user.penalty_outstanding(season_year) %}
+                    {% if outstanding < owed %}
+                        <br><small>Outstanding: ${{ outstanding }} (Paid: ${{ current_user.penalty_paid }})</small>
+                    {% endif %}
+                </p>
+                {% endif %}
             </div>
         </div>
 
@@ -332,7 +356,8 @@
                 <p class="mb-1"><span class="badge-used">Used</span> Golfer locked for the season</p>
                 <p class="mb-1"><span class="badge badge-cut">CUT</span> Missed Cut</p>
                 <p class="mb-1"><span class="badge badge-wd">WD</span> Withdrew</p>
-                <p class="mb-0"><span class="badge badge-dq">DQ</span> Disqualified</p>
+                <p class="mb-1"><span class="badge badge-dq">DQ</span> Disqualified</p>
+                <p class="mb-0"><span class="badge-penalty">+${{ penalty_per_incident }}</span> Major CUT/DQ penalty</p>
             </div>
         </div>
     </div>

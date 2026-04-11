@@ -686,7 +686,9 @@ def my_picks():
                          user_picks=user_picks,
                          used_player_ids=used_player_ids,
                          pick_results=pick_results,
-                         field_counts=field_counts)
+                         field_counts=field_counts,
+                         season_year=app.config['SEASON_YEAR'],
+                         penalty_per_incident=PENALTY_PER_INCIDENT)
 
 
 @app.route('/pick/<int:tournament_id>', methods=['GET', 'POST'])
