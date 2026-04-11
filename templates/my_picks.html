@@ -89,7 +89,7 @@
                                         {% endif %}
                                     {% endif %}
                                     {% if pick.penalty_triggered and pick.active_player_id == pick.primary_player_id %}
-                                        <span class="badge-penalty">+${{ penalty_per_incident }}</span>
+                                        <span class="badge-penalty" title="Missed Major Cut Penalty">+${{ penalty_per_incident }}</span>
                                     {% endif %}
                                     {% if pick.primary_used %}
                                         <span class="badge-used">Used</span>
@@ -117,7 +117,7 @@
                                         {% endif %}
                                     {% endif %}
                                     {% if pick.penalty_triggered and pick.active_player_id == pick.backup_player_id %}
-                                        <span class="badge-penalty">+${{ penalty_per_incident }}</span>
+                                        <span class="badge-penalty" title="Missed Major Cut Penalty">+${{ penalty_per_incident }}</span>
                                     {% endif %}
                                     {% if pick.backup_used %}
                                         <span class="badge-used">Used</span>
@@ -215,7 +215,7 @@
                                     {% endif %}
                                 {% endif %}
                                 {% if pick.penalty_triggered and pick.active_player_id == pick.primary_player_id %}
-                                    <span class="badge-penalty">+${{ penalty_per_incident }}</span>
+                                    <span class="badge-penalty" title="Missed Major Cut Penalty">+${{ penalty_per_incident }}</span>
                                 {% endif %}
                                 {% if pick.primary_used %}
                                     <span class="badge-used" title="This golfer counted for points and is locked for the season">Used</span>
@@ -242,7 +242,7 @@
                                     {% endif %}
                                 {% endif %}
                                 {% if pick.penalty_triggered and pick.active_player_id == pick.backup_player_id %}
-                                    <span class="badge-penalty">+${{ penalty_per_incident }}</span>
+                                    <span class="badge-penalty" title="Missed Major Cut Penalty">+${{ penalty_per_incident }}</span>
                                 {% endif %}
                                 {% if pick.backup_used %}
                                     <span class="badge-used" title="This golfer counted for points and is locked for the season">Used</span>
@@ -357,7 +357,7 @@
                 <p class="mb-1"><span class="badge badge-cut">CUT</span> Missed Cut</p>
                 <p class="mb-1"><span class="badge badge-wd">WD</span> Withdrew</p>
                 <p class="mb-1"><span class="badge badge-dq">DQ</span> Disqualified</p>
-                <p class="mb-0"><span class="badge-penalty">+${{ penalty_per_incident }}</span> Major CUT/DQ penalty</p>
+                <p class="mb-0"><span class="badge-penalty" title="Missed Major Cut Penalty">+${{ penalty_per_incident }}</span> Major CUT/DQ penalty</p>
             </div>
         </div>
     </div>

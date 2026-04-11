@@ -209,7 +209,7 @@
                                         <span class="badge-override">👑</span>
                                     {% endif %}
                                     {% if result.penalty_triggered %}
-                                        <span class="badge-penalty">+${{ penalty_per_incident }}</span>
+                                        <span class="badge-penalty" title="Missed Major Cut Penalty">+${{ penalty_per_incident }}</span>
                                     {% endif %}
                                 {% else %}
                                     <span class="text-muted fst-italic">No pick</span>
@@ -285,7 +285,7 @@
                                         {% endif %}
                                     {% endif %}
                                     {% if result.penalty_triggered and result.active_is_primary %}
-                                        <span class="badge-penalty">+${{ penalty_per_incident }}</span>
+                                        <span class="badge-penalty" title="Missed Major Cut Penalty">+${{ penalty_per_incident }}</span>
                                     {% endif %}
                                 {% else %}
                                     <span class="text-muted fst-italic">No Pick</span>
@@ -308,7 +308,7 @@
                                         {% endif %}
                                     {% endif %}
                                     {% if result.penalty_triggered and result.active_is_backup %}
-                                        <span class="badge-penalty">+${{ penalty_per_incident }}</span>
+                                        <span class="badge-penalty" title="Missed Major Cut Penalty">+${{ penalty_per_incident }}</span>
                                     {% endif %}
                                 {% else %}
                                     <span class="text-muted">-</span>
@@ -361,7 +361,7 @@
         &middot; <span class="badge badge-cut">CUT</span> Missed Cut
         &middot; <span class="badge badge-wd">WD</span> Withdrew
         &middot; <span class="badge badge-dq">DQ</span> Disqualified
-        &middot; <span class="badge-penalty">+${{ penalty_per_incident }}</span> Major CUT/DQ penalty
+        &middot; <span class="badge-penalty" title="Missed Major Cut Penalty">+${{ penalty_per_incident }}</span> Major CUT/DQ penalty
     </div>
 
 {% endif %}

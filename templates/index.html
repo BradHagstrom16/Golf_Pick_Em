@@ -148,11 +148,6 @@
                         </div>
                         <span class="badge-earnings">${{ "{:,}".format(user.total_points) }}</span>
                     </div>
-                    {% if results_tournament and results_tournament.is_major and tournament_picks.get(user.id, {}).get('penalty_triggered') %}
-                    <div class="small text-end" style="color: var(--danger); margin-top: 2px;">
-                        Penalty: +${{ penalty_per_incident }}
-                    </div>
-                    {% endif %}
                     {# Row 2: Cumulative season score (when no active tournament) #}
                     {% if not has_active_tournament and cumulative_scores and user.id in cumulative_scores %}
                     <div class="small text-end mt-1">
@@ -173,22 +168,22 @@
                                     {% if tournament_picks[user.id].admin_override %}
                                         <span class="badge-override">👑</span>
                                     {% endif %}
-                                    {% if tournament_picks[user.id].penalty_triggered and results_tournament.is_major %}
-                                        <span class="badge-penalty">+${{ penalty_per_incident }}</span>
-                                    {% endif %}
                                     {% if tournament_picks[user.id].position %}
                                         <br><small class="text-muted">{{ tournament_picks[user.id].position }}{% if tournament_picks[user.id].score %} ({{ tournament_picks[user.id].score }}){% endif %}</small>
+                                        {% if tournament_picks[user.id].penalty_triggered and results_tournament.is_major %}
+                                            <span class="badge-penalty ms-1" title="Missed Major Cut Penalty">+${{ penalty_per_incident }}</span>
+                                        {% endif %}
                                     {% endif %}
                                 {% else %}
                                     {{ tournament_picks[user.id].primary }}
                                     {% if tournament_picks[user.id].admin_override %}
                                         <span class="badge-override">👑</span>
                                     {% endif %}
-                                    {% if tournament_picks[user.id].penalty_triggered and results_tournament.is_major %}
-                                        <span class="badge-penalty">+${{ penalty_per_incident }}</span>
-                                    {% endif %}
                                     {% if tournament_picks[user.id].position %}
                                         <br><small class="text-muted ms-3">{{ tournament_picks[user.id].position }}{% if tournament_picks[user.id].score %} ({{ tournament_picks[user.id].score }}){% endif %}</small>
+                                        {% if tournament_picks[user.id].penalty_triggered and results_tournament.is_major %}
+                                            <span class="badge-penalty ms-1" title="Missed Major Cut Penalty">+${{ penalty_per_incident }}</span>
+                                        {% endif %}
                                     {% endif %}
                                 {% endif %}
                             {% else %}
@@ -256,11 +251,6 @@
                     </td>
                     <td class="text-end">
                         <span class="badge-earnings">${{ "{:,}".format(user.total_points) }}</span>
-                        {% if results_tournament and results_tournament.is_major and tournament_picks.get(user.id, {}).get('penalty_triggered') %}
-                        <div class="small" style="color: var(--danger); margin-top: 2px;">
-                            Penalty: +${{ penalty_per_incident }}
-                        </div>
-                        {% endif %}
                     </td>
                     {% if not has_active_tournament and cumulative_scores %}
                     <td class="text-end d-none d-sm-table-cell">
@@ -285,9 +275,6 @@
                                 {% if tournament_picks[user.id].admin_override %}
                                     <span class="badge-override" title="{{ tournament_picks[user.id].admin_override_note or 'Admin override pick' }}">👑</span>
                                 {% endif %}
-                                {% if tournament_picks[user.id].penalty_triggered and results_tournament.is_major %}
-                                    <span class="badge-penalty">+${{ penalty_per_incident }}</span>
-                                {% endif %}
                                 {% if not has_active_tournament and tournament_picks[user.id].position %}
                                     <br><small class="text-muted">{{ tournament_picks[user.id].position }}{% if tournament_picks[user.id].score %} ({{ tournament_picks[user.id].score }}){% endif %}</small>
                                 {% endif %}
@@ -295,9 +282,6 @@
                                 {{ tournament_picks[user.id].primary }}
                                 {% if tournament_picks[user.id].admin_override %}
                                     <span class="badge-override" title="{{ tournament_picks[user.id].admin_override_note or 'Admin override pick' }}">👑</span>
-                                {% endif %}
-                                {% if tournament_picks[user.id].penalty_triggered and results_tournament.is_major %}
-                                    <span class="badge-penalty">+${{ penalty_per_incident }}</span>
                                 {% endif %}
                                 {% if not has_active_tournament and tournament_picks[user.id].position %}
                                     <br><small class="text-muted">{{ tournament_picks[user.id].position }}{% if tournament_picks[user.id].score %} ({{ tournament_picks[user.id].score }}){% endif %}</small>
@@ -317,6 +301,9 @@
                                 {% endif %}
                             {% else %}
                                 <span class="text-muted">-</span>
+                            {% endif %}
+                            {% if tournament_picks[user.id].penalty_triggered and results_tournament.is_major %}
+                                <span class="badge-penalty ms-1" title="Missed Major Cut Penalty">+${{ penalty_per_incident }}</span>
                             {% endif %}
                         {% else %}
                             <span class="text-muted">-</span>
