@@ -22,7 +22,7 @@ from flask_limiter.util import get_remote_address
 from flask_migrate import Migrate
 
 from config import config
-from models import db, User, Player, Tournament, TournamentField, TournamentResult, Pick, SeasonPlayerUsage, get_current_time, LEAGUE_TZ, format_score_to_par
+from models import db, User, Player, Tournament, TournamentField, TournamentResult, Pick, SeasonPlayerUsage, get_current_time, LEAGUE_TZ, format_score_to_par, PENALTY_PER_INCIDENT
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -396,7 +396,10 @@ def tournament_detail(tournament_id):
                 'backup_activated': backup_activated,
                 'has_pick': True,
                 'admin_override': pick.admin_override,
-                'admin_override_note': pick.admin_override_note
+                'admin_override_note': pick.admin_override_note,
+                'penalty_triggered': pick.penalty_triggered,
+                'active_is_primary': pick.active_player_id == pick.primary_player_id,
+                'active_is_backup': pick.active_player_id == pick.backup_player_id,
             })
         else:
             pick_results.append({
@@ -412,7 +415,10 @@ def tournament_detail(tournament_id):
                 'backup_activated': False,
                 'has_pick': False,
                 'admin_override': False,
-                'admin_override_note': None
+                'admin_override_note': None,
+                'penalty_triggered': False,
+                'active_is_primary': False,
+                'active_is_backup': False,
             })
 
     # Sort results
@@ -425,6 +431,8 @@ def tournament_detail(tournament_id):
     total_picks = sum(1 for r in pick_results if r['has_pick'])
     total_points = sum(r['points'] for r in pick_results)
     max_points = max((r['points'] for r in pick_results), default=0)
+    penalty_count = sum(1 for r in pick_results if r.get('penalty_triggered'))
+    penalty_total = penalty_count * PENALTY_PER_INCIDENT
 
     # Get current user's pick for this tournament
     user_pick = None
@@ -443,6 +451,9 @@ def tournament_detail(tournament_id):
                          total_picks=total_picks,
                          total_points=total_points,
                          max_points=max_points,
+                         penalty_count=penalty_count,
+                         penalty_total=penalty_total,
+                         penalty_per_incident=PENALTY_PER_INCIDENT,
                          user_pick=user_pick)
 
 
