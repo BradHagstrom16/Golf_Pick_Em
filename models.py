@@ -34,6 +34,9 @@ def format_score_to_par(score):
 # Timezone for the league (Central Time)
 LEAGUE_TZ = pytz.timezone('America/Chicago')
 
+# Penalty assessed when a user's active pick at a major finishes cut/dq
+PENALTY_PER_INCIDENT = 15
+
 
 class User(UserMixin, db.Model):
     """
@@ -53,6 +56,7 @@ class User(UserMixin, db.Model):
     # Admin & payment tracking
     is_admin = db.Column(db.Boolean, default=False)
     has_paid = db.Column(db.Boolean, default=False)
+    penalty_paid = db.Column(db.Integer, default=0, nullable=False)
 
     # Timestamps
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
@@ -360,6 +364,9 @@ class Pick(db.Model):
     # Which players are now "used" for the season
     primary_used = db.Column(db.Boolean, default=False)
     backup_used = db.Column(db.Boolean, default=False)
+
+    # $15 penalty owed when active pick at a major finishes cut/dq
+    penalty_triggered = db.Column(db.Boolean, default=False, nullable=False)
 
     # Admin override tracking
     admin_override = db.Column(db.Boolean, default=False)  # True if admin created/modified after deadline
