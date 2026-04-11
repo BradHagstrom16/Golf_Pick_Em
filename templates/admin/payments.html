@@ -14,7 +14,7 @@
 
 <!-- Summary Cards -->
 <div class="row mb-4">
-    <div class="col-md-4">
+    <div class="col-md-3">
         <div class="card text-center border-success">
             <div class="card-body">
                 <h3 class="text-success">{{ paid_count }}</h3>
@@ -22,7 +22,7 @@
             </div>
         </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-md-3">
         <div class="card text-center border-danger">
             <div class="card-body">
                 <h3 class="text-danger">{{ unpaid_count }}</h3>
@@ -30,11 +30,19 @@
             </div>
         </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-md-3">
         <div class="card text-center border-success">
             <div class="card-body">
                 <h3 class="text-success">${{ total_collected }}</h3>
                 <p class="mb-0">Collected (${{ entry_fee }} × {{ paid_count }})</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center" style="border-color: var(--danger);">
+            <div class="card-body">
+                <h3 style="color: var(--danger);">${{ total_penalty_pot }}</h3>
+                <p class="mb-0">Penalty Pot <small class="text-muted">(${{ total_penalty_collected }} collected)</small></p>
             </div>
         </div>
     </div>
@@ -46,16 +54,18 @@
             <th>Player</th>
             <th>Email</th>
             <th class="text-center">Payment Status</th>
+            <th class="text-center">Penalty</th>
         </tr>
     </thead>
     <tbody>
         {% for user in users %}
+        {% set ps = penalty_summary[user.id] %}
         <tr>
             <td><strong>{{ user.get_display_name() }}</strong></td>
             <td>{{ user.email }}</td>
             <td class="text-center">
                 <div class="form-check form-switch d-inline-block">
-                    <input class="form-check-input payment-toggle" type="checkbox" 
+                    <input class="form-check-input payment-toggle" type="checkbox"
                            data-user-id="{{ user.id }}"
                            data-username="{{ user.get_display_name() }}"
                            {% if user.has_paid %}checked{% endif %}>
@@ -64,6 +74,29 @@
                     <span class="badge bg-success">Paid</span>
                 {% else %}
                     <span class="badge bg-danger">Unpaid</span>
+                {% endif %}
+            </td>
+            <td class="text-center">
+                {% if ps.owed > 0 %}
+                    <div class="small mb-1">
+                        Owed: <strong>${{ ps.owed }}</strong>
+                        {% if ps.outstanding > 0 %}
+                            &middot; <span style="color: var(--danger);">Outstanding: ${{ ps.outstanding }}</span>
+                        {% else %}
+                            &middot; <span class="text-success">Settled</span>
+                        {% endif %}
+                    </div>
+                    <div class="d-inline-flex align-items-center gap-1">
+                        <input type="number" min="0" step="1"
+                               class="form-control form-control-sm penalty-input"
+                               style="width: 80px;"
+                               data-user-id="{{ user.id }}"
+                               value="{{ ps.paid }}">
+                        <button class="btn btn-sm btn-outline-secondary penalty-save"
+                                data-user-id="{{ user.id }}">Save</button>
+                    </div>
+                {% else %}
+                    <span class="text-muted small">&mdash;</span>
                 {% endif %}
             </td>
         </tr>
@@ -76,27 +109,41 @@
 
 {% block scripts %}
 <script>
+function postPayment(userId, body) {
+    return fetch(`/admin/update-payment/${userId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+        },
+        body: JSON.stringify(body)
+    }).then(response => response.json());
+}
+
 document.querySelectorAll('.payment-toggle').forEach(function(toggle) {
     toggle.addEventListener('change', function() {
         const userId = this.dataset.userId;
-        const username = this.dataset.username;
         const isPaid = this.checked;
-        
-        fetch(`/admin/update-payment/${userId}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-            },
-            body: JSON.stringify({
-                has_paid: isPaid
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
+        postPayment(userId, { has_paid: isPaid }).then(data => {
+            if (data.success) location.reload();
+        });
+    });
+});
+
+document.querySelectorAll('.penalty-save').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        const userId = this.dataset.userId;
+        const input = document.querySelector(`.penalty-input[data-user-id="${userId}"]`);
+        const value = parseInt(input.value, 10);
+        if (isNaN(value) || value < 0) {
+            alert('Penalty paid must be a non-negative integer');
+            return;
+        }
+        postPayment(userId, { penalty_paid: value }).then(data => {
             if (data.success) {
-                // Reload to update badges
                 location.reload();
+            } else {
+                alert(data.error || 'Update failed');
             }
         });
     });

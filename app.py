@@ -858,12 +858,36 @@ def admin_payments():
     unpaid_count = len(users) - paid_count
     total_collected = paid_count * app.config['ENTRY_FEE']
 
+    from sqlalchemy import func as sqla_func
+    season = app.config['SEASON_YEAR']
+    penalty_counts = dict(db.session.query(
+        Pick.user_id, sqla_func.count(Pick.id)
+    ).join(Tournament, Pick.tournament_id == Tournament.id).filter(
+        Pick.penalty_triggered.is_(True),
+        Tournament.season_year == season,
+    ).group_by(Pick.user_id).all())
+
+    penalty_summary = {}
+    for u in users:
+        owed = penalty_counts.get(u.id, 0) * PENALTY_PER_INCIDENT
+        paid = u.penalty_paid or 0
+        penalty_summary[u.id] = {
+            'owed': owed,
+            'paid': paid,
+            'outstanding': max(0, owed - paid),
+        }
+    total_penalty_pot = sum(s['owed'] for s in penalty_summary.values())
+    total_penalty_collected = sum(s['paid'] for s in penalty_summary.values())
+
     return render_template('admin/payments.html',
                          users=users,
                          paid_count=paid_count,
                          unpaid_count=unpaid_count,
                          total_collected=total_collected,
-                         entry_fee=app.config['ENTRY_FEE'])
+                         entry_fee=app.config['ENTRY_FEE'],
+                         penalty_summary=penalty_summary,
+                         total_penalty_pot=total_penalty_pot,
+                         total_penalty_collected=total_penalty_collected)
 
 
 @app.route('/admin/update-payment/<int:user_id>', methods=['POST'])
@@ -871,12 +895,22 @@ def admin_payments():
 def admin_update_payment(user_id):
     """Toggle user payment status (AJAX)."""
     user = db.get_or_404(User, user_id)
-    data = request.get_json()
+    data = request.get_json() or {}
 
-    user.has_paid = data.get('has_paid', False)
+    if 'penalty_paid' in data:
+        try:
+            user.penalty_paid = max(0, int(data['penalty_paid']))
+        except (TypeError, ValueError):
+            return jsonify({'success': False, 'error': 'penalty_paid must be a non-negative integer'}), 400
+    if 'has_paid' in data:
+        user.has_paid = bool(data['has_paid'])
     db.session.commit()
 
-    return jsonify({'success': True, 'has_paid': user.has_paid})
+    return jsonify({
+        'success': True,
+        'has_paid': user.has_paid,
+        'penalty_paid': user.penalty_paid,
+    })
 
 
 # ============================================================================
