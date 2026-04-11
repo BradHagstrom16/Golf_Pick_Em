@@ -1017,6 +1017,13 @@ class TournamentSync:
                 updated += 1
 
             db.session.commit()
+
+            if tournament.is_major:
+                picks = Pick.query.filter_by(tournament_id=tournament.id).all()
+                for pick in picks:
+                    pick.refresh_live_penalty()
+                db.session.commit()
+
             logger.info(
                 "Updated live leaderboard for %s (%s entries, projected earnings calculated)",
                 tournament.name,

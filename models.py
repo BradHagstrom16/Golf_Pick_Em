@@ -612,6 +612,25 @@ class Pick(db.Model):
 
         return False
 
+    def refresh_live_penalty(self):
+        """Set ``penalty_triggered`` based on current TournamentResult status.
+
+        Safe to call on active-major tournaments before ``resolve_pick()`` has run.
+        Uses ``is_backup_activated()`` to determine which player is currently active.
+        """
+        if not self.tournament.is_major:
+            self.penalty_triggered = False
+            return
+
+        active_id = self.backup_player_id if self.is_backup_activated() else self.primary_player_id
+        active_result = TournamentResult.query.filter_by(
+            tournament_id=self.tournament_id,
+            player_id=active_id,
+        ).first()
+        self.penalty_triggered = bool(
+            active_result is not None and active_result.status in ('cut', 'dq')
+        )
+
     def __repr__(self):
         return f'<Pick User:{self.user_id} Tournament:{self.tournament_id}>'
 

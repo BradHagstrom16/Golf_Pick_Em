@@ -1274,6 +1274,27 @@ def process_results_cli():
     print(f'Processed {total_processed} picks across {len(tournaments)} tournaments. Skipped {total_skipped}.')
 
 
+@app.cli.command('refresh-live-penalties')
+def refresh_live_penalties_cli():
+    """Re-evaluate Pick.penalty_triggered for all active-major tournaments.
+
+    Useful for local testing before the live sync has run, or to backfill
+    after dropping in a fresh DB.
+    """
+    tournaments = Tournament.query.filter_by(
+        is_major=True, season_year=app.config['SEASON_YEAR']
+    ).filter(Tournament.status.in_(['active', 'complete'])).all()
+    total = 0
+    for t in tournaments:
+        picks = Pick.query.filter_by(tournament_id=t.id).all()
+        for pick in picks:
+            pick.refresh_live_penalty()
+            if pick.penalty_triggered:
+                total += 1
+    db.session.commit()
+    print(f'Refreshed penalties across {len(tournaments)} majors. {total} picks flagged.')
+
+
 # Register API sync commands
 from sync_api import register_sync_commands
 register_sync_commands(app)
