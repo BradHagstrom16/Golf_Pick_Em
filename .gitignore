@@ -8,6 +8,9 @@
 # Git worktrees
 .worktrees/
 
+# Graphify generated output
+graphify-out/
+
 # Environment credentials for scheduled tasks (NEVER commit!)
 env_config.sh
 
