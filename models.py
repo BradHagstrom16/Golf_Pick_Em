@@ -496,10 +496,6 @@ class Pick(db.Model):
                     self.backup_used = False
                     return False
 
-                # Handle team event (Zurich) - divide by 2
-                if self.tournament.is_team_event:
-                    earnings = earnings // 2
-
                 # Handle major multiplier - multiply by 1.5
                 if self.tournament.is_major:
                     earnings = int(earnings * 1.5)
@@ -524,10 +520,6 @@ class Pick(db.Model):
                 self.primary_used = False
                 self.backup_used = False
                 return False
-
-            # Handle team event (Zurich) - divide by 2
-            if self.tournament.is_team_event:
-                earnings = earnings // 2
 
             # Handle major multiplier - multiply by 1.5
             if self.tournament.is_major:
@@ -579,8 +571,6 @@ class Pick(db.Model):
             ).first()
             if result and result.earnings:
                 earnings = result.earnings
-                if self.tournament.is_team_event:
-                    earnings = earnings // 2
                 if self.tournament.is_major:
                     earnings = int(earnings * 1.5)
                 return earnings
