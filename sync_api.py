@@ -26,7 +26,7 @@ import random
 import sys
 import time
 from datetime import datetime, timedelta
-from typing import Optional, Dict, List, Tuple
+from typing import Any, Iterator, Optional, Dict, List, Tuple
 
 import click
 import pytz
@@ -440,7 +440,7 @@ class TournamentSync:
             return None
 
     @staticmethod
-    def _iter_player_rows(leaderboard_rows):
+    def _iter_player_rows(leaderboard_rows: Optional[List[Dict[str, Any]]]) -> Iterator[Dict[str, Any]]:
         """
         Yield one per-player dict for each pickable player.
 
@@ -809,6 +809,14 @@ class TournamentSync:
             logger.error("Failed to fetch earnings for %s", tournament.name)
             return 0
 
+        # Safety net: if the API returned team-shaped rows (nested "players"),
+        # ensure is_team_event is flagged so downstream earnings are halved in
+        # resolve_pick(). Normally sync_schedule() sets this, but that runs
+        # independently and could be missed/stale.
+        raw_rows = leaderboard_data.get("leaderboardRows", [])
+        if not tournament.is_team_event and any(r.get("players") for r in raw_rows):
+            tournament.is_team_event = True
+
         # Build lookup from leaderboard for status/rounds/score info. Flatten team
         # rows so each teammate resolves to the team's leaderboard entry.
         leaderboard_lookup = {}
@@ -999,6 +1007,10 @@ class TournamentSync:
 
         updated = 0
         leaderboard_rows = data.get("leaderboardRows", [])
+
+        # Safety net: flag team events from row shape if schedule sync missed it.
+        if not tournament.is_team_event and any(r.get("players") for r in leaderboard_rows):
+            tournament.is_team_event = True
 
         # Collect positions for tie calculation from RAW rows — on team events each
         # team is one payout slot, so we must not double-count teammates here.
