@@ -26,7 +26,7 @@ import random
 import sys
 import time
 from datetime import datetime, timedelta
-from typing import Optional, Dict, List, Tuple
+from typing import Any, Iterator, Optional, Dict, List, Tuple
 
 import click
 import pytz
@@ -439,11 +439,42 @@ class TournamentSync:
             logger.warning("Unable to parse tee time '%s'", tee_time_str)
             return None
 
+    @staticmethod
+    def _iter_player_rows(leaderboard_rows: Optional[List[Dict[str, Any]]]) -> Iterator[Dict[str, Any]]:
+        """
+        Yield one per-player dict for each pickable player.
+
+        Normal PGA events: each row already has `playerId` — passed through unchanged.
+        Team events (Zurich Classic): each row represents a team with nested `players`.
+        We merge the team-level fields (position/status/rounds/total/teeTime*) with each
+        nested player's identity so downstream code can treat every yielded row as a
+        single-player row.
+        """
+        for row in leaderboard_rows or []:
+            if row.get("playerId"):
+                yield row
+                continue
+
+            members = row.get("players") or []
+            if not members:
+                continue
+
+            for member in members:
+                pid = member.get("playerId")
+                if not pid:
+                    continue
+                merged = {k: v for k, v in row.items() if k != "players"}
+                merged["playerId"] = pid
+                merged["firstName"] = member.get("firstName", "")
+                merged["lastName"] = member.get("lastName", "")
+                merged["isAmateur"] = member.get("isAmateur", False)
+                yield merged
+
     def _update_pick_deadline_from_leaderboard(self, tournament: Tournament, leaderboard_data: Dict) -> Optional[datetime]:
         event_tz = self._get_event_timezone(leaderboard_data)
         earliest = None
 
-        for player_data in leaderboard_data.get("leaderboardRows", []):
+        for player_data in self._iter_player_rows(leaderboard_data.get("leaderboardRows", [])):
             # Prefer timestamp (timezone-safe) over string (ambiguous)
             tee_time = self._parse_tee_time_timestamp(player_data.get("teeTimeTimestamp"))
             if not tee_time:
@@ -614,7 +645,7 @@ class TournamentSync:
         event_tz = self._get_event_timezone(data)
 
         try:
-            for player_data in data["leaderboardRows"]:
+            for player_data in self._iter_player_rows(data["leaderboardRows"]):
                 if player_data.get("isAmateur", False):
                     continue
 
@@ -778,16 +809,25 @@ class TournamentSync:
             logger.error("Failed to fetch earnings for %s", tournament.name)
             return 0
 
-        # Build lookup from leaderboard for status/rounds/score info
+        # Safety net: if the API returned team-shaped rows (nested "players"),
+        # ensure is_team_event is flagged so downstream earnings are halved in
+        # resolve_pick(). Normally sync_schedule() sets this, but that runs
+        # independently and could be missed/stale.
+        raw_rows = leaderboard_data.get("leaderboardRows", [])
+        if not tournament.is_team_event and any(r.get("players") for r in raw_rows):
+            tournament.is_team_event = True
+
+        # Build lookup from leaderboard for status/rounds/score info. Flatten team
+        # rows so each teammate resolves to the team's leaderboard entry.
         leaderboard_lookup = {}
         if "leaderboardRows" in leaderboard_data:
-            for p in leaderboard_data["leaderboardRows"]:
+            for p in self._iter_player_rows(leaderboard_data["leaderboardRows"]):
                 leaderboard_lookup[p["playerId"]] = p
 
         results_synced = 0
 
         try:
-            for player_data in earnings_data["leaderboard"]:
+            for player_data in self._iter_player_rows(earnings_data["leaderboard"]):
                 player_id = player_data["playerId"]
 
                 player = Player.query.filter_by(api_player_id=player_id).first()
@@ -904,7 +944,7 @@ class TournamentSync:
         withdrawals = []
 
         try:
-            for player_data in data["leaderboardRows"]:
+            for player_data in self._iter_player_rows(data["leaderboardRows"]):
                 if player_data.get("status") != "wd":
                     continue
 
@@ -968,7 +1008,12 @@ class TournamentSync:
         updated = 0
         leaderboard_rows = data.get("leaderboardRows", [])
 
-        # Collect all positions for tie calculation
+        # Safety net: flag team events from row shape if schedule sync missed it.
+        if not tournament.is_team_event and any(r.get("players") for r in leaderboard_rows):
+            tournament.is_team_event = True
+
+        # Collect positions for tie calculation from RAW rows — on team events each
+        # team is one payout slot, so we must not double-count teammates here.
         all_positions = [p.get("position", "") for p in leaderboard_rows]
 
         # Use API purse if available; fall back to estimate only when purse is $0
@@ -980,7 +1025,7 @@ class TournamentSync:
         try:
             self._derive_status(tournament, data)
 
-            for player_data in leaderboard_rows:
+            for player_data in self._iter_player_rows(leaderboard_rows):
                 player = Player.query.filter_by(api_player_id=player_data.get("playerId")).first()
                 if not player:
                     continue
