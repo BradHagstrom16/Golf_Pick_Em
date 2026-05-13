@@ -11,6 +11,9 @@
 # Graphify generated output
 graphify-out/
 
+# remember plugin (session/memory runtime data)
+.remember/
+
 # Environment credentials for scheduled tasks (NEVER commit!)
 env_config.sh
 
