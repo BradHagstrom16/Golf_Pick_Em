@@ -13,7 +13,7 @@ Two distinct mechanisms — use them correctly:
 - **Plugins** are invoked by mentioning the plugin name in task instructions (e.g., "use `commit-commands`")
 - **Skills** are invoked by skill name using the `Skill` tool (e.g., invoke `brainstorming`, `pick-resolution-audit`)
 
-### Installed Plugins (13)
+### Installed Plugins (12)
 
 | Plugin | Purpose |
 |--------|---------|
@@ -25,7 +25,6 @@ Two distinct mechanisms — use them correctly:
 | `commit-commands` | Git commit management and automation |
 | `context7` | Upstream library/framework docs awareness (MCP-connected) |
 | `feature-dev` | Feature development scaffolding workflows |
-| `frontend-design` | Design-forward UI/UX implementation |
 | `playwright` | Browser automation and testing (MCP-connected) |
 | `pr-review-toolkit` | Pull request review utilities |
 | `pyright-lsp` | Python type checking via language server |
@@ -66,8 +65,8 @@ Two distinct mechanisms — use them correctly:
 | UI changes needing browser verification | `playwright` |
 | Needs awareness of library/framework APIs | `context7` |
 | End of each logical unit of work | `commit-commands` |
+| Non-trivial change ready for review | Open a PR with `gh pr create` and include `@coderabbitai review` in the body |
 | Before merging any branch to main | `pr-review-toolkit` |
-| Modifying templates or CSS | `frontend-design` skill |
 
 ## Commands
 
@@ -213,12 +212,3 @@ SLASHGOLF_API_KEY=...               # RapidAPI key for SlashGolf
 SYNC_MODE=free|standard             # API tier (free limits syncs to conserve calls)
 FIXED_DEADLINE_HOUR_CT=7            # Fallback deadline hour when tee times unavailable
 ```
-
-## graphify
-
-This project has a graphify knowledge graph at graphify-out/.
-
-Rules:
-- Before answering architecture or codebase questions, read graphify-out/GRAPH_REPORT.md for god nodes and community structure
-- If graphify-out/wiki/index.md exists, navigate it instead of reading raw files
-- After modifying code files in this session, run `python3 -c "from graphify.watch import _rebuild_code; from pathlib import Path; _rebuild_code(Path('.'))"` to keep the graph current
