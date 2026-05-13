@@ -42,7 +42,7 @@
             </div>
             <div class="col-md-4">
                 <p class="mb-1 text-muted small fw-semibold text-uppercase" style="letter-spacing:0.05em;">Purse</p>
-                <p class="fw-semibold">{% if tournament.purse > 0 %}${{ "{:,}".format(tournament.purse) }}{% else %}TBD{% endif %}</p>
+                <p class="fw-semibold">{% if tournament.effective_purse %}${{ "{:,}".format(tournament.effective_purse) }}{% if tournament.purse_is_estimate %} <span class="badge bg-secondary text-light" style="font-size:0.65em; font-weight:normal; vertical-align:middle;" title="Estimate — official purse announced week-of">est.</span>{% endif %}{% else %}TBD{% endif %}</p>
             </div>
             <div class="col-md-4">
                 <p class="mb-1 text-muted small fw-semibold text-uppercase" style="letter-spacing:0.05em;">Pick Deadline</p>

@@ -37,6 +37,46 @@ LEAGUE_TZ = pytz.timezone('America/Chicago')
 # Penalty assessed when a user's active pick at a major finishes cut/dq
 PENALTY_PER_INCIDENT = 15
 
+# 2026 PGA Tour purse estimates — used as display fallback before the API
+# returns the official purse (majors typically announce week-of). Names must
+# match Tournament.name exactly. Also consumed by sync_live_leaderboard() to
+# keep projected earnings accurate during active majors.
+PURSE_ESTIMATES = {
+    'Sony Open in Hawaii': 9_100_000,
+    'The American Express': 9_200_000,
+    'Farmers Insurance Open': 9_600_000,
+    'WM Phoenix Open': 9_600_000,
+    'AT&T Pebble Beach Pro-Am': 20_000_000,
+    'The Genesis Invitational': 20_000_000,
+    'Cognizant Classic': 9_600_000,
+    'Arnold Palmer Invitational presented by Mastercard': 20_000_000,
+    'THE PLAYERS Championship': 25_000_000,
+    'Valspar Championship': 9_100_000,
+    "Texas Children's Houston Open": 9_900_000,
+    'Valero Texas Open': 9_800_000,
+    'Masters Tournament': 22_500_000,
+    'RBC Heritage': 20_000_000,
+    'Zurich Classic of New Orleans': 9_500_000,
+    'Cadillac Championship': 20_000_000,
+    'Truist Championship': 20_000_000,
+    'PGA Championship': 19_000_000,
+    'THE CJ CUP Byron Nelson': 10_300_000,
+    'Charles Schwab Challenge': 9_900_000,
+    'the Memorial Tournament presented by Workday': 20_000_000,
+    'RBC Canadian Open': 9_800_000,
+    'U.S. Open': 21_500_000,
+    'Travelers Championship': 20_000_000,
+    'John Deere Classic': 8_800_000,
+    'Genesis Scottish Open': 9_000_000,
+    'The Open Championship': 17_000_000,
+    '3M Open': 8_800_000,
+    'Rocket Classic': 10_000_000,
+    'Wyndham Championship': 8_500_000,
+    'FedEx St. Jude Championship': 20_000_000,
+    'BMW Championship': 20_000_000,
+}
+DEFAULT_PURSE = 10_000_000  # Fallback for tournaments not in PURSE_ESTIMATES
+
 
 class User(UserMixin, db.Model):
     """
@@ -243,6 +283,18 @@ class Tournament(db.Model):
         else:
             deadline = deadline.astimezone(LEAGUE_TZ)
         return deadline.strftime('%a %b %d, %I:%M %p CT')
+
+    @property
+    def effective_purse(self):
+        """Actual purse if set, otherwise the season estimate, otherwise None."""
+        if self.purse and self.purse > 0:
+            return self.purse
+        return PURSE_ESTIMATES.get(self.name)
+
+    @property
+    def purse_is_estimate(self):
+        """True when effective_purse came from PURSE_ESTIMATES (not the API)."""
+        return (not self.purse or self.purse <= 0) and self.name in PURSE_ESTIMATES
 
     def __repr__(self):
         return f'<Tournament {self.name} ({self.season_year})>'

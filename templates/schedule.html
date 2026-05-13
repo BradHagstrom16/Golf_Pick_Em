@@ -47,7 +47,7 @@
                 </div>
                 <div class="col-6 text-end">
                     <div class="text-muted">Purse</div>
-                    <div>{% if tournament.purse > 0 %}${{ "{:,}".format(tournament.purse) }}{% else %}TBD{% endif %}</div>
+                    <div>{% if tournament.effective_purse %}${{ "{:,}".format(tournament.effective_purse) }}{% if tournament.purse_is_estimate %} <span class="badge bg-secondary text-light" style="font-size:0.65em; font-weight:normal; vertical-align:middle;" title="Estimate — official purse announced week-of">est.</span>{% endif %}{% else %}TBD{% endif %}</div>
                 </div>
                 <div class="col-12">
                     <div class="text-muted">Pick Deadline</div>
@@ -96,7 +96,7 @@
                     {% endif %}
                 </td>
                 <td>{{ tournament.start_date.strftime('%b %d') }} - {{ tournament.end_date.strftime('%b %d') }}</td>
-                <td>{% if tournament.purse > 0 %}${{ "{:,}".format(tournament.purse) }}{% else %}TBD{% endif %}</td>
+                <td>{% if tournament.effective_purse %}${{ "{:,}".format(tournament.effective_purse) }}{% if tournament.purse_is_estimate %} <span class="badge bg-secondary text-light" style="font-size:0.65em; font-weight:normal; vertical-align:middle;" title="Estimate — official purse announced week-of">est.</span>{% endif %}{% else %}TBD{% endif %}</td>
                 <td>{{ tournament.get_deadline_display() }}</td>
                 <td>
                     {% if tournament.status == 'complete' %}

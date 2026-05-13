@@ -32,7 +32,7 @@ import click
 import pytz
 import requests
 
-from models import db, Tournament, Player, TournamentField, TournamentResult, Pick, LEAGUE_TZ
+from models import db, Tournament, Player, TournamentField, TournamentResult, Pick, LEAGUE_TZ, PURSE_ESTIMATES, DEFAULT_PURSE
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -65,45 +65,6 @@ EXCLUDED_TOURNAMENTS = {
 
 # Ignore any API events starting on or after this date.
 SEASON_CUTOFF_DATE = datetime(2026, 8, 24, tzinfo=pytz.UTC)
-
-# 2026 PGA Tour purse amounts (in dollars)
-# Use None for TBD tournaments (majors typically announce week-of)
-# Names must match exactly what API returns or what's in database
-PURSE_ESTIMATES = {
-    'Sony Open in Hawaii': 9_100_000,
-    'The American Express': 9_200_000,
-    'Farmers Insurance Open': 9_600_000,
-    'WM Phoenix Open': 9_600_000,
-    'AT&T Pebble Beach Pro-Am': 20_000_000,
-    'The Genesis Invitational': 20_000_000,
-    'Cognizant Classic': 9_600_000,
-    'Arnold Palmer Invitational presented by Mastercard': 20_000_000,
-    'THE PLAYERS Championship': 25_000_000,
-    'Valspar Championship': 9_100_000,
-    "Texas Children's Houston Open": 9_900_000,
-    'Valero Texas Open': 9_800_000,
-    'Masters Tournament': 22_500_000,  # 2026 confirmed purse
-    'RBC Heritage': 20_000_000,
-    'Zurich Classic of New Orleans': 9_500_000,
-    'Cadillac Championship': 20_000_000,
-    'Truist Championship': 20_000_000,
-    'PGA Championship': 19_000_000,  # Estimate - Major (announced week-of)
-    'THE CJ CUP Byron Nelson': 10_300_000,
-    'Charles Schwab Challenge': 9_900_000,
-    'the Memorial Tournament presented by Workday': 20_000_000,
-    'RBC Canadian Open': 9_800_000,
-    'U.S. Open': 21_500_000,  # Estimate - Major (announced week-of)
-    'Travelers Championship': 20_000_000,
-    'John Deere Classic': 8_800_000,
-    'Genesis Scottish Open': 9_000_000,
-    'The Open Championship': 17_000_000,  # Estimate - Major (announced week-of)
-    '3M Open': 8_800_000,
-    'Rocket Classic': 10_000_000,
-    'Wyndham Championship': 8_500_000,
-    'FedEx St. Jude Championship': 20_000_000,
-    'BMW Championship': 20_000_000,
-}
-DEFAULT_PURSE = 10_000_000  # Fallback for tournaments not in estimates
 
 # Minimum field size for "picks open" notification
 MIN_FIELD_SIZE = 50
