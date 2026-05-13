@@ -25,7 +25,7 @@
                 <div class="row mb-4">
                     <div class="col-sm-6">
                         <p class="mb-1"><strong>Dates:</strong> {{ tournament.start_date.strftime('%b %d') }} - {{ tournament.end_date.strftime('%b %d, %Y') }}</p>
-                        <p class="mb-1"><strong>Purse:</strong> {% if tournament.purse > 0 %}${{ "{:,}".format(tournament.purse) }}{% else %}TBD{% endif %}</p>
+                        <p class="mb-1"><strong>Purse:</strong> {% if tournament.effective_purse %}${{ "{:,}".format(tournament.effective_purse) }}{% if tournament.purse_is_estimate %} <span class="badge bg-secondary text-light" style="font-size:0.7em; font-weight:normal; vertical-align:middle;" title="Estimate — official purse announced week-of">est.</span>{% endif %}{% else %}TBD{% endif %}</p>
                     </div>
                     <div class="col-sm-6">
                         <p class="mb-1"><strong>Deadline:</strong> {{ tournament.get_deadline_display() }}</p>

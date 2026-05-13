@@ -41,8 +41,8 @@
             {% if upcoming_tournament.is_major %}
                 <span class="badge-major ms-2">1.5x Major</span>
             {% endif %}
-            {% if upcoming_tournament.purse %}
-                &nbsp;&middot; Purse: ${{ "{:,}".format(upcoming_tournament.purse) }}
+            {% if upcoming_tournament.effective_purse %}
+                &nbsp;&middot; Purse: ${{ "{:,}".format(upcoming_tournament.effective_purse) }}{% if upcoming_tournament.purse_is_estimate %} <span class="badge bg-secondary text-light" style="font-size:0.7em; font-weight:normal; vertical-align:middle;" title="Estimate — official purse announced week-of">est.</span>{% endif %}
             {% endif %}
             <br><small class="text-muted">Field not yet available</small>
         </div>
@@ -367,8 +367,8 @@
                     <p class="text-muted small text-center mb-1">
                         {{ upcoming_tournament.start_date.strftime('%b %d') }} – {{ upcoming_tournament.end_date.strftime('%b %d') }}
                     </p>
-                    {% if upcoming_tournament.purse %}
-                    <p class="text-muted small text-center mb-1">Purse: ${{ "{:,}".format(upcoming_tournament.purse) }}</p>
+                    {% if upcoming_tournament.effective_purse %}
+                    <p class="text-muted small text-center mb-1">Purse: ${{ "{:,}".format(upcoming_tournament.effective_purse) }}{% if upcoming_tournament.purse_is_estimate %} <span class="badge bg-secondary text-light" style="font-size:0.7em; font-weight:normal; vertical-align:middle;" title="Estimate — official purse announced week-of">est.</span>{% endif %}</p>
                     {% endif %}
                     {% if not field_synced %}
                     <p class="text-muted small text-center mb-0"><em>Field not yet available</em></p>
