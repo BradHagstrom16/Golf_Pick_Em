@@ -728,7 +728,16 @@ class TournamentSync:
 
         for event in data["schedule"]:
             if str(event.get("tournId")) == str(tournament.api_tourn_id):
-                purse = self._parse_api_number(event.get("purse", 0))
+                # Backfill is cosmetic — a malformed purse must never abort the
+                # authoritative results finalization that calls this.
+                try:
+                    purse = self._parse_api_number(event.get("purse", 0))
+                except (ValueError, TypeError) as exc:
+                    logger.warning(
+                        "Purse backfill: unparseable purse %r for %s: %s",
+                        event.get("purse"), tournament.name, exc,
+                    )
+                    return None
                 if purse > 0:
                     tournament.purse = purse
                     logger.info("Backfilled official purse $%s for %s", f"{purse:,}", tournament.name)
