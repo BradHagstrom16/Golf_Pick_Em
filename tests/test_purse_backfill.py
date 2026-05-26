@@ -7,18 +7,18 @@ from sync_api import TournamentSync
 class FakeAPI:
     """Minimal stand-in exposing only get_schedule, tracking call count."""
 
-    def __init__(self, schedule):
+    def __init__(self, schedule) -> None:
         """Store the canned schedule payload get_schedule will return."""
         self._schedule = schedule
         self.schedule_calls = 0
 
-    def get_schedule(self, year):
+    def get_schedule(self, _year) -> dict:
         """Return the canned schedule payload and count the call."""
         self.schedule_calls += 1
         return self._schedule
 
 
-def _schedule_with(tourn_id, purse):
+def _schedule_with(tourn_id, purse) -> dict:
     """Build a one-event schedule payload for the given tournId and purse."""
     return {"schedule": [{"tournId": tourn_id, "name": "PGA Championship", "purse": purse}]}
 
