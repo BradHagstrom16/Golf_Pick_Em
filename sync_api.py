@@ -733,6 +733,28 @@ class TournamentSync:
 
         return new_players_synced, first_tee_time
 
+    def _backfill_purse_from_schedule(self, tournament: Tournament) -> Optional[int]:
+        """Write the official purse from the schedule endpoint when it was never
+        captured. Majors announce their purse week-of, and the leaderboard/earnings
+        endpoints carry no purse field — so a completed major can otherwise stay
+        stuck displaying the season estimate. Returns the purse written, or None."""
+        data = self.api.get_schedule(str(tournament.season_year))
+        if not data or "schedule" not in data:
+            logger.warning("Purse backfill: schedule fetch failed for %s", tournament.name)
+            return None
+
+        for event in data["schedule"]:
+            if str(event.get("tournId")) == str(tournament.api_tourn_id):
+                purse = self._parse_api_number(event.get("purse", 0))
+                if purse > 0:
+                    tournament.purse = purse
+                    logger.info("Backfilled official purse $%s for %s", f"{purse:,}", tournament.name)
+                    return purse
+                return None
+
+        logger.warning("Purse backfill: tournId %s not found in schedule", tournament.api_tourn_id)
+        return None
+
     def sync_tournament_results(self, tournament: Tournament) -> int:
         """
         Sync tournament results and ACTUAL earnings after completion.
@@ -822,6 +844,12 @@ class TournamentSync:
                 result.score_to_par = parse_score_to_par(lb_info.get("total"))
 
                 results_synced += 1
+
+            # Capture the official purse if it was never set (e.g. a major whose
+            # purse was announced after the last schedule sync) so the finalized
+            # tournament shows the real purse instead of the season estimate.
+            if not tournament.purse or tournament.purse <= 0:
+                self._backfill_purse_from_schedule(tournament)
 
             tournament.status = "complete"
             tournament.results_finalized = True
