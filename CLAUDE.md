@@ -89,6 +89,10 @@ flask sync-run --mode earnings    # Retry earnings finalization for pending tour
 # Force schedule sync any day (bypasses Monday gate — use mid-week for purse announcements)
 python force_schedule_sync.py
 
+# Ad-hoc scripts/diagnostics that hit the API need the key loaded first
+# (a plain console shell doesn't have it; only run_sync.sh auto-loads env_config.sh):
+source env_config.sh && python <script>.py
+
 # Process results manually (all completed tournaments)
 flask process-results
 
@@ -161,6 +165,8 @@ flask db stamp head
 - Team events (Zurich Classic): earnings // 2
 - Majors: earnings * 1.5 (applied in both `resolve_pick()` for final earnings and `sync_live_leaderboard()` for projected earnings)
 
+**Purse source:** `tournament.purse` is written ONLY by `sync_schedule()` from the schedule endpoint — the leaderboard/earnings endpoints carry no purse field. Majors import with `purse=0` (announced week-of) and show the `PURSE_ESTIMATES` fallback via `effective_purse`/`purse_is_estimate` until a schedule sync captures the real value; `sync_tournament_results()` backfills it at finalization as a safety net.
+
 **Missed-Cut-At-Major Penalty:**
 - If a user's **active** pick at a major (Masters, PGA, US Open, The Open) finishes with status `cut` or `dq`, `Pick.penalty_triggered` is set and the user owes `PENALTY_PER_INCIDENT` ($15) to the season pot. WDs never trigger — backup-activation logic handles them.
 - Flag is written in two places: `Pick.resolve_pick()` at finalization (authoritative), and `Pick.refresh_live_penalty()` invoked from `sync_live_leaderboard()` during active majors so the UI shows penalties in real time.
@@ -181,7 +187,7 @@ flask db stamp head
 - All timestamps use `datetime.now(timezone.utc)` (not deprecated `utcnow()`)
 - League timezone is `America/Chicago` (Central Time), stored as `LEAGUE_TZ` in models.py
 - Pick deadlines stored in CT as naive datetimes in SQLite (timezone stripped after conversion)
-- API responses use MongoDB-style number format (`{"$numberInt": "123"}`) — helper `_parse_api_number()` handles this. Tee time timestamps may arrive as ISO 8601 strings (e.g., `"2026-04-09T13:19:00"` in UTC) — `_parse_tee_time_timestamp()` handles both formats.
+- API responses use MongoDB-style number format (`{"$numberInt": "123"}`) — helper `_parse_api_number()` handles this. Route ALL SlashGolf timestamps (tee times AND schedule `date.start`) through `_parse_tee_time_timestamp()` — it handles epoch-ms, EJSON, and ISO 8601. Never write inline date parsing; the API drifts formats silently and a duplicate parser gets missed.
 - `format_score_to_par()` is a module-level function in models.py (also exists as instance method on TournamentResult that delegates to it)
 - Flask-Limiter rate-limits login to 10/min
 - CSRF via Flask-WTF on all forms; AJAX calls include `X-CSRFToken` header
