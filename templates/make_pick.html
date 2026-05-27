@@ -114,7 +114,7 @@
                 <div class="stat-card-value" style="font-size: 1.5rem;">{{ available_players|length }}</div>
                 <p class="text-muted mb-0 small">Available Golfers</p>
                 {% set used_count = current_user.get_used_player_ids()|length %}
-                {% if used_count > 0 %}
+                {% if used_count %}
                 <p class="text-muted mb-0 small mt-1">{{ used_count }} already used this season</p>
                 {% endif %}
             </div>
