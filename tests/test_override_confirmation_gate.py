@@ -10,6 +10,7 @@ import pytest
 
 def test_complete_tournament_override_requires_confirm(db, login, make_user, make_player,
                                                        make_tournament, make_result, make_pick):
+    """Without confirm=1 a complete-tournament override shows the consequence and commits nothing."""
     from models import Pick, TournamentField, SeasonPlayerUsage
     admin = make_user(username='ovadmin', is_admin=True)
     member = make_user(username='ovmember')
@@ -37,6 +38,7 @@ def test_complete_tournament_override_requires_confirm(db, login, make_user, mak
 
 def test_complete_tournament_override_with_confirm_commits(db, login, make_user, make_player,
                                                            make_tournament, make_result, make_pick):
+    """With confirm=1 the override commits and re-resolves earnings exactly as before."""
     from models import Pick, TournamentField
     admin = make_user(username='ovadmin2', is_admin=True)
     member = make_user(username='ovmember2')

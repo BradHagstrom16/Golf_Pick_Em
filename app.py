@@ -1060,7 +1060,7 @@ def admin_override_pick():
                                 flash(f'Override pick updated and re-resolved for {selected_user.get_display_name()}!', 'success')
                             else:
                                 selected_user.calculate_total_points()
-                                flash(f'Override pick updated but resolution failed — check tournament results.', 'warning')
+                                flash('Override pick updated but resolution failed — check tournament results.', 'warning')
                         else:
                             flash(f'Override pick updated for {selected_user.get_display_name()}!', 'success')
                     else:
@@ -1081,7 +1081,7 @@ def admin_override_pick():
                                 selected_user.calculate_total_points()
                                 flash(f'Override pick created and resolved for {selected_user.get_display_name()}!', 'success')
                             else:
-                                flash(f'Override pick created but resolution failed — check tournament results.', 'warning')
+                                flash('Override pick created but resolution failed — check tournament results.', 'warning')
                         else:
                             flash(f'Override pick created for {selected_user.get_display_name()}!', 'success')
 

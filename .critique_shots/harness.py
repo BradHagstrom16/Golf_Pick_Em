@@ -123,6 +123,7 @@ def is_green_gradient_fp(finding: dict) -> bool:
 
 
 def filter_findings(findings: list) -> list:
+    """Drop the known brand-green gradient false positives from a findings list."""
     return [f for f in findings if not is_green_gradient_fp(f)]
 
 
@@ -152,6 +153,7 @@ def render_pages():
 # --- Serve + detect -------------------------------------------------------
 @contextmanager
 def serve_repo_root():
+    """Serve the repo root over HTTP on PORT for the duration of the context."""
     handler = lambda *a, **kw: SimpleHTTPRequestHandler(*a, directory=str(REPO_ROOT), **kw)
     httpd = ThreadingHTTPServer(("127.0.0.1", PORT), handler)
     thread = Thread(target=httpd.serve_forever, daemon=True)
@@ -164,22 +166,40 @@ def serve_repo_root():
 
 
 def detect(url: str) -> list:
-    """Run impeccable detect --json against a URL; JSON is on stderr."""
-    proc = subprocess.run(
-        ["impeccable", "detect", "--json", url],
-        capture_output=True,
-        text=True,
-        cwd=str(REPO_ROOT),
-    )
-    raw = proc.stderr.strip() or proc.stdout.strip()
+    """Run impeccable detect --json against a URL; JSON is on stderr.
+
+    A stalled CLI must not hang the batch, and one malformed payload must not
+    abort it — so the subprocess is bounded by a timeout and every json.loads is
+    guarded, returning [] on timeout or unparseable output.
+    """
     try:
-        return json.loads(raw) if raw else []
+        proc = subprocess.run(
+            ["impeccable", "detect", "--json", url],
+            capture_output=True,
+            text=True,
+            cwd=str(REPO_ROOT),
+            check=False,
+            timeout=60,
+        )
+    except subprocess.TimeoutExpired:
+        return []
+    raw = proc.stderr.strip() or proc.stdout.strip()
+    if not raw:
+        return []
+    try:
+        return json.loads(raw)
     except json.JSONDecodeError:
         start = raw.find("[")
-        return json.loads(raw[start:]) if start != -1 else []
+        if start == -1:
+            return []
+        try:
+            return json.loads(raw[start:])
+        except json.JSONDecodeError:
+            return []
 
 
 def main():
+    """Render the gated pages and (unless --render) detect + print post-filter counts."""
     render_only = "--render" in sys.argv
     written = render_pages()
     print("Rendered:")

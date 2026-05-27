@@ -6,7 +6,9 @@ Bug (U4 P1): loop.index was used as the rank number, so no-pick rows (earning $0
 received sequential position numbers, causing non-pickers to appear at positions
 above pickers with identical $0 earnings, and obscuring correct competition ranking.
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+
+from models import LEAGUE_TZ
 
 
 def _desktop(html):
@@ -16,11 +18,17 @@ def _desktop(html):
 
 
 def _make_past_deadline():
-    """Return a naive datetime 3 hours in the past."""
-    return datetime.now() - timedelta(hours=3)
+    """Naive Central-time timestamp 3h in the past.
+
+    Tournament.is_deadline_passed() localizes a naive pick_deadline to LEAGUE_TZ,
+    so the value must be built in Central wall-clock time (not the machine's local
+    zone) to read as "passed" regardless of where the suite runs (e.g. UTC CI).
+    """
+    return datetime.now(timezone.utc).astimezone(LEAGUE_TZ).replace(tzinfo=None) - timedelta(hours=3)
 
 
 class TestTournamentDetailRanking:
+    """Standings rank only picked rows (competition ties); no-pick rows sit below a divider."""
 
     def test_no_pick_rows_unnumbered_and_below_divider(
         self, db, make_user, make_player, make_tournament, make_result, make_pick, login

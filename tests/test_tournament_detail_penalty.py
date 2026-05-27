@@ -6,15 +6,23 @@ active_is_primary and active_is_backup are False → no penalty badge on desktop
 The fix gates each cell on backup_activated (which is derived from result status,
 not from the nullable active_player_id).
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+
+from models import LEAGUE_TZ
 
 
 def _make_past_deadline():
-    """Return a naive datetime in the past (3 hours ago) for use as pick_deadline."""
-    return datetime.now() - timedelta(hours=3)
+    """Naive Central-time timestamp 3h in the past.
+
+    Tournament.is_deadline_passed() localizes a naive pick_deadline to LEAGUE_TZ,
+    so the value must be built in Central wall-clock time (not the machine's local
+    zone) to read as "passed" regardless of where the suite runs (e.g. UTC CI).
+    """
+    return datetime.now(timezone.utc).astimezone(LEAGUE_TZ).replace(tzinfo=None) - timedelta(hours=3)
 
 
 class TestDesktopPenaltyBadge:
+    """Desktop standings table renders the live missed-cut penalty badge exactly once."""
 
     def test_live_major_primary_cut_shows_penalty_once_in_primary_column(
         self, db, make_user, make_player, make_tournament, make_result, make_pick, login

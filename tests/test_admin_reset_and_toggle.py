@@ -9,6 +9,7 @@ import pytest
 # ---------------------------------------------------------------------------
 
 def test_reset_blank_autogenerates_non_guessable(db, login, make_user):
+    """A blank reset generates a random temp password (not golf{id}), surfaced once."""
     admin = make_user(username='radmin', is_admin=True)
     target = make_user(username='rtarget')
     db.session.commit()
@@ -24,6 +25,7 @@ def test_reset_blank_autogenerates_non_guessable(db, login, make_user):
 
 
 def test_reset_explicit_password_still_works(db, login, make_user):
+    """An admin-supplied reset password is still accepted and set."""
     admin = make_user(username='radmin2', is_admin=True)
     target = make_user(username='rtarget2')
     db.session.commit()
@@ -38,6 +40,7 @@ def test_reset_explicit_password_still_works(db, login, make_user):
 # ---------------------------------------------------------------------------
 
 def test_payment_toggle_surfaces_failure(db, login, make_user):
+    """The payments page wires the toggle to surface (not swallow) a failed update."""
     admin = make_user(username='padmin', is_admin=True)
     db.session.commit()
     html = login(admin).get('/admin/payments').get_data(as_text=True)

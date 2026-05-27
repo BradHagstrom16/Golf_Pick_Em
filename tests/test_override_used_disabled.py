@@ -3,6 +3,7 @@ import re
 
 
 def test_override_used_player_option_is_disabled_and_no_alert(db, login, make_user, make_player, make_tournament):
+    """USED player options render disabled, available ones don't, and no native alert() is used."""
     from models import TournamentField, SeasonPlayerUsage
     admin = make_user(username='ovadmin6', is_admin=True)
     member = make_user(username='ovmember6')
