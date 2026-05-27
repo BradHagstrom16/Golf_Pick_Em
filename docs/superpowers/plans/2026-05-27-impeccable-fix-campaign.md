@@ -54,25 +54,39 @@ Recreate `.critique_shots/harness.py` from the findings-doc Tooling note: a Flas
 
 - [ ] **Step 2: Add the signature-tight green-gradient false-positive filter**
 
-In the harness's detector-JSON post-processing, drop a finding only when it matches BOTH a known-FP rule id AND a brand-green signature:
+> **CORRECTED 2026-05-27 (Session S1) against the real CLI.** impeccable 2.1.8 emits findings with keys `antipattern` / `name` / `description` / `snippet` / `file` / `line` — there is **no** `rule`, `message`, or `selector` field, and the `ai-color-palette` "Cyan gradient" finding carries **no color or selector** (its snippet is the bare `"Cyan gradient background"`). The originally-drafted filter below keyed on `rule`/`message`/`selector` and would have silently matched **nothing** for the cyan case. Use the corrected two-track filter (matches the shipped `.critique_shots/harness.py`):
+
+The two brand-green FPs need different handles because only one of them carries a usable signature:
+
+- **`dark-glow`** — the finding's own snippet carries the dark-green hex (`"Colored glow (#00432e) on dark background"`), so key the drop on that hex directly.
+- **`ai-color-palette` "Cyan gradient"** — carries no color/selector, so verify against the *source*: drop it ONLY when **every** gradient declared in `static/css/style.css` is brand-green (`var(--green-*)` or a brand-green hex `#00432e`/`#005c3f`/`#006747`/`#1a8a6a`). If a genuinely-wrong non-green gradient is added later, the CSS check fails and the finding is surfaced — never a loose `"cyan" in message` match (see findings-doc note + memory `feedback-brand-over-linter`).
 
 ```python
-GREEN_FP_COLORS = {"#00432e", "#005c3f"}  # --green-900 / --green-800
-GREEN_FP_SELECTORS = ("nav", ".navbar", "footer", ".footer")
+GREEN_FP_COLORS = ("#00432e", "#005c3f")                          # dark stops the dark-glow finding names
+BRAND_GREEN_HEXES = ("#00432e", "#005c3f", "#006747", "#1a8a6a")  # --green-900/800/700/500
 
-def is_green_gradient_fp(finding: dict) -> bool:
-    rule = finding.get("rule", "")
-    if rule not in ("ai-color-palette", "dark-glow"):
+def is_dark_glow_fp(finding):
+    if finding.get("antipattern") != "dark-glow":
         return False
-    blob = (finding.get("message", "") + finding.get("selector", "")).lower()
-    color_hit = any(c in blob for c in GREEN_FP_COLORS)
-    selector_hit = any(s in finding.get("selector", "").lower() for s in GREEN_FP_SELECTORS)
-    return color_hit or selector_hit
+    blob = (finding.get("snippet", "") + finding.get("description", "")).lower()
+    return any(c in blob for c in GREEN_FP_COLORS)
 
-# filtered = [f for f in findings if not is_green_gradient_fp(f)]
+def _all_gradients_are_brand_green():  # reads static/css/style.css
+    grads = re.findall(r"[a-z-]*gradient\s*\([^;]*\)", css, re.IGNORECASE)
+    return bool(grads) and all(
+        "var(--green-" in g.lower() or any(h in g.lower() for h in BRAND_GREEN_HEXES)
+        for g in grads
+    )
+
+def is_cyan_gradient_fp(finding):
+    if finding.get("antipattern") != "ai-color-palette":
+        return False
+    if "gradient" not in (finding.get("name", "") + finding.get("snippet", "")).lower():
+        return False
+    return _all_gradients_are_brand_green()
+
+# filtered = [f for f in findings if not (is_dark_glow_fp(f) or is_cyan_gradient_fp(f))]
 ```
-
-Never broaden to a bare `"cyan" in message` match — that would mask a genuinely-wrong cyan gradient added later (see findings-doc note + memory `feedback-brand-over-linter`).
 
 - [ ] **Step 3: Re-baseline Units 3/5/7/10 through the harness**
 

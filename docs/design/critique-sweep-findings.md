@@ -623,3 +623,23 @@ Within each phase, fix P0 → P1 → P2 → P3. After each phase, re-run `critiq
 - **Authenticated render harness is retro-applicable** to Units 3/5/7/10 for a deterministic re-baseline (per the decision above). Reproducible via the `.critique_shots/harness.py` snippet documented in the Tooling note (Flask test client + injected admin session → repo-root HTML → `python -m http.server 8765` → `impeccable detect --json`). Non-mutating (GET + the non-saving `load_field` POST only).
 - **Per-phase verification:** re-run `impeccable critique` on each changed page after its phase and confirm the Nielsen `/40` moved up; record the delta. Admin pages (Phase 5) need the authenticated harness for a real detector signal.
 - **Branching:** each *fix* phase = its own branch + PR tagged `@coderabbitai review`; phases land in order (Phase 2 tokens must merge before Phases 3–5 consume them). Phase 1 (logic) and Phase 2 (tokens) may proceed in parallel — disjoint files.
+
+### Re-baseline (Session S1 — deterministic harness, post-FP-filter)
+
+Run 2026-05-27 (Session S1 Setup) via the rebuilt `.critique_shots/harness.py` → `impeccable detect --json` (v2.1.8, Puppeteer URL-mode against the served gated HTML), with the signature-tight green-gradient FP filter applied. These deterministic **detector** finding counts are the before-snapshot the per-phase verification compares against (distinct from, and alongside, each unit's qualitative Nielsen `/40`). The two brand-green FPs (`ai-color-palette` "Cyan gradient" + `dark-glow` "#00432e on dark") are filtered on every page and excluded from the counts.
+
+| Unit | Page | Nielsen (Assessment A) | Detector findings (post-filter) | Breakdown → global |
+|------|------|------------------------|---------------------------------|--------------------|
+| 3 | make_pick | 28/40 | 5 | low-contrast×4 **[G1]**, skipped-heading×1 **[G5]** |
+| 5 | my_picks | 28/40 | 3 | low-contrast×2 **[G1]**, skipped-heading×1 **[G5]** |
+| 7 | login | 25/40 (trio) | 0 | clean |
+| 7 | register | 25/40 (trio) | 3 | low-contrast×3 **[G1]** (the 3 form-helper hints) |
+| 7 | change_password | 25/40 (trio) | 0 | clean |
+| 10 | tournaments | 21/40 (trio) | 0 | clean |
+| 10 | users | 21/40 (trio) | 1 | skipped-heading×1 **[G5]** |
+| 10 | payments | 21/40 (trio) | 1 | low-contrast×1 **[G1]** |
+
+Notes that update earlier assumptions:
+- **Detector JSON schema (impeccable 2.1.8):** keys are `antipattern` / `name` / `description` / `snippet` / `file` / `line` — **not** the `rule` / `message` / `selector` the plan's Setup snippet first guessed. The `ai-color-palette` "Cyan gradient" finding carries **no** color or selector (snippet is the bare "Cyan gradient background"); `dark-glow` carries the hex ("Colored glow (#00432e) on dark background"). The filter therefore drops `dark-glow` by its own hex, but drops the cyan `ai-color-palette` only after verifying against `static/css/style.css` that **every** declared gradient is brand-green (`var(--green-*)` / brand-green hex) — so a genuinely-wrong non-green gradient added later is surfaced, never masked. (Plan Setup Step 2 corrected to match.)
+- **Admin trio now has a real (sparse) detector signal:** the prior Assessment-B for Unit 10 measured `index.html` (anonymous `@admin_required` redirect, 25× low-contrast noise — discarded). Through the harness the admin tables are nearly clean (tournaments 0, users 1× skipped-heading, payments 1× low-contrast). The admin cluster's real problems are **structural/visual** (G12 raw-Bootstrap, G13 mutation-safety, G11 flat-sans money) which the detector doesn't score — confirming the cluster's low Nielsen scores are a design/identity gap, not a detector-flag pile-up. (Note `cramped-padding` appeared only on U8 dashboard, which uses `table-sm`; the trio uses default-padded `table table-striped`.)
+- **register's 3× low-contrast** reproduces the Unit-7 Assessment-B finding deterministically (the three `<small class="text-muted">` form hints at 3.0:1 → G1).

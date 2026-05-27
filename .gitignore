@@ -239,3 +239,7 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 .DS_Store
+
+# Impeccable critique render harness — keep the script, ignore rendered shots
+.critique_shots/*.html
+.critique_shots/__pycache__/
