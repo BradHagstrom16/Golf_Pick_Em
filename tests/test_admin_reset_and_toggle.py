@@ -40,7 +40,14 @@ def test_reset_explicit_password_still_works(db, login, make_user):
 # ---------------------------------------------------------------------------
 
 def test_payment_toggle_surfaces_failure(db, login, make_user):
-    """The payments page wires the toggle to surface (not swallow) a failed update."""
+    """The payments page wires the toggle to surface (not swallow) a failed update.
+
+    Template-level regression coverage only: this project's suite is pure pytest with
+    no JS runtime, so the actual runtime behavior (on a failed POST the checkbox
+    reverts and an error is shown) is verified manually in-browser, not here. These
+    assertions guard that the handler keeps a `.catch` and the error copy, preventing
+    a regression back to the previous silent empty-`else`.
+    """
     admin = make_user(username='padmin', is_admin=True)
     db.session.commit()
     html = login(admin).get('/admin/payments').get_data(as_text=True)
