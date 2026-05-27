@@ -27,6 +27,23 @@ def app():
         _db.drop_all()
 
 
+@pytest.fixture(autouse=True)
+def _isolate_login(app):
+    """Prevent Flask-Login's cached current_user from leaking between tests.
+
+    Flask-Login caches the loaded user on ``g._login_user`` (flask_login 0.6.x).
+    Because the ``app`` fixture holds a single session-scoped app context open for
+    the whole run, every test_client request reuses that same ``g`` — so an
+    authenticated request in one test would otherwise leave ``current_user`` set
+    for the next test (making an anonymous-only route like /register redirect, or
+    an admin route accept a stale user). Clear the cache around each test.
+    """
+    from flask import g
+    g.pop('_login_user', None)
+    yield
+    g.pop('_login_user', None)
+
+
 @pytest.fixture
 def db(app):
     yield _db
