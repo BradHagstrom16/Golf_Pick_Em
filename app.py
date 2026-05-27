@@ -434,11 +434,27 @@ def tournament_detail(tournament_id):
                 'penalty_triggered': False,
             })
 
-    # Sort results
+    # Sort results: picked rows first (by points desc), no-pick rows after; then assign
+    # competition ranking (equal points share a rank) to picked rows only. The template
+    # renders result['rank'] instead of loop.index so non-pickers never get a paying number.
     if tournament.status == 'complete' or show_picks:
-        pick_results.sort(key=lambda x: (-x['points'], x['user'].get_display_name().lower()))
+        pick_results.sort(key=lambda x: (not x['has_pick'], -x['points'], x['user'].get_display_name().lower()))
+        seen = 0
+        current_rank = 0
+        prev_points = None
+        for r in pick_results:
+            if r['has_pick']:
+                seen += 1
+                if r['points'] != prev_points:
+                    current_rank = seen
+                    prev_points = r['points']
+                r['rank'] = current_rank
+            else:
+                r['rank'] = None
     else:
         pick_results.sort(key=lambda x: x['user'].get_display_name().lower())
+        for r in pick_results:
+            r['rank'] = None
 
     # Calculate summary stats
     total_picks = sum(1 for r in pick_results if r['has_pick'])

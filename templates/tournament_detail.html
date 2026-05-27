@@ -252,15 +252,22 @@
                         </tr>
                     </thead>
                     <tbody>
+                        {% set ns = namespace(divider_shown=false) %}
                         {% for result in pick_results %}
+                        {% if show_picks and not result.has_pick and not ns.divider_shown %}
+                        <tr class="no-pick-divider">
+                            <td colspan="{% if show_backup %}6{% else %}5{% endif %}" class="text-muted small text-center py-1">Did not pick</td>
+                        </tr>
+                        {% set ns.divider_shown = true %}
+                        {% endif %}
                         <tr class="{% if current_user.is_authenticated and result.user.id == current_user.id %}row-current-user{% endif %}
                                    {% if result.points == max_points and result.points > 0 %}row-leader{% endif %}">
                             <td>
                                 {% if show_picks and result.has_pick %}
-                                    <strong>{{ loop.index }}</strong>
+                                    <strong>{{ result.rank }}</strong>
                                     {% if result.points == max_points and result.points > 0 %}🏆{% endif %}
                                 {% else %}
-                                    {{ loop.index }}
+                                    <span class="text-muted">—</span>
                                 {% endif %}
                             </td>
                             <td>
