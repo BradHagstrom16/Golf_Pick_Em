@@ -669,3 +669,39 @@ Re-ran the same `.critique_shots/harness.py` after the Phase 2 token/shell edits
   - `tournament/23` — G8 est chip renders as a **gold-wash pill** (`$21,500,000 [est.]`), replacing the gray Bootstrap chip; the G1 "multiplied by 1.5×!" major alert (the old 4.07:1 line) reads clearly.
   - `my-picks` — DOM check: 3× `.badge-penalty` all read **"Penalty $15"**, zero `+` signs (G6); `main#main` + skip-link present (G3); live tokens confirmed (`--text-muted #5e6776`, `--gold-600 #826419`, `--focus-ring #9c7d2c`).
 - **Brand guardrail held:** the two green-gradient FPs stayed filtered; Pinehurst Pine `#006747` and the brand greens were not touched.
+
+### Phase 3 verification (Session S3 — core-loop pages; branch `fix/phase3-core-loop`)
+
+Applied the Phase 3 master-table fixes to the four core-loop page templates (+ page-specific CSS) and re-verified. Scope: `index.html`, `make_pick.html`, `tournament_detail.html`, `my_picks.html`, `static/css/style.css` only (no base.html, no admin, no routes/models/money logic).
+
+**Deterministic detector delta (`.critique_shots/harness.py` → `impeccable detect --json`, same green-gradient FP filter):**
+
+| Page | Before (S2) | After (S3) | Δ | Remaining (post-filter) |
+|------|-------------|------------|---|--------------------------|
+| make_pick | 1 (skipped-heading) | 1 (line-length) | skipped-heading **1→0** ✓ | `line-length×1` — see note |
+| my_picks | 1 (skipped-heading) | **0** | **−1** | clean |
+| login | 0 | 0 | — | clean (untouched) |
+| register | 0 | 0 | — | clean (untouched) |
+| change_password | 0 | 0 | — | clean (untouched) |
+| tournaments | 0 | 0 | — | clean (untouched) |
+| users | 1 (skipped-heading) | 1 | — | skipped-heading×1 (Phase 5) |
+| payments | 0 | 0 | — | clean (untouched) |
+
+- **Deterministic target MET:** make_pick + my_picks `skipped-heading` **→ 0** (G5 page-tag corrections). my_picks is now fully clean. (tournament_detail's h3→h5 skip was also corrected, and `index`'s h2→h5; neither is in the harness PAGES list — verified in-browser instead.)
+- **make_pick's residual `line-length×1` is a detector artifact, not a UI defect.** It reports "~88 chars/line"; in-browser canvas measurement (chrome-devtools, 390px + 500px + 1280px) shows **every visible prose block wraps at ≤60 chars/line** (all added copy capped at 60ch + the verbose primary-helper tightened). The 88-char line is the **Phase-1 JS comment** `// Fix 1.8: normalized search …` inside `make_pick.html`'s `<script>` — the detector counts script text. This finding is **new only because the S2 baseline branch (phase2) predated Phase 1's make_pick script merge**, not because of a Phase-3 regression. Per `feedback-brand-over-linter`, we do not reformat real Phase-1 code comments to appease a detector mis-measuring `<script>` content; not filtered either (the finding carries no element locator, so a filter would be too broad and could mask a real prose line-length later).
+
+**Re-critique (Nielsen `/40`, qualitative — which heuristic key-issues the fixes resolved):**
+
+| Page | Before | After | Heuristics lifted |
+|------|--------|-------|-------------------|
+| index | 28 | **31** | H1 +1 (as-of timestamp on live board), H6 +1 (encoded-board legend), H4 +1 (mobile money pill now gold-projected like desktop; mobile backup-WD "↳ replaces {primary}" text matches desktop affordance) |
+| make_pick | 28 | **31** | H6 +1 (used-player cue "18 already used this season"), H1/H5 +1 (inline submit confirmation echoing the deadline + editable-until), H10 +1 (condensed mobile rules/count line) |
+| tournament_detail | 25 | **31** | H4 +2 (mobile money pill keyed on status = gold-projected ×6, matching desktop; with the Phase-1 desktop penalty fix the breakpoints now agree on money facts), H7/H8 +2 (13→collapsed "Didn't pick (N)" disclosure; real picks + leader lead), H1 +1 ("You" badge re-keyed off the gold major register → pine `.badge-you`; major-multiplier alert confirmed ~5:1 AA via the Phase-2 `--gold-600 #826419`) |
+| my_picks | 28 | **31** | H4 +2 (mobile money pill now gold-projected like desktop — was bare green ×17; desktop `<tr>` row-status class bound so the live row reads first), H1/H3 +1 (live row gains a "Watch Live" tap-through, was inert "Locked"), H6/H10 +1 (Legend extended with the money color-code, 1.5×, Team, status pills, "Penalty $15" debit), G9 (mobile card-footer CTAs lifted ~32px→44px) |
+
+**Visual verification (chrome-devtools MCP, authenticated as `Sun Day Regrets`, desktop 1280 + 390px; tournament 23 temporarily re-seeded `active` for the live-board checks, then restored to its upcoming/June state):**
+- `index` (live U.S. Open board) — as-of "Projected as of May 27, 01:05 PM CT" in the In Progress banner; `.legend-bar` decodes 🔄/👑/CUT/DQ/Penalty $15 + gold-Projected/green-Banked; **8 gold projected** pills (were green); mobile "↳ replaces Emiliano Grillo" backup text; heading outline clean h2→h3 (no skip). _Next-pick-during-active-play thread **deferred**: the route sets `upcoming_tournament=None` during active play, so it has no next-upcoming data without a route query (out of Phase 3's template-only scope) — flagged for a follow-up._
+- `make_pick` (`/pick/20`) — "56 Available · 18 already used this season"; submit line "Locks at the deadline: Thu May 28, 07:00 AM CT. You can edit your pick any time until then."; mobile-only condensed rules line; h4→h5 headings.
+- `tournament_detail` (`/tournament/23`, active major) — **6 gold projected / 0 green** mobile pills (was 6 green); `.badge-you` renders pine (`#005c3f` on `#e8f5ef`), no gold collision; **"Didn't pick (11)"** `<details>` collapse, 0 full no-pick rows in the desktop table; desktop **Penalty $15** badges render (Phase-1 P0 holds); shared-rank ties (7,7); major alert legible.
+- `my_picks` — 1 gold projected + 16 green on **both** desktop and mobile (mobile was 17× bare green); desktop `<tr>`: 1 `row-active-tournament` + 19 `row-complete` (was dead CSS); 2× "Watch Live" links on the active row; Legend extended; all 32 mobile card-footer CTAs measured **44px**; h2→h3→h4 headings.
+- **Brand guardrail held:** Pinehurst Pine and the green gradients untouched; the two green-gradient FPs stayed filtered.

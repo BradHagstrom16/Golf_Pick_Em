@@ -57,7 +57,7 @@
                                 {% if pick %}
                                     {% set current_earnings = pick.get_current_earnings() %}
                                     {% if current_earnings %}
-                                        <span class="text-green">${{ "{:,}".format(current_earnings) }}</span>
+                                        <span class="{% if tournament.status == 'complete' %}badge-earnings{% else %}badge-earnings-projected{% endif %}">${{ "{:,}".format(current_earnings) }}</span>
                                         {% if tournament.status == 'active' %}
                                             <br><small class="text-muted">projected</small>
                                         {% endif %}
@@ -147,7 +147,11 @@
                         <a href="{{ url_for('tournament_detail', tournament_id=tournament.id) }}"
                            class="btn btn-sm btn-outline-greenside w-100">View Results</a>
                     {% else %}
-                        <span class="text-muted small">Locked</span>
+                        {% if tournament.status == 'active' %}
+                            <a href="{{ url_for('tournament_detail', tournament_id=tournament.id) }}" class="btn btn-sm btn-outline-greenside w-100">Watch Live</a>
+                        {% else %}
+                            <span class="text-muted small">Locked</span>
+                        {% endif %}
                     {% endif %}
                 </div>
 
@@ -173,7 +177,7 @@
                     {% for tournament in tournaments %}
                     {% set pick = user_picks.get(tournament.id) %}
                     {% set results = pick_results.get(tournament.id) %}
-                    <tr>
+                    <tr class="{% if tournament.status == 'active' %}row-active-tournament{% elif tournament.status == 'complete' %}row-complete{% endif %}">
                         <td>
                             <a href="{{ url_for('tournament_detail', tournament_id=tournament.id) }}" class="text-decoration-none" style="color: var(--text-primary);">
                                 <strong>{{ tournament.name }}</strong>
@@ -280,7 +284,11 @@
                             {% elif tournament.status == 'complete' %}
                                 <a href="{{ url_for('tournament_detail', tournament_id=tournament.id) }}" class="btn btn-sm btn-outline-greenside">Results</a>
                             {% else %}
-                                <span class="text-muted">Locked</span>
+                                {% if tournament.status == 'active' %}
+                                    <a href="{{ url_for('tournament_detail', tournament_id=tournament.id) }}" class="btn btn-sm btn-outline-greenside">Watch Live</a>
+                                {% else %}
+                                    <span class="text-muted">Locked</span>
+                                {% endif %}
                             {% endif %}
                         </td>
                     </tr>
@@ -296,7 +304,7 @@
         <!-- Season Summary -->
         <div class="card sidebar-card">
             <div class="card-header card-header-green">
-                <h5 class="mb-0">Season Summary</h5>
+                <h3 class="h5 mb-0">Season Summary</h3>
             </div>
             <div class="card-body">
                 <div class="stat-card-value" style="margin-bottom: 0.25rem;">${{ "{:,}".format(current_user.total_points) }}</div>
@@ -324,7 +332,7 @@
         <!-- Used Players -->
         <div class="card sidebar-card mt-3">
             <div class="card-header card-header-muted">
-                <h6 class="mb-0">Used Golfers</h6>
+                <h4 class="h6 mb-0">Used Golfers</h4>
             </div>
             <div class="card-body">
                 {% if used_player_ids %}
@@ -348,16 +356,19 @@
         <!-- Legend -->
         <div class="card sidebar-card mt-3">
             <div class="card-header card-header-muted">
-                <h6 class="mb-0">Legend</h6>
+                <h4 class="h6 mb-0">Legend</h4>
             </div>
             <div class="card-body small">
+                <p class="mb-1"><span class="badge-earnings-projected">$ Projected</span> Live money, not yet final</p>
+                <p class="mb-1"><span class="badge-earnings">$ Banked</span> Settled earnings</p>
+                <p class="mb-1"><span class="badge-major">1.5x</span> Major — points multiplied 1.5x</p>
+                <p class="mb-1"><span class="badge-team">Team</span> Team event (full team payout)</p>
                 <p class="mb-1"><span class="badge-override">👑</span> Admin Override (pick made by commissioner)</p>
                 <p class="mb-1"><span class="badge-backup">🔄</span> Backup Activated (primary withdrew before R2)</p>
                 <p class="mb-1"><span class="badge-used">Used</span> Golfer locked for the season</p>
-                <p class="mb-1"><span class="badge badge-cut">CUT</span> Missed Cut</p>
-                <p class="mb-1"><span class="badge badge-wd">WD</span> Withdrew</p>
-                <p class="mb-1"><span class="badge badge-dq">DQ</span> Disqualified</p>
-                <p class="mb-0"><span class="badge-penalty" title="Missed Major Cut Penalty">Penalty ${{ penalty_per_incident }}</span> Major CUT/DQ penalty</p>
+                <p class="mb-1"><span class="badge badge-cut">CUT</span> Missed Cut &middot; <span class="badge badge-wd">WD</span> Withdrew &middot; <span class="badge badge-dq">DQ</span> Disqualified</p>
+                <p class="mb-1"><span class="badge-penalty" title="Missed Major Cut Penalty">Penalty ${{ penalty_per_incident }}</span> Major CUT/DQ penalty (owed to the pot)</p>
+                <p class="mb-0"><span class="badge-status-active">Active</span> <span class="badge-status-complete">Complete</span> <span class="badge-status-open">Open</span> <span class="badge-status-locked">Locked</span> Tournament status</p>
             </div>
         </div>
     </div>

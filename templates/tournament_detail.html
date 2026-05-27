@@ -144,7 +144,7 @@
     <div class="alert alert-tournament-warning">
         <strong>Tournament In Progress</strong> &mdash; Leaderboard updates at 8 PM Central time.
         <div class="small text-muted">
-            Last synced: {{ tournament.updated_at.strftime('%b %d, %I:%M %p CT') if tournament.updated_at else 'Pending sync' }}
+            Last synced: {{ (tournament.updated_at|to_ct).strftime('%b %d, %I:%M %p') ~ ' CT' if tournament.updated_at else 'Pending sync' }}
         </div>
         <div class="small mt-1">
             <em>Earnings shown are projections based on current standings. Final results updated Monday.</em>
@@ -155,18 +155,20 @@
     <!-- Picks Table -->
     <div class="card">
         <div class="card-header card-header-dark">
-            <h5 class="mb-0">
+            <h4 class="h5 mb-0">
                 {% if tournament.status == 'complete' %}
                     Final Results
                 {% else %}
                     Current Picks &amp; Standings
                 {% endif %}
-            </h5>
+            </h4>
         </div>
         <div class="card-body p-0">
             <!-- MOBILE PICKS CARD LIST -->
             <div class="mobile-card-list px-3 pb-3" style="padding-top: 0.75rem;">
-                {% for result in pick_results %}
+                {% set picked_results = pick_results | selectattr('has_pick') | list %}
+                {% set no_pick_results = pick_results | rejectattr('has_pick') | list %}
+                {% for result in picked_results %}
                 {% set is_me = current_user.is_authenticated and result.user.id == current_user.id %}
                 {% set is_leader = result.points == max_points and result.points > 0 %}
                 <div class="card mb-2 pick-card
@@ -176,16 +178,16 @@
                         <div class="d-flex justify-content-between align-items-start mb-1">
                             <div class="d-flex align-items-center gap-2">
                                 {% if show_picks and result.has_pick %}
-                                    <span class="rank-badge {% if is_leader %}rank-badge-leader{% endif %}">{{ loop.index }}</span>
+                                    <span class="rank-badge {% if is_leader %}rank-badge-leader{% endif %}">{{ result.rank }}</span>
                                 {% endif %}
                                 <div>
                                     <strong>{{ result.user.get_display_name() }}</strong>
-                                    {% if is_me %}<span class="badge-major ms-1">You</span>{% endif %}
+                                    {% if is_me %}<span class="badge-you ms-1">You</span>{% endif %}
                                 </div>
                             </div>
                             <div class="text-end">
                                 {% if result.has_pick and result.points > 0 %}
-                                    <span class="badge-earnings">${{ "{:,}".format(result.points) }}</span>
+                                    <span class="{% if tournament.status == 'complete' %}badge-earnings{% else %}badge-earnings-projected{% endif %}">${{ "{:,}".format(result.points) }}</span>
                                 {% elif result.has_pick and tournament.status == 'complete' %}
                                     <span class="text-muted small">$0</span>
                                 {% elif result.has_pick %}
@@ -232,6 +234,12 @@
                     No picks submitted for this tournament.
                 </div>
                 {% endfor %}
+                {% if no_pick_results and picked_results %}
+                <details class="no-pick-details px-1 pb-1">
+                    <summary class="text-muted small">Didn't pick ({{ no_pick_results|length }})</summary>
+                    <div class="text-muted small mt-1">{% for r in no_pick_results %}{{ r.user.get_display_name() }}{% if not loop.last %}, {% endif %}{% endfor %}</div>
+                </details>
+                {% endif %}
             </div>
             <!-- END MOBILE PICKS CARD LIST -->
 
@@ -252,14 +260,9 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% set ns = namespace(divider_shown=false) %}
-                        {% for result in pick_results %}
-                        {% if show_picks and not result.has_pick and not ns.divider_shown %}
-                        <tr class="no-pick-divider">
-                            <td colspan="{% if show_backup %}6{% else %}5{% endif %}" class="text-muted small text-center py-1">Did not pick</td>
-                        </tr>
-                        {% set ns.divider_shown = true %}
-                        {% endif %}
+                        {% set picked_results = pick_results | selectattr('has_pick') | list %}
+                        {% set no_pick_results = pick_results | rejectattr('has_pick') | list %}
+                        {% for result in picked_results %}
                         <tr class="{% if current_user.is_authenticated and result.user.id == current_user.id %}row-current-user{% endif %}
                                    {% if result.points == max_points and result.points > 0 %}row-leader{% endif %}">
                             <td>
@@ -353,6 +356,16 @@
                             </td>
                         </tr>
                         {% endfor %}
+                        {% if no_pick_results and picked_results %}
+                        <tr class="no-pick-summary">
+                            <td colspan="{% if show_backup %}6{% else %}5{% endif %}" class="py-2">
+                                <details class="no-pick-details">
+                                    <summary class="text-muted small">Didn't pick ({{ no_pick_results|length }})</summary>
+                                    <div class="text-muted small mt-1">{% for r in no_pick_results %}{{ r.user.get_display_name() }}{% if not loop.last %}, {% endif %}{% endfor %}</div>
+                                </details>
+                            </td>
+                        </tr>
+                        {% endif %}
                     </tbody>
                 </table>
             </div>

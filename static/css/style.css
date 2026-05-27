@@ -397,6 +397,18 @@ a:hover { color: var(--green-500); }
   border: 1px solid rgba(184, 153, 62, 0.3);
 }
 
+/* "You" self-marker — identity, not value. Sits in the pine register so it never
+   collides with the gold money/major register (Money-Is-Gold reserves gold). */
+.badge-you {
+  background-color: var(--green-100);
+  color: var(--green-800);
+  font-weight: 700;
+  font-size: 0.7rem;
+  padding: 0.3em 0.6em;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(0, 103, 71, 0.25);
+}
+
 /* Estimated-purse qualifier — a gold-register money chip, not Bootstrap gray.
    "est." is a money qualifier, so it lives in the gold register (Money-Is-Gold),
    never the cool status palette. Legible (>=0.65rem) without the desktop tooltip. */
@@ -840,6 +852,23 @@ footer.footer-greenside a {
   padding: 0.75rem 0;
 }
 
+/* Collapsed "Didn't pick (N)" disclosure — keeps non-pickers out of the paying
+   table without hiding them. A quiet native <details>, never a modal. */
+.no-pick-details > summary {
+  cursor: pointer;
+  list-style: none;
+  font-weight: 600;
+}
+.no-pick-details > summary::-webkit-details-marker { display: none; }
+.no-pick-details > summary::before {
+  content: "\25B8";  /* ▸ */
+  display: inline-block;
+  margin-right: 0.4em;
+  transition: transform 0.15s ease;
+  color: var(--text-muted);
+}
+.no-pick-details[open] > summary::before { transform: rotate(90deg); }
+
 /* ----------------------------------------------------------------------------
    Mobile-Specific
    ---------------------------------------------------------------------------- */
@@ -856,6 +885,15 @@ footer.footer-greenside a {
   .form-control,
   .form-select {
     min-height: 48px;
+  }
+
+  /* Card-footer CTAs are .btn-sm (excluded above) but are primary actions on
+     my_picks — lift them to the 44px tap floor (G9, WCAG 2.5.5). */
+  .mobile-card-list .card-footer .btn {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 
   /* Tighter container padding */

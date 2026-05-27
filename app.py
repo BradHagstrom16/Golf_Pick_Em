@@ -150,6 +150,16 @@ def inject_globals():
     }
 
 
+@app.template_filter('to_ct')
+def to_ct(dt):
+    """Convert a naive-UTC (or aware) datetime to league Central Time for display."""
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(LEAGUE_TZ)
+
+
 # ============================================================================
 # Public Routes
 # ============================================================================

@@ -1,10 +1,14 @@
 """
-Test: desktop standings table ranks only picked rows by earnings; no-pick rows
-are unnumbered and appear below a divider.
+Test: desktop standings table ranks only picked rows by earnings; no-pick users
+are unnumbered and collapsed into a "Didn't pick (N)" disclosure.
 
 Bug (U4 P1): loop.index was used as the rank number, so no-pick rows (earning $0)
 received sequential position numbers, causing non-pickers to appear at positions
 above pickers with identical $0 earnings, and obscuring correct competition ranking.
+
+U4 P2 (Phase 3): the no-pick rows that previously sat below a "Did not pick" divider
+are now collapsed into a single muted "Didn't pick (N)" <details> disclosure listing
+the non-pickers' names, so they never occupy a numbered paying row.
 """
 from datetime import datetime, timedelta, timezone
 
@@ -35,8 +39,8 @@ class TestTournamentDetailRanking:
     ):
         """
         Complete tournament: m1 ($1M), m2 ($500k), m3 (no pick).
-        Picked rows must be ranked 1 and 2 with <strong>; m3 must appear AFTER the
-        'Did not pick' divider and must NOT have a rank number.
+        Picked rows must be ranked 1 and 2 with <strong>; m3 must appear in the
+        "Didn't pick" collapse (after the picked rows) and must NOT have a rank number.
         """
         # Users
         admin = make_user(username='ranking_admin', is_admin=True)
@@ -74,27 +78,21 @@ class TestTournamentDetailRanking:
         html = resp.get_data(as_text=True)
         desktop = _desktop(html)
 
-        # Divider must be present
-        assert 'Did not pick' in desktop, 'Divider row "Did not pick" missing from desktop table'
+        # No-pick collapse must be present ("Didn't pick (N)"; admin is also a non-picker)
+        assert "Didn't pick (" in desktop, 'No-pick "Didn\'t pick (N)" collapse missing from desktop table'
 
         # Picked rows must show competition ranks 1 and 2
         assert '<strong>1</strong>' in desktop, 'Rank 1 missing from desktop table'
         assert '<strong>2</strong>' in desktop, 'Rank 2 missing from desktop table'
 
-        # m3 (no-pick) must appear AFTER the divider
-        assert desktop.index('Did not pick') < desktop.index(m3.get_display_name()), (
-            'm3 (no-pick user) must appear after the "Did not pick" divider'
+        # m3 (no-pick) must appear inside the collapse, after the picked rows
+        assert desktop.index("Didn't pick") < desktop.index(m3.get_display_name()), (
+            'm3 (no-pick user) must appear in the "Didn\'t pick" collapse, after the picked rows'
         )
 
-        # The segment after the divider must NOT contain a rank number in <strong>
-        after = desktop.split('Did not pick', 1)[1]
-        assert '<strong>3</strong>' not in after, (
-            'No-pick row must not receive rank 3 — found <strong>3</strong> after divider'
-        )
-
-        # No-pick segment must contain the unranked marker (em-dash)
-        assert '—' in after, (
-            'No-pick row must display the unranked marker — not found after divider'
+        # No-pick users must never receive a paying rank number
+        assert '<strong>3</strong>' not in desktop, (
+            'No-pick user must not receive rank 3 — found <strong>3</strong> in the table'
         )
 
     def test_shared_ties_get_same_rank(
@@ -103,7 +101,7 @@ class TestTournamentDetailRanking:
         """
         m1 $1M (rank 1), m2 $500k (rank 2), m3 $500k (rank 2), m4 no pick.
         The two $500k rows must both show rank 2; rank 3 must NOT appear;
-        m4 (no pick) must sit after the divider and be unranked.
+        m4 (no pick) must sit in the "Didn't pick" collapse and be unranked.
         """
         admin = make_user(username='tie_admin', is_admin=True)
         m1 = make_user(username='tie_m1')
@@ -155,7 +153,8 @@ class TestTournamentDetailRanking:
             'Rank 3 must not appear — tied rank-2 entries skip to 4'
         )
 
-        # m4 (no-pick) must be after the divider and unranked
-        assert 'Did not pick' in desktop, 'Divider row missing from desktop table'
-        after = desktop.split('Did not pick', 1)[1]
-        assert '—' in after, 'No-pick row must show unranked marker (—) after divider'
+        # m4 (no-pick) must be in the "Didn't pick" collapse and unranked
+        assert "Didn't pick (" in desktop, 'No-pick collapse missing from desktop table'
+        assert desktop.index("Didn't pick") < desktop.index(m4.get_display_name()), (
+            'm4 (no-pick user) must appear in the "Didn\'t pick" collapse, after the picked rows'
+        )
