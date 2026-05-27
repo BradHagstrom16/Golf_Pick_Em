@@ -137,12 +137,12 @@ This is the parameterized procedure each unit instantiates. Tasks 3–4 fill it 
    - Evaluate within **SCOPE**: AI-slop verdict; Nielsen's 10 heuristics scored 0–4 each with key issue; cognitive-load 8-item checklist (report failure count + band); emotional journey (peak-end, anxiety valleys); 2–3 what's-working; 3–5 priority issues (what / why / fix, each P0–P3); persona red flags for **PERSONAS**; minor observations; provocative questions.
    - Return structured markdown only. Do NOT write any file.
 
-3. **Assessment B — deterministic detection (parent):**
-   - For each file in **PAGES**: `npx impeccable --json templates/<file>` and capture JSON (exit 0 = clean, 2 = findings).
-   - Start overlay server in background: `npx impeccable live` — note the printed PORT.
-   - In a NEW tab: `navigate_page` to **URL**; `document.title = '[Human] ' + document.title`; scroll to top; inject `const s=document.createElement('script');s.src='http://localhost:PORT/detect.js';document.head.appendChild(s);` via `evaluate_script`; wait 3s.
-   - `list_console_messages` filtered for `impeccable`; capture findings. Note false positives (Jinja artifacts, intentional `.column-divider` border-left).
-   - Stop server: `npx impeccable live stop`.
+3. **Assessment B — deterministic detection (parent):** _(CLI reality, corrected in Session A — the installed `impeccable` has no `--json <file>` form and no `live` overlay server; `/live` is an AI-harness slash command, not a CLI.)_
+   - **Primary — live-URL render:** `npx impeccable detect --json <URL>` (Puppeteer renders real linked CSS). **JSON is written to stderr; exit code 2 = findings, 0 = clean.** Capture with `> out.raw 2>&1` then slice from the first `[`. NOTE: the URL render is **anonymous** — for `@login_required` / `@admin` routes it hits the login redirect, so for those pages fall back to (a) scanning the rendered HTML another way and (b) a logged-in `[Human]`-tab screenshot for the visual; public routes (`/`, `/schedule`, `/login`, `/register`, `/tournament/<id>`) render fully.
+   - **Secondary — file scan:** `npx impeccable detect --json templates/<file>` is weak for these templates (jsdom can't resolve the Jinja `{{ url_for }}` stylesheet link → usually returns `[]`); run it only as a cross-check, don't rely on it.
+   - **Visual (replaces the nonexistent overlay):** in a NEW tab `navigate_page` to **URL** (shares the logged-in session), `document.title = '[Human] ' + document.title`, `take_screenshot` (and a phone-width `resize_page` + screenshot where mobile matters). Read findings off the detector JSON, not a console overlay.
+   - Note false positives (Jinja artifacts; the intentional `.column-divider` `border-left`; the brand **green** gradient that the detector misreads as a "Cyan gradient").
+   - No server to stop (no `live` process).
 
 4. **Synthesize combined report (parent):** Merge A + B into the standard critique report — Nielsen scorecard table `/40`; Anti-Patterns verdict (LLM + detector + overlay summary); Overall impression; What's working; Priority issues (P0–P3, each with a **suggested impeccable command**); Persona red flags; Minor observations; Questions. Tag each priority issue **[global]** (recurs / traces to shell/tokens/CSS) or **[local]**.
 
