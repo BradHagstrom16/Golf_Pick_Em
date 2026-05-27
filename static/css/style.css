@@ -247,13 +247,10 @@ a:hover { color: var(--green-500); }
   background-color: var(--green-50);
 }
 
-/* Current user row highlighting */
+/* Current user row highlighting — warm gold fill + heavier text, no side stripe */
 .table-greenside .row-current-user > td {
-  background-color: var(--gold-100) !important;
-  border-left: 3px solid var(--gold-500);
-}
-.table-greenside .row-current-user > td:first-child {
-  border-left: 3px solid var(--gold-500);
+  background-color: rgba(184, 153, 62, 0.14) !important;
+  font-weight: 600;
 }
 
 /* Leader row */
@@ -585,17 +582,10 @@ footer.footer-greenside a {
   .desktop-table-wrap { display: none !important; }
 }
 
-/* Pick cards — custom palette borders */
+/* Pick cards — status conveyed by header treatment + status badge, not a side stripe */
 .pick-card {
-  border-left: 4px solid var(--green-700);
   border-radius: var(--radius-md);
   overflow: hidden;
-}
-.pick-card.active-tournament {
-  border-left-color: var(--status-active);
-}
-.pick-card.complete {
-  border-left-color: var(--status-complete);
 }
 
 .pick-card .card-header {
@@ -606,6 +596,21 @@ footer.footer-greenside a {
 
 .pick-card .card-footer {
   border-top: 1px solid rgba(0, 67, 46, 0.06);
+}
+
+/* Active tournament is this week's pick: lift it and warm the header so it reads first */
+.pick-card.active-tournament {
+  border-color: rgba(0, 103, 71, 0.22);
+  box-shadow: var(--shadow-md);
+}
+.pick-card.active-tournament .card-header {
+  background-color: var(--green-100);
+  border-bottom-color: rgba(0, 103, 71, 0.12);
+}
+
+/* Complete is settled: keep the header quiet and muted */
+.pick-card.complete .card-header {
+  background-color: #f4f5f6;
 }
 
 /* Current user card highlight */

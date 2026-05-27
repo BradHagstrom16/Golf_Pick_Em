@@ -1,0 +1,156 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-05-26T00:00:00Z",
+  "title": "Design System: Golf Pick 'Em",
+  "extensions": {
+    "colorMeta": {
+      "pinehurst-pine": { "role": "primary", "displayName": "Pinehurst Pine", "canonical": "#006747", "tonalRamp": ["#00261a", "#00432e", "#005c3f", "#006747", "#007a54", "#1a8a6a", "#4da88a", "#a7d6c4"] },
+      "clubhouse-gold": { "role": "secondary", "displayName": "Clubhouse Gold", "canonical": "#b8993e", "tonalRamp": ["#3f3110", "#5e4a18", "#7c6321", "#92722a", "#b8993e", "#c4a747", "#d4be6a", "#faf3e0"] },
+      "cream": { "role": "neutral", "displayName": "Cream Paper", "canonical": "#faf8f4", "tonalRamp": ["#2a2823", "#4a473f", "#6e6a60", "#8b8579", "#b5afa2", "#ddd8cd", "#f0ede6", "#faf8f4"] },
+      "ink": { "role": "neutral", "displayName": "Warm Ink", "canonical": "#1a1f25", "tonalRamp": ["#1a1f25", "#2f353c", "#4a5568", "#6b7280", "#8b95a2", "#b6bdc6", "#dde1e6", "#f7f8f9"] },
+      "live-blue": { "role": "tertiary", "displayName": "Live Blue", "canonical": "#2563eb", "tonalRamp": ["#0a1f52", "#12317e", "#1a44ab", "#2563eb", "#4f82f0", "#7da5f5", "#acc6f9", "#dbe7fd"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Error numerals and the largest ceremonial moments only." },
+      "headline": { "displayName": "Headline", "purpose": "Page titles (h2). The primary screen heading." },
+      "title": { "displayName": "Title", "purpose": "Section headings, stat-card values, navbar brand, standalone hero numbers." },
+      "body": { "displayName": "Body", "purpose": "All running text, table cells, form labels. Cap at 65-75ch." },
+      "label": { "displayName": "Label", "purpose": "Uppercase table headers and stat-card captions. The only tracked type." }
+    },
+    "shadows": [
+      { "name": "resting", "value": "0 1px 3px rgba(0, 67, 46, 0.08)", "purpose": "Default for cards and stat cards. A whisper of separation from the cream ground." },
+      { "name": "lifted", "value": "0 4px 12px rgba(0, 67, 46, 0.10)", "purpose": "Card hover, dropdown menus, Tom Select dropdowns. The interactive response." },
+      { "name": "floating", "value": "0 8px 24px rgba(0, 67, 46, 0.12)", "purpose": "Deepest step, for prominent lifted surfaces." },
+      { "name": "button-glow", "value": "0 2px 8px rgba(0, 103, 71, 0.25)", "purpose": "Soft green glow under a primary button on hover." }
+    ],
+    "motion": [
+      { "name": "ease-quick", "value": "0.15s ease", "purpose": "Color and shadow transitions on buttons, links, nav." },
+      { "name": "ease-progress", "value": "width 0.6s ease-in-out", "purpose": "Progress-bar fill." }
+    ],
+    "breakpoints": [
+      { "name": "mobile-max", "value": "767.98px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The default commit action: submit a pick, save.",
+      "html": "<button class=\"ds-btn-greenside\">Submit Pick</button>",
+      "css": ".ds-btn-greenside { background: #006747; color: #f7f8f9; border: none; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-weight: 600; padding: 0.5rem 1.1rem; border-radius: 6px; transition: background 0.15s ease, box-shadow 0.15s ease; cursor: pointer; } .ds-btn-greenside:hover { background: #007a54; box-shadow: 0 2px 8px rgba(0, 103, 71, 0.25); } .ds-btn-greenside:focus-visible { outline: none; box-shadow: 0 0 0 0.2rem rgba(0, 103, 71, 0.25); }"
+    },
+    {
+      "name": "Gold Button",
+      "kind": "button",
+      "refersTo": "button-gold",
+      "description": "Reserved for special or celebratory actions, never a routine default.",
+      "html": "<button class=\"ds-btn-gold\">Pay Entry Fee</button>",
+      "css": ".ds-btn-gold { background: #b8993e; color: #00432e; border: none; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-weight: 600; padding: 0.5rem 1.1rem; border-radius: 6px; transition: background 0.15s ease; cursor: pointer; } .ds-btn-gold:hover { background: #c4a747; }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "The secondary action; fills solid green on hover.",
+      "html": "<button class=\"ds-btn-outline\">View Field</button>",
+      "css": ".ds-btn-outline { background: transparent; color: #006747; border: 1.5px solid #006747; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-weight: 600; padding: 0.5rem 1.1rem; border-radius: 6px; transition: background 0.15s ease, color 0.15s ease; cursor: pointer; } .ds-btn-outline:hover { background: #006747; color: #f7f8f9; }"
+    },
+    {
+      "name": "Earnings Badges",
+      "kind": "chip",
+      "refersTo": "badge-earnings",
+      "description": "Final earnings ride green; projected (live, not settled) earnings ride gold.",
+      "html": "<span class=\"ds-badge-earnings\">$1,512,000</span> <span class=\"ds-badge-projected\">$842,500</span>",
+      "css": ".ds-badge-earnings, .ds-badge-projected { display: inline-block; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-weight: 600; font-size: 0.85rem; padding: 0.35em 0.7em; border-radius: 6px; } .ds-badge-earnings { background: #006747; color: #f7f8f9; } .ds-badge-projected { background: #c4a747; color: #00432e; }"
+    },
+    {
+      "name": "Major Badge",
+      "kind": "chip",
+      "refersTo": "badge-major",
+      "description": "Marks a major championship (1.5x multiplier).",
+      "html": "<span class=\"ds-badge-major\">MAJOR</span>",
+      "css": ".ds-badge-major { display: inline-block; background: #faf3e0; color: #92722a; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-weight: 700; font-size: 0.7rem; letter-spacing: 0.03em; padding: 0.3em 0.6em; border-radius: 6px; border: 1px solid rgba(184, 153, 62, 0.3); }"
+    },
+    {
+      "name": "Card with Green Header",
+      "kind": "card",
+      "refersTo": "card-header-green",
+      "description": "Primary content card on the cream ground; flat at rest, lifts on hover.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-card-header\">Standings</div><div class=\"ds-card-body\">Leaderboard content.</div></div>",
+      "css": ".ds-card { background: #ffffff; border: 1px solid rgba(0, 67, 46, 0.08); border-radius: 10px; box-shadow: 0 1px 3px rgba(0, 67, 46, 0.08); overflow: hidden; transition: box-shadow 0.2s ease; max-width: 360px; } .ds-card:hover { box-shadow: 0 4px 12px rgba(0, 67, 46, 0.10); } .ds-card-header { background: #006747; color: #f7f8f9; font-family: 'DM Serif Display', Georgia, serif; font-size: 1.2rem; padding: 0.75rem 1.25rem; } .ds-card-body { padding: 1.25rem; color: #1a1f25; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; }"
+    },
+    {
+      "name": "Leaderboard Table Header",
+      "kind": "custom",
+      "refersTo": "table-header",
+      "description": "The signature surface: dark-green header with uppercase label type over a striped body.",
+      "html": "<table class=\"ds-table\"><thead><tr><th>Rank</th><th>Member</th><th>Earnings</th></tr></thead><tbody><tr><td>1</td><td>A. Palmer</td><td>$2,140,000</td></tr><tr><td>2</td><td>J. Nicklaus</td><td>$1,980,500</td></tr></tbody></table>",
+      "css": ".ds-table { width: 100%; border-collapse: separate; border-spacing: 0; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; background: #ffffff; } .ds-table thead th { background: #005c3f; color: #f7f8f9; font-weight: 600; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.7rem 0.75rem; text-align: left; border-bottom: 2px solid #00432e; } .ds-table tbody td { padding: 0.6rem 0.75rem; color: #1a1f25; border-bottom: 1px solid rgba(0, 67, 46, 0.06); } .ds-table tbody tr:nth-child(even) td { background: #faf8f4; } .ds-table tbody tr:hover td { background: #f0faf5; }"
+    },
+    {
+      "name": "Stat Card",
+      "kind": "card",
+      "refersTo": "stat-card",
+      "description": "Compact single-number display with ledger gravity: uppercase label over a serif value.",
+      "html": "<div class=\"ds-stat\"><div class=\"ds-stat-label\">Purse</div><div class=\"ds-stat-value\">$20,500,000</div></div>",
+      "css": ".ds-stat { text-align: center; background: #ffffff; border: 1px solid rgba(0, 67, 46, 0.08); border-radius: 10px; box-shadow: 0 1px 3px rgba(0, 67, 46, 0.08); padding: 1.25rem 1rem; max-width: 220px; } .ds-stat-label { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-size: 0.8rem; color: #8b95a2; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; margin-bottom: 0.35rem; } .ds-stat-value { font-family: 'DM Serif Display', Georgia, serif; font-size: 1.75rem; color: #006747; line-height: 1.1; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": null,
+      "description": "Standard field with a faint green stroke and a soft green focus ring.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Search golfer\" />",
+      "css": ".ds-input { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-size: 1rem; color: #1a1f25; background: #ffffff; border: 1px solid rgba(0, 67, 46, 0.15); border-radius: 6px; padding: 0.5rem 0.75rem; min-width: 240px; } .ds-input::placeholder { color: #8b95a2; } .ds-input:focus { outline: none; border-color: #4da88a; box-shadow: 0 0 0 0.2rem rgba(0, 103, 71, 0.15); }"
+    },
+    {
+      "name": "Status Pills",
+      "kind": "chip",
+      "refersTo": null,
+      "description": "Tournament state vocabulary; blue/gray are role-locked to status.",
+      "html": "<span class=\"ds-pill ds-pill-active\">Live</span> <span class=\"ds-pill ds-pill-complete\">Complete</span> <span class=\"ds-pill ds-pill-open\">Open</span>",
+      "css": ".ds-pill { display: inline-block; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-weight: 600; font-size: 0.75rem; padding: 0.3em 0.65em; border-radius: 6px; } .ds-pill-active { background: #2563eb; color: #fff; } .ds-pill-complete { background: #6b7280; color: #fff; } .ds-pill-open { background: #e8f5ef; color: #006747; border: 1px solid rgba(0, 103, 71, 0.2); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Greenside Ledger",
+    "overview": "A heritage-golf clubhouse rendered as software. Deep Augusta-adjacent greens carry the structure, warm gold marks the things worth celebrating, and everything sits on a soft cream paper. The serif display face gives section headings the weight of a printed scorecard, while a humanist sans keeps dense earnings data legible at a glance on a phone. This is a money game, and the numbers are real dollars, so the system treats every earnings figure with the gravity of a financial ledger rather than the flash of a betting slate. The mood is confident and a little ceremonial, never loud. Surfaces rest nearly flat, lifting only in response to a hover or state change. Color is deployed by role, not for decoration: green is the institution, gold is the reward, and blues and grays are reserved strictly for live and completed status.",
+    "keyCharacteristics": [
+      "Augusta-inspired green structure, warm gold reward accents, cream paper ground",
+      "Serif display headings (DM Serif Display) over humanist sans body (Plus Jakarta Sans)",
+      "Flat at rest, soft green-tinted lift on hover",
+      "Money and majors always read in the gold register; status reads in blue/gray",
+      "Glanceable on a phone, in sunlight, mid-banter"
+    ],
+    "rules": [
+      { "name": "The Money-Is-Gold Rule", "body": "Gold is reserved for value: the leader, majors, the user's points total, projected and final earnings. It never appears as generic decoration. When you see gold, money or rank is involved.", "section": "colors" },
+      { "name": "The Status-Is-Cool Rule", "body": "Blue and gray exist only to signal tournament state (live, complete). They are forbidden as accent or decoration. The warm green/gold palette owns everything else.", "section": "colors" },
+      { "name": "The No-Pure-Black, No-Pure-White Rule", "body": "Text is Ink (#1a1f25), grounds are Cream (#faf8f4) and White (#ffffff). Pure #000 and #fff are prohibited.", "section": "colors" },
+      { "name": "The Serif-For-Gravity Rule", "body": "Headings, the brand, and standalone hero numbers use DM Serif Display. Body and data tables stay in Plus Jakarta Sans for legibility. Never set a long table in the serif.", "section": "typography" },
+      { "name": "The Uppercase-Label Rule", "body": "Small uppercase labels (0.8rem, 0.05em tracking, weight 600) are the only place letter-spacing opens up. Body text never gets tracked.", "section": "typography" },
+      { "name": "The Lift-On-Response Rule", "body": "Cards are flat at rest and rise to Lifted only on hover. Elevation is feedback, not decoration. A card that floats before you touch it is wrong.", "section": "elevation" },
+      { "name": "The Green-Tint Rule", "body": "Every shadow is tinted with the brand green (rgba(0, 67, 46, ...)). Neutral gray drop shadows are prohibited; they read as generic SaaS chrome.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do ground every screen on Cream (#faf8f4); lift cards and tables to White (#ffffff).",
+      "Do reserve gold for value: the leader, majors, the user's points, and earnings (projected gold, final green).",
+      "Do set headings and standalone hero numbers in DM Serif Display; keep tables and body in Plus Jakarta Sans.",
+      "Do tint every shadow with brand green (rgba(0, 67, 46, ...)) and keep surfaces flat until hover.",
+      "Do reserve status colors (Live Blue #2563eb, Complete Gray #6b7280) strictly for tournament state.",
+      "Do make the one number that matters (rank, active pick, deadline) readable at a glance on a phone in sunlight; hold AA contrast and large tap targets.",
+      "Do make pick state unambiguous: backup activation, withdrawals, major 1.5x, and missed-cut penalties must each be plainly legible."
+    ],
+    "donts": [
+      "Don't drift into a generic SaaS dashboard: no cream-and-blue startup template, no hero-metric tiles, no identical icon-and-heading card grids, nothing that reads as 'an AI made this.'",
+      "Don't drift into a corporate enterprise tool: no cold, dense, gray admin-panel feel. Admin surfaces keep the clubhouse warmth.",
+      "Don't introduce sportsbook loudness: no neon, no flashing promos, no gamble-y urgency.",
+      "Don't use neutral gray drop shadows; they read as generic chrome. Green-tinted only.",
+      "Don't use pure #000 or pure #fff anywhere. Ink and Cream/White instead.",
+      "Don't use a colored side-stripe (border-left greater than 1px) as a decorative accent; use a full hairline border or a background tint.",
+      "Don't apply gold as a generic accent or blue/gray as decoration; both are role-locked.",
+      "Don't set long data tables in the serif display face; legibility wins.",
+      "Don't float cards before interaction; elevation is a response, not a resting state."
+    ]
+  }
+}
