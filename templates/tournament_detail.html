@@ -144,7 +144,7 @@
     <div class="alert alert-tournament-warning">
         <strong>Tournament In Progress</strong> &mdash; Leaderboard updates at 8 PM Central time.
         <div class="small text-muted">
-            Last synced: {{ tournament.updated_at.strftime('%b %d, %I:%M %p CT') if tournament.updated_at else 'Pending sync' }}
+            Last synced: {{ (tournament.updated_at|to_ct).strftime('%b %d, %I:%M %p') ~ ' CT' if tournament.updated_at else 'Pending sync' }}
         </div>
         <div class="small mt-1">
             <em>Earnings shown are projections based on current standings. Final results updated Monday.</em>
