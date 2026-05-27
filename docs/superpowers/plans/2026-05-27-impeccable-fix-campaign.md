@@ -144,6 +144,8 @@ git commit -m "test: add authenticated client + login fixtures"
 
 **Bug:** `tournament_detail.html:287-289,310-312` gate the desktop penalty badge on `result.penalty_triggered and (result.active_is_primary or result.active_is_backup)`; on un-finalized live majors `active_player_id` is null, so both flags are false and the badge never renders on desktop — while the mobile card (`:211`) and the desktop legend both show it. Trust-surface failure: a $15 debt the legend advertises is silently hidden.
 
+> **CORRECTED 2026-05-27 (Session S1) against the real template.** The desktop penalty badge is NOT one combined conditional — it lives in TWO mutually-exclusive cells: the **primary-pick column** (`:287`, gated `active_is_primary`) and the **backup-pick column** (`:310`, gated `active_is_backup`). So Step 3's literal "change to `{% if result.penalty_triggered %}`" would render the badge in BOTH columns (a double-render regression on finalized picks). The correct fix keys each cell on `backup_activated` (mirroring the mobile card's `backup_activated ? backup : primary` golfer selection at `:203`), so the badge renders exactly once next to the active golfer — and on a live major (`backup_activated=False` for a CUT) it shows in the primary column, fixing the bug. The now-unused `active_is_primary`/`active_is_backup` view-model keys were removed from the route. Also: the mobile card list renders BEFORE the desktop table and the legend (which always contains `badge-penalty`) renders AFTER it, so Step 1's `html.split('mobile-card-list')[0]` slice is wrong — isolate the desktop block via `desktop-table` … `</table>` instead. As shipped (commits afd6a23 + 5d65c42, tests `tests/test_tournament_detail_penalty.py`).
+
 **Files:**
 - Test: `tests/test_tournament_detail_penalty.py`
 - Modify: `templates/tournament_detail.html:287-289,310-312`
@@ -175,9 +177,7 @@ Expected: FAIL — `badge-penalty` absent from the desktop slice (current gate s
 
 - [ ] **Step 3: Fix the template gate**
 
-In `templates/tournament_detail.html` at the two desktop penalty conditionals (`:287-289` and `:310-312`), change the gate from
-`{% if result.penalty_triggered and (result.active_is_primary or result.active_is_backup) %}`
-to `{% if result.penalty_triggered %}` — matching the mobile gate at `:211`. Do not touch the resolve/earnings logic; this is display only.
+In `templates/tournament_detail.html`, key each of the two desktop penalty cells on `backup_activated` (see the CORRECTED note above — NOT a bare `penalty_triggered`, which double-renders): primary-pick cell (`:287`) → `{% if result.penalty_triggered and not result.backup_activated %}`; backup-pick cell (`:310`) → `{% if result.penalty_triggered and result.backup_activated %}`. This matches the mobile card's active-golfer selection and renders the badge exactly once. Do not touch the resolve/earnings logic; this is display only.
 
 - [ ] **Step 4: Run it to verify it passes**
 
