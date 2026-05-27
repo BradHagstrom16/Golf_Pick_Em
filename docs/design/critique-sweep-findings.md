@@ -705,3 +705,37 @@ Applied the Phase 3 master-table fixes to the four core-loop page templates (+ p
 - `tournament_detail` (`/tournament/23`, active major) — **6 gold projected / 0 green** mobile pills (was 6 green); `.badge-you` renders pine (`#005c3f` on `#e8f5ef`), no gold collision; **"Didn't pick (11)"** `<details>` collapse, 0 full no-pick rows in the desktop table; desktop **Penalty $15** badges render (Phase-1 P0 holds); shared-rank ties (7,7); major alert legible.
 - `my_picks` — 1 gold projected + 16 green on **both** desktop and mobile (mobile was 17× bare green); desktop `<tr>`: 1 `row-active-tournament` + 19 `row-complete` (was dead CSS); 2× "Watch Live" links on the active row; Legend extended; all 32 mobile card-footer CTAs measured **44px**; h2→h3→h4 headings.
 - **Brand guardrail held:** Pinehurst Pine and the green gradients untouched; the two green-gradient FPs stayed filtered.
+
+### Phase 4 verification (Session S4 — lighter public; branch `fix/phase4-lighter-public`)
+
+Applied the Phase 4 master-table fixes to the public page templates (+ page-specific CSS) and re-verified. Scope: `schedule.html`, `login.html`, `register.html`, `change_password.html`, `errors/404.html`, `errors/500.html`, `static/css/style.css` only (no base.html, no admin, no routes/models/money logic). All 52 tests still pass.
+
+**Deterministic detector delta** — auth trio via `.critique_shots/harness.py` (same green-gradient FP filter); schedule + error pages via live/harness `impeccable detect`:
+
+| Page | Before (S3) | After (S4) | Δ | Remaining (post-filter) |
+|------|-------------|------------|---|--------------------------|
+| login | 0 | 0 | — | clean |
+| register | 0 | 0 | — | clean |
+| change_password | 0 | 0 | — | clean |
+| schedule | 1 FP only | 0 | — | clean (est. chip already gold from Phase 2; no new findings) |
+| errors/404 | FP + low-contrast 2.9:1 lead | 0 | −1 | clean (lead → Slate ~7:1) |
+| errors/500 | FP + low-contrast 2.9:1 lead | 0 | −1 | clean (lead → Slate; the added contact copy's transient `line-length` resolved by a 34rem text-column cap) |
+
+- **Auth-trio deterministic target MET:** login/register/change_password stay at **0 findings** post-filter — no regression from the modal removal, the autocomplete attributes, the h4→h1 promotion, or the auth-card float fix. The harness's other PAGES (make_pick `line-length×1`, my_picks 0, tournaments 0, users `skipped-heading×1`, payments 0) are unchanged — untouched by Phase 4.
+- **Error-page [G1] lead cleared (G1 application):** both 404 and 500 dropped their `low-contrast` 2.9:1 lead finding. The recovery line now points at Slate `--text-secondary #4a5568` (~7:1) via a page-scoped `.error-page .lead` rule, reserving muted Stone for the tertiary contact line.
+- **500 `line-length`** appeared transiently after adding the contact sentence (detector measured ~159 ch on the uncapped centered column); fixed at the root per the detector's own guidance + DESIGN's 65–75ch cap with `max-width:34rem; margin-inline:auto` on `.error-page` — a real readability fix, not a filter.
+
+**Re-critique (Nielsen `/40`, qualitative):**
+
+| Page | Before | After | Heuristics lifted |
+|------|--------|-------|-------------------|
+| schedule | 28 | **31** | H1 +1 (current-week anchor — the pine "Next pick" marker + mint-tint lift on Charles Schwab #20 + a mobile jump-to-this-week link mark the live edge; was "no anchor to scroll to"); H4 +1 (desktop/mobile label parity — "1.5x Major"/"Team Event"/"In Progress" now on both breakpoints; est. chip already gold from Phase 2); H7 +1 (jump link + harder-dimmed Complete tail on mobile cut the 32-row scan) |
+| auth trio | 25 | **32** | Phase-4 direct: H3 +1 (Forgot-pw inline `<details>` replaces the dead-end modal — an inline recovery path); H5 +1 and H7 +1 (autocomplete enables password-manager typo-prevention + autofill/generate/save accelerators); H8 +1 (auth-card rests at shadow-sm + green hairline, lifts on hover — no longer floats; headers promoted to `<h1>`); H10 +1 (Forgot-pw now names commissioner Brad with a mailto + tel). Inherited from the already-merged Phases 1–2: H9 +1 (register repopulation, P0) and H1 +1 (flash `role="alert"`/`aria-live`, G10). |
+| errors/404, /500 | — (too small to score /40) | copy + recovery improved | 404 lead now AA-legible (Slate). 500 gains a real recovery path: "Try again" reloads the failed URL (`request.path`) alongside "Back to Standings" (two actions, clubhouse-quiet), a reassurance lead ("Your picks and standings are safe" — answers the Sunday "did my pick break?" fear), and a low-key named commissioner contact (mailto + tel). |
+
+**Visual verification (chrome-devtools MCP, desktop 1280 + 390px; logged OUT for login/register):**
+- `schedule` — desktop: Charles Schwab Challenge #20 carries the pine "Next pick" badge + mint-tint row lift; "1.5× Major" on PGA/U.S. Open, "Team Event" on Zurich, gold-wash "est." chips on the two majors; U.S. Open #23 sits in its real June slot (no active row, so the anchor falls to the next open-upcoming). Mobile: jump-to-this-week link shows (`d-md-none`, href `#current-week`); #20 card lifts (green header + shadow-md); Complete cards measured opacity 0.6; labels carry "1.5x Major"/"Team Event".
+- `login` — `<h1>` "Login" at 1.5rem in paper-on-dark; `.auth-card` box-shadow = shadow-sm (`0 1px 3px rgba(0,67,46,0.08)`) + 1px green hairline (rests flat, lifts on hover); modal removed from the DOM; the `<details>` "Forgot your password?" expands to name Brad + `mailto:bhagstrom0@gmail.com` + `tel:+16304083424`; `autocomplete="username"`/`current-password`.
+- `register` — `<h1>` "Join the League"; card shadow-sm; `autocomplete` username/email/nickname/new-password/new-password.
+- `errors/404` (live `/tournament/99999`) + `errors/500` (Flask-rendered harness file) — leads legible in Slate; 500 shows the two-action recovery + named contact, text column capped so the copy wraps.
+- **Brand guardrail held:** Pinehurst Pine + the green gradients untouched; the two green-gradient FPs stayed filtered. The "Next pick" marker uses pine (a go/act call), not a cool status hue, respecting Status-Is-Cool + Money-Is-Gold.

@@ -324,6 +324,12 @@ a:hover { color: var(--green-500); }
   opacity: 0.85;
 }
 
+/* Next-pick row (the schedule's "current week" anchor when nothing is live) —
+   a mint-tint lift so the live edge reads first across 32 settled rows. */
+.table-greenside tr.row-next-pick > td {
+  background-color: var(--green-100) !important;
+}
+
 /* ----------------------------------------------------------------------------
    Badges — Custom Palette
    ---------------------------------------------------------------------------- */
@@ -428,6 +434,18 @@ a:hover { color: var(--green-500); }
 .badge-team {
   background-color: rgba(37, 99, 235, 0.1);
   color: var(--status-active);
+  font-weight: 600;
+  font-size: 0.7rem;
+  padding: 0.3em 0.6em;
+  border-radius: var(--radius-sm);
+}
+
+/* "Next pick" marker — the one tournament to act on. Pine (go/act), not a
+   cool status hue, so it reads as a call to action rather than a state. */
+.badge-next-pick {
+  display: inline-block;
+  background-color: var(--green-700);
+  color: var(--text-on-dark);
   font-weight: 600;
   font-size: 0.7rem;
   padding: 0.3em 0.6em;
@@ -692,6 +710,8 @@ footer.footer-greenside a {
   .mobile-card-list { display: block; }
   .desktop-table { display: none !important; }
   .desktop-table-wrap { display: none !important; }
+  /* Push the schedule's settled tail back harder on the phone so the live edge leads */
+  .schedule-list .pick-card.complete { opacity: 0.6; }
 }
 
 /* Pick cards — status conveyed by header treatment + status badge, not a side stripe */
@@ -720,10 +740,31 @@ footer.footer-greenside a {
   border-bottom-color: rgba(0, 103, 71, 0.12);
 }
 
+/* Next pick is the one to act on: same lift as the live card so it reads first */
+.pick-card.next-pick {
+  border-color: rgba(0, 103, 71, 0.3);
+  box-shadow: var(--shadow-md);
+}
+.pick-card.next-pick .card-header {
+  background-color: var(--green-100);
+  border-bottom-color: rgba(0, 103, 71, 0.12);
+}
+
 /* Complete is settled: keep the header quiet and muted */
 .pick-card.complete .card-header {
   background-color: #f4f5f6;
 }
+
+/* Jump-to-this-week shortcut (mobile only — 32 cards is a long thumb-scroll) */
+.schedule-jump {
+  display: inline-block;
+  margin: 0.25rem 0 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--green-700);
+  text-decoration: none;
+}
+.schedule-jump:hover { text-decoration: underline; }
 
 /* Current user card highlight */
 .card-highlight-user {
@@ -804,30 +845,62 @@ footer.footer-greenside a {
 /* ----------------------------------------------------------------------------
    Auth Pages (Login / Register / Change Password)
    ---------------------------------------------------------------------------- */
+/* Rest flat (shadow-sm + a green hairline), lift only on hover — Lift-On-Response,
+   DESIGN.md: a card that floats before you touch it is wrong. */
 .auth-card {
-  border: none;
-  box-shadow: var(--shadow-md);
+  border: 1px solid rgba(0, 67, 46, 0.08);
+  box-shadow: var(--shadow-sm);
   border-radius: var(--radius-lg);
   overflow: hidden;
+  transition: box-shadow 0.15s ease;
+}
+.auth-card:hover {
+  box-shadow: var(--shadow-md);
 }
 .auth-card .card-header-green {
   text-align: center;
   padding: 1.5rem;
 }
-.auth-card .card-header-green h4 {
+/* Level-agnostic so the header can be an <h1> (document structure) styled down
+   to the title scale — same visual as the old <h4>. */
+.auth-card .card-header-green :is(h1, h2, h3, h4) {
   font-family: var(--font-display);
   font-size: 1.5rem;
+  color: var(--text-on-dark);
   margin-bottom: 0;
+}
+
+/* Forgot-password disclosure — replaces the dead-end modal with an inline help line. */
+.auth-card .forgot-help summary {
+  color: var(--green-700);
+  font-weight: 600;
+  cursor: pointer;
+  width: fit-content;
+  padding: 0.35rem 0;
+}
+.auth-card .forgot-help p {
+  color: var(--text-secondary);
 }
 
 /* ----------------------------------------------------------------------------
    Error Pages
    ---------------------------------------------------------------------------- */
+/* Cap the recovery copy at a readable column (DESIGN: 65-75ch) so the lead and
+   contact line wrap instead of stretching across a wide desktop. */
+.error-page {
+  max-width: 34rem;
+  margin-inline: auto;
+}
 .error-page h1 {
   font-family: var(--font-display);
   font-size: 5rem;
   color: var(--green-700);
   line-height: 1;
+}
+/* The recovery line is the most important text on the page — Slate (~7:1),
+   not muted Stone, which is reserved for the tertiary contact line. */
+.error-page .lead {
+  color: var(--text-secondary);
 }
 
 /* ----------------------------------------------------------------------------

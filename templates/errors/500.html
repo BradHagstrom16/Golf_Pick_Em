@@ -3,7 +3,15 @@
 {% block content %}
 <div class="text-center py-5 error-page">
     <h1>500</h1>
-    <p class="lead text-muted">Something went wrong on our end. Please try again later.</p>
-    <a href="{{ url_for('index') }}" class="btn btn-greenside">Back to Standings</a>
+    <p class="lead">Something went wrong on our end. Your picks and standings are safe.</p>
+    <div class="d-flex gap-2 justify-content-center flex-wrap">
+        <a href="{{ request.path }}" class="btn btn-greenside">Try again</a>
+        <a href="{{ url_for('index') }}" class="btn btn-outline-greenside">Back to Standings</a>
+    </div>
+    <p class="small text-muted mt-3 mb-0">
+        If it keeps happening, reach the commissioner, Brad, at
+        <a href="mailto:bhagstrom0@gmail.com">bhagstrom0@gmail.com</a>
+        or <a href="tel:+16304083424">630-408-3424</a>.
+    </p>
 </div>
 {% endblock %}
