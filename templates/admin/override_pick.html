@@ -25,9 +25,44 @@
                 <h5 class="mb-0">Create/Edit Override Pick</h5>
             </div>
             <div class="card-body">
+
+                {% if override_pending_confirm %}
+                <div class="alert alert-danger" role="alert">
+                    <h6 class="alert-heading"><strong>Confirmation required before re-resolving</strong></h6>
+                    <p class="mb-2">
+                        Confirming will re-resolve this pick and recalculate
+                        <strong>{{ override_consequence.member }}</strong>'s earnings and season total for
+                        <strong>{{ override_consequence.tournament }}</strong>.
+                        {% if override_consequence.has_existing %}
+                            This will replace their existing pick
+                            (<strong>{{ override_consequence.old_primary }}</strong> /
+                            <strong>{{ override_consequence.old_backup }}</strong>)
+                            and their current season total of
+                            <strong>${{ "{:,}".format(override_consequence.current_total) }}</strong>
+                            will be recalculated.
+                        {% else %}
+                            A new pick will be created and resolved; their current season total of
+                            <strong>${{ "{:,}".format(override_consequence.current_total) }}</strong>
+                            will be recalculated.
+                        {% endif %}
+                    </p>
+                    <form method="POST">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="tournament_id" value="{{ selected_tournament.id }}">
+                        <input type="hidden" name="user_id" value="{{ selected_user.id }}">
+                        <input type="hidden" name="primary_player_id" value="{{ override_consequence.new_primary_id }}">
+                        <input type="hidden" name="backup_player_id" value="{{ override_consequence.new_backup_id }}">
+                        <input type="hidden" name="override_note" value="{{ override_consequence.note or '' }}">
+                        <input type="hidden" name="confirm" value="1">
+                        <button type="submit" class="btn btn-danger">Confirm &amp; Re-resolve</button>
+                        <a href="{{ url_for('admin_override_pick') }}" class="btn btn-outline-secondary ms-2">Cancel</a>
+                    </form>
+                </div>
+                {% endif %}
+
                 <form method="POST" id="overrideForm">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    
+
                     <!-- Tournament Selection -->
                     <div class="mb-4">
                         <label for="tournament_id" class="form-label">
@@ -73,7 +108,7 @@
                             {% for player in field_players %}
                                 <option value="{{ player.id }}"
                                     {% if existing_pick and existing_pick.primary_player_id == player.id %}selected{% endif %}
-                                    {% if player.id in used_player_ids %}class="text-muted"{% endif %}>
+                                    {% if player.id in used_player_ids %}class="text-muted" disabled{% endif %}>
                                     {{ player.last_name }}, {{ player.first_name }}
                                     {% if player.id in used_player_ids %}(USED){% endif %}
                                 </option>
@@ -92,12 +127,13 @@
                             {% for player in field_players %}
                                 <option value="{{ player.id }}"
                                     {% if existing_pick and existing_pick.backup_player_id == player.id %}selected{% endif %}
-                                    {% if player.id in used_player_ids %}class="text-muted"{% endif %}>
+                                    {% if player.id in used_player_ids %}class="text-muted" disabled{% endif %}>
                                     {{ player.last_name }}, {{ player.first_name }}
                                     {% if player.id in used_player_ids %}(USED){% endif %}
                                 </option>
                             {% endfor %}
                         </select>
+                        <div id="same-player-msg" class="text-danger small mt-1" style="display:none;">Primary and backup must be different players.</div>
                     </div>
                     {% endif %}
 
@@ -211,25 +247,70 @@ document.getElementById('user_id').addEventListener('change', function() {
     }
 });
 
-// Prevent selecting same player for both picks
-document.getElementById('backup_player_id')?.addEventListener('change', function() {
-    var primary = document.getElementById('primary_player_id').value;
-    var backup = this.value;
+// Same-player guard: disable the other select's matching option instead of alert/wipe.
+// Server-disabled (USED) options are never re-enabled; only collision-disabled ones
+// (tagged with data-collision-disabled="1") are cleared when the collision is resolved.
+(function () {
+    var primarySel = document.getElementById('primary_player_id');
+    var backupSel  = document.getElementById('backup_player_id');
+    var msg        = document.getElementById('same-player-msg');
 
-    if (primary && backup && primary === backup) {
-        alert('Primary and backup must be different players!');
-        this.value = '';
+    if (!primarySel || !backupSel) { return; }
+
+    function collisionDisable(select, valueToBlock) {
+        // Disable the option in `select` matching `valueToBlock` due to collision.
+        Array.from(select.options).forEach(function (opt) {
+            if (opt.value === valueToBlock && valueToBlock !== '') {
+                if (!opt.disabled) {
+                    opt.disabled = true;
+                    opt.dataset.collisionDisabled = '1';
+                }
+            }
+        });
     }
-});
 
-document.getElementById('primary_player_id')?.addEventListener('change', function() {
-    var primary = this.value;
-    var backup = document.getElementById('backup_player_id').value;
-
-    if (primary && backup && primary === backup) {
-        alert('Primary and backup must be different players!');
-        document.getElementById('backup_player_id').value = '';
+    function collisionEnable(select, valueToUnblock) {
+        // Re-enable only options we collision-disabled (never touch server-disabled ones).
+        Array.from(select.options).forEach(function (opt) {
+            if (opt.value === valueToUnblock && opt.dataset.collisionDisabled === '1') {
+                opt.disabled = false;
+                delete opt.dataset.collisionDisabled;
+            }
+        });
     }
-});
+
+    function syncCollision() {
+        var pVal = primarySel.value;
+        var bVal = backupSel.value;
+
+        // Clear any previous collision-disables before reapplying.
+        Array.from(primarySel.options).forEach(function (opt) {
+            if (opt.dataset.collisionDisabled === '1') {
+                opt.disabled = false;
+                delete opt.dataset.collisionDisabled;
+            }
+        });
+        Array.from(backupSel.options).forEach(function (opt) {
+            if (opt.dataset.collisionDisabled === '1') {
+                opt.disabled = false;
+                delete opt.dataset.collisionDisabled;
+            }
+        });
+
+        // Block the current value of each select in the other.
+        if (pVal) { collisionDisable(backupSel, pVal); }
+        if (bVal) { collisionDisable(primarySel, bVal); }
+
+        // Show/hide inline message if a collision currently exists.
+        var collision = pVal && bVal && pVal === bVal;
+        if (msg) { msg.style.display = collision ? '' : 'none'; }
+    }
+
+    primarySel.addEventListener('change', syncCollision);
+    backupSel.addEventListener('change', syncCollision);
+
+    // Run once on load in case existing selections already collide.
+    syncCollision();
+}());
 </script>
 {% endblock %}

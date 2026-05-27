@@ -15,19 +15,19 @@
                     <div class="mb-3">
                         <label for="username" class="form-label">Username *</label>
                         <input type="text" class="form-control" id="username" name="username"
-                               required minlength="3" maxlength="80">
+                               required minlength="3" maxlength="80" value="{{ username|default('') }}">
                         <small class="text-muted">This is how you'll log in</small>
                     </div>
 
                     <div class="mb-3">
                         <label for="email" class="form-label">Email *</label>
-                        <input type="email" class="form-control" id="email" name="email" required>
+                        <input type="email" class="form-control" id="email" name="email" required value="{{ email|default('') }}">
                     </div>
 
                     <div class="mb-3">
                         <label for="display_name" class="form-label">Display Name</label>
                         <input type="text" class="form-control" id="display_name" name="display_name"
-                               maxlength="100">
+                               maxlength="100" value="{{ display_name|default('') }}">
                         <small class="text-muted">How your name appears on the leaderboard (optional)</small>
                     </div>
 

@@ -5,6 +5,7 @@ Flask application with routes for the golf pick 'em fantasy league.
 """
 
 import os
+import secrets
 from functools import wraps
 from datetime import datetime, timezone
 import logging
@@ -415,8 +416,6 @@ def tournament_detail(tournament_id):
                 'admin_override': pick.admin_override,
                 'admin_override_note': pick.admin_override_note,
                 'penalty_triggered': pick.penalty_triggered,
-                'active_is_primary': pick.active_player_id == pick.primary_player_id,
-                'active_is_backup': pick.active_player_id == pick.backup_player_id,
             })
         else:
             pick_results.append({
@@ -434,15 +433,29 @@ def tournament_detail(tournament_id):
                 'admin_override': False,
                 'admin_override_note': None,
                 'penalty_triggered': False,
-                'active_is_primary': False,
-                'active_is_backup': False,
             })
 
-    # Sort results
+    # Sort results: picked rows first (by points desc), no-pick rows after; then assign
+    # competition ranking (equal points share a rank) to picked rows only. The template
+    # renders result['rank'] instead of loop.index so non-pickers never get a paying number.
     if tournament.status == 'complete' or show_picks:
-        pick_results.sort(key=lambda x: (-x['points'], x['user'].get_display_name().lower()))
+        pick_results.sort(key=lambda x: (not x['has_pick'], -x['points'], x['user'].get_display_name().lower()))
+        seen = 0
+        current_rank = 0
+        prev_points = None
+        for r in pick_results:
+            if r['has_pick']:
+                seen += 1
+                if r['points'] != prev_points:
+                    current_rank = seen
+                    prev_points = r['points']
+                r['rank'] = current_rank
+            else:
+                r['rank'] = None
     else:
         pick_results.sort(key=lambda x: x['user'].get_display_name().lower())
+        for r in pick_results:
+            r['rank'] = None
 
     # Calculate summary stats
     total_picks = sum(1 for r in pick_results if r['has_pick'])
@@ -572,6 +585,7 @@ def register():
         if errors:
             for error in errors:
                 flash(error, 'error')
+            return render_template('register.html', username=username, email=email, display_name=display_name)
         else:
             user = User(
                 username=username,
@@ -632,19 +646,21 @@ def admin_reset_password(user_id):
     """Admin can reset a user's password."""
     user = db.get_or_404(User, user_id)
     new_password = request.form.get('new_password', '').strip()
-
+    generated = False
     if not new_password:
-        flash('No password provided.', 'error')
-        return redirect(url_for('admin_users'))
-
-    if len(new_password) < 6:
+        new_password = secrets.token_urlsafe(9)   # ~12 random chars; never golf{id}
+        generated = True
+    elif len(new_password) < 6:
         flash('Password must be at least 6 characters.', 'error')
         return redirect(url_for('admin_users'))
 
     user.set_password(new_password)
     db.session.commit()
 
-    flash(f'Password successfully reset for {user.get_display_name()}.', 'success')
+    if generated:
+        flash(f'Temporary password for {user.get_display_name()}: {new_password} — share it securely; shown only once.', 'success')
+    else:
+        flash(f'Password successfully reset for {user.get_display_name()}.', 'success')
     return redirect(url_for('admin_users'))
 
 
@@ -935,6 +951,8 @@ def admin_override_pick():
     field_players = None
     existing_pick = None
     used_player_ids = []
+    override_pending_confirm = False
+    override_consequence = None
 
     recent_overrides = Pick.query.filter_by(admin_override=True).order_by(Pick.updated_at.desc()).limit(5).all()
 
@@ -994,69 +1012,88 @@ def admin_override_pick():
                 for error in errors:
                     flash(error, 'error')
             else:
-                if existing_pick:
-                    # Capture old player IDs before overwriting (for season usage cleanup)
-                    old_primary_id = existing_pick.primary_player_id
-                    old_backup_id = existing_pick.backup_player_id
-                    old_active_id = existing_pick.active_player_id
-
-                    existing_pick.primary_player_id = primary_id
-                    existing_pick.backup_player_id = backup_id
-                    existing_pick.admin_override = True
-                    existing_pick.admin_override_note = override_note or None
-                    existing_pick.updated_at = datetime.now(timezone.utc)
-
-                    # Re-resolve if tournament is complete
-                    if selected_tournament.status == 'complete':
-                        # Clean up old season usage (old active + old primary/backup)
-                        stale_ids = {old_primary_id, old_backup_id}
-                        if old_active_id:
-                            stale_ids.add(old_active_id)
-                        SeasonPlayerUsage.query.filter(
-                            SeasonPlayerUsage.user_id == selected_user.id,
-                            SeasonPlayerUsage.season_year == selected_tournament.season_year,
-                            SeasonPlayerUsage.player_id.in_(stale_ids)
-                        ).delete(synchronize_session=False)
-
-                        if existing_pick.resolve_pick():
-                            selected_user.calculate_total_points()
-                            flash(f'Override pick updated and re-resolved for {selected_user.get_display_name()}!', 'success')
-                        else:
-                            selected_user.calculate_total_points()
-                            flash(f'Override pick updated but resolution failed — check tournament results.', 'warning')
-                    else:
-                        flash(f'Override pick updated for {selected_user.get_display_name()}!', 'success')
+                confirmed = request.form.get('confirm') == '1'
+                if selected_tournament.status == 'complete' and not confirmed:
+                    # Re-resolving a complete tournament recomputes the member's earnings,
+                    # season total, and (at a major) the 1.5x + missed-cut penalty. Require an
+                    # explicit confirm and surface the consequence; commit nothing here.
+                    override_pending_confirm = True
+                    override_consequence = {
+                        'member': selected_user.get_display_name(),
+                        'tournament': selected_tournament.name,
+                        'current_total': selected_user.total_points or 0,
+                        'current_points': existing_pick.points_earned if existing_pick else None,
+                        'has_existing': existing_pick is not None,
+                        'old_primary': existing_pick.primary_player.full_name() if existing_pick else None,
+                        'old_backup': existing_pick.backup_player.full_name() if existing_pick else None,
+                        'new_primary_id': primary_id,
+                        'new_backup_id': backup_id,
+                        'note': override_note,
+                    }
                 else:
-                    new_pick = Pick(
-                        user_id=selected_user.id,
-                        tournament_id=selected_tournament.id,
-                        primary_player_id=primary_id,
-                        backup_player_id=backup_id,
-                        admin_override=True,
-                        admin_override_note=override_note or None
-                    )
-                    db.session.add(new_pick)
+                    if existing_pick:
+                        # Capture old player IDs before overwriting (for season usage cleanup)
+                        old_primary_id = existing_pick.primary_player_id
+                        old_backup_id = existing_pick.backup_player_id
+                        old_active_id = existing_pick.active_player_id
 
-                    # Resolve immediately if tournament is already complete
-                    if selected_tournament.status == 'complete':
-                        db.session.flush()  # Ensure new_pick has an ID
-                        if new_pick.resolve_pick():
-                            selected_user.calculate_total_points()
-                            flash(f'Override pick created and resolved for {selected_user.get_display_name()}!', 'success')
+                        existing_pick.primary_player_id = primary_id
+                        existing_pick.backup_player_id = backup_id
+                        existing_pick.admin_override = True
+                        existing_pick.admin_override_note = override_note or None
+                        existing_pick.updated_at = datetime.now(timezone.utc)
+
+                        # Re-resolve if tournament is complete
+                        if selected_tournament.status == 'complete':
+                            # Clean up old season usage (old active + old primary/backup)
+                            stale_ids = {old_primary_id, old_backup_id}
+                            if old_active_id:
+                                stale_ids.add(old_active_id)
+                            SeasonPlayerUsage.query.filter(
+                                SeasonPlayerUsage.user_id == selected_user.id,
+                                SeasonPlayerUsage.season_year == selected_tournament.season_year,
+                                SeasonPlayerUsage.player_id.in_(stale_ids)
+                            ).delete(synchronize_session=False)
+
+                            if existing_pick.resolve_pick():
+                                selected_user.calculate_total_points()
+                                flash(f'Override pick updated and re-resolved for {selected_user.get_display_name()}!', 'success')
+                            else:
+                                selected_user.calculate_total_points()
+                                flash('Override pick updated but resolution failed — check tournament results.', 'warning')
                         else:
-                            flash(f'Override pick created but resolution failed — check tournament results.', 'warning')
+                            flash(f'Override pick updated for {selected_user.get_display_name()}!', 'success')
                     else:
-                        flash(f'Override pick created for {selected_user.get_display_name()}!', 'success')
+                        new_pick = Pick(
+                            user_id=selected_user.id,
+                            tournament_id=selected_tournament.id,
+                            primary_player_id=primary_id,
+                            backup_player_id=backup_id,
+                            admin_override=True,
+                            admin_override_note=override_note or None
+                        )
+                        db.session.add(new_pick)
 
-                db.session.commit()
+                        # Resolve immediately if tournament is already complete
+                        if selected_tournament.status == 'complete':
+                            db.session.flush()  # Ensure new_pick has an ID
+                            if new_pick.resolve_pick():
+                                selected_user.calculate_total_points()
+                                flash(f'Override pick created and resolved for {selected_user.get_display_name()}!', 'success')
+                            else:
+                                flash('Override pick created but resolution failed — check tournament results.', 'warning')
+                        else:
+                            flash(f'Override pick created for {selected_user.get_display_name()}!', 'success')
 
-                recent_overrides = Pick.query.filter_by(admin_override=True).order_by(Pick.updated_at.desc()).limit(5).all()
+                    db.session.commit()
 
-                selected_tournament = None
-                selected_user = None
-                field_players = None
-                existing_pick = None
-                used_player_ids = []
+                    recent_overrides = Pick.query.filter_by(admin_override=True).order_by(Pick.updated_at.desc()).limit(5).all()
+
+                    selected_tournament = None
+                    selected_user = None
+                    field_players = None
+                    existing_pick = None
+                    used_player_ids = []
 
     return render_template('admin/override_pick.html',
                          tournaments=tournaments,
@@ -1067,7 +1104,9 @@ def admin_override_pick():
                          field_players=field_players,
                          existing_pick=existing_pick,
                          used_player_ids=used_player_ids,
-                         recent_overrides=recent_overrides)
+                         recent_overrides=recent_overrides,
+                         override_pending_confirm=override_pending_confirm,
+                         override_consequence=override_consequence)
 
 
 def process_tournament_results(tournament: Tournament):

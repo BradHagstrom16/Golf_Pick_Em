@@ -113,36 +113,62 @@
 
 {% block scripts %}
 <script>
+// Fix 1.8: normalized search — strips periods/spaces/punctuation so "jj" matches "J.J."
+function normalizeSearch(s) {
+    return (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function makeScoreFactory() {
+    return function(search) {
+        var q = normalizeSearch(search);
+        return function(item) {
+            // Empty query → show everything; otherwise filter by normalized match
+            if (!q) return 1;
+            return normalizeSearch(item.text).indexOf(q) !== -1 ? 1 : 0;
+        };
+    };
+}
+
 // Initialize searchable dropdowns
 var primarySelect = new TomSelect('#primary_player_id', {
     placeholder: 'Search for a player...',
     sortField: { field: 'text', direction: 'asc' },
-    maxOptions: null
+    maxOptions: null,
+    score: makeScoreFactory()
 });
 var backupSelect = new TomSelect('#backup_player_id', {
     placeholder: 'Search for a player...',
     sortField: { field: 'text', direction: 'asc' },
-    maxOptions: null
+    maxOptions: null,
+    score: makeScoreFactory()
 });
 
-// Prevent selecting same player for both picks
-document.getElementById('backup_player_id').addEventListener('change', function() {
-    var primary = document.getElementById('primary_player_id').value;
-    var backup = this.value;
-    if (primary && backup && primary === backup) {
-        alert('Primary and backup must be different players!');
-        backupSelect.clear();
+// Fix 1.5: Build the full player list from the initialized options so we can
+// rebuild either picker's options excluding the other picker's selection.
+// (Read after TomSelect init so the option objects are normalised.)
+var allPlayers = Object.values(primarySelect.options).filter(function(p) {
+    return p.value !== '';  // skip the empty placeholder
+});
+
+// Rebuild target picker's options excluding one player id.
+// If the target already has that player selected, the selection is preserved
+// (the excluded id is only the *other* picker's choice, never the target's own).
+function excludeFrom(target, excludeId) {
+    var current = target.getValue();
+    target.clearOptions();
+    allPlayers.forEach(function(p) {
+        if (p.value !== excludeId) target.addOption(p);
+    });
+    // Restore prior selection if it is still valid (silent=true suppresses
+    // the change event in Tom Select 2.3.1, preventing an infinite loop).
+    if (current && current !== excludeId) {
+        target.setValue(current, true);
     }
-});
+    target.refreshOptions(false);
+}
 
-document.getElementById('primary_player_id').addEventListener('change', function() {
-    var primary = this.value;
-    var backup = document.getElementById('backup_player_id').value;
-    if (primary && backup && primary === backup) {
-        alert('Primary and backup must be different players!');
-        backupSelect.clear();
-    }
-});
-
+// Wire mutual exclusion: each picker removes the other's chosen player.
+primarySelect.on('change', function(v) { excludeFrom(backupSelect, v); });
+backupSelect.on('change', function(v) { excludeFrom(primarySelect, v); });
 </script>
 {% endblock %}
