@@ -20,7 +20,7 @@ The dev DB (`golf_pickem.db`) was **not** cleared — it holds a full, realistic
 - [x] 1. Shell (base.html)
 - [x] 2. Home (index.html)
 - [x] 3. Make a pick (make_pick.html)
-- [ ] 4. Tournament detail (tournament_detail.html)
+- [x] 4. Tournament detail (tournament_detail.html)
 - [ ] 5. My picks (my_picks.html)
 - [ ] 6. Lighter public (schedule.html, errors/404, errors/500)
 - [ ] 7. Auth trio (login, register, change_password)
@@ -35,15 +35,20 @@ The dev DB (`golf_pickem.db`) was **not** cleared — it holds a full, realistic
 | 1 | base.html | 27/40 | Not AI slop (1 detector flag = false positive) | 0 |
 | 2 | index.html | 28/40 | Not AI slop (.column-divider 2px→1px fixed in Session A) | 0 |
 | 3 | make_pick.html | 28/40 | Not AI slop | 0 |
+| 4 | tournament_detail.html | 25/40 | Not AI slop | 1 |
 
 ## Global issues (recur across pages → fix-campaign Phase 1)
 
 These trace to `base.html` / design tokens / `style.css` and therefore recur on every page. Units 2–10 should reference these by id rather than re-reporting.
 
-- **[G1] Low-contrast global color tokens fail WCAG AA.** `--text-muted: #8b95a2` computes **2.9:1** on `--bg` (`#faf8f4`) and **3.0:1** on white; gold accents `--gold-500: #b8993e` compute **2.7:1** on white. Used pervasively (nav subtext, footer line, every `.text-muted`, gold links/`.text-gold`, points chip ~3.48:1, admin badge ~4.16:1). Detector flagged 12 low-contrast instances on `/`; Assessment A independently flagged the badge/chip. _Source: `style.css:21` (`--gold-500`), `style.css:33` (`--text-muted`). Fix once at the token level → propagates everywhere. P1._
+- **[G1] Low-contrast global color tokens fail WCAG AA.** `--text-muted: #8b95a2` computes **2.7–3.0:1** on the cream/white/mint backgrounds; gold accents `--gold-500: #b8993e` compute **2.7:1** on white. Also confirmed on tournament_detail: the **major-multiplier alert text + "You" badge** (gold-deep on gold-wash) at **4.07:1** and the warning-alert gold `#92722a` at **4.1:1** — both just under the 4.5:1 AA threshold for normal text, on the page's most important brand message ("multiplied by 1.5×"). Used pervasively (nav subtext, footer, every `.text-muted`, gold links/`.text-gold`, points chip ~3.48:1, admin badge ~4.16:1). Detector flagged 12 instances on `/`, 20 on `/tournament/23`. _Source: `style.css:21` (`--gold-500`), `:33` (`--text-muted`), alert at `:481-486`. Fix at the token level → propagates. P1._
 - **[G2] Keyboard focus ring uses Bootstrap default status-blue.** `:focus` shows `rgba(13,110,253,0.25)` blue glow on nav/links/buttons — violates the design system's role-locked "blue = tournament status only" rule and is low-contrast on the pine-green nav. Define a brand `:focus-visible` ring (gold/paper). Applies to all focusable chrome on every page. P1.
 - **[G3] No skip-to-content link; `<nav>` and `<main>` lack landmarks/ids.** No skip link, `<nav>` has no `aria-label`, `<main>` has no `id`. Keyboard/SR users tab through the full nav on every page. PRODUCT.md commits to WCAG 2.1 AA. P2.
 - **[G4] No active-nav / `aria-current` state.** The nav never marks the current section (`.nav-link.active` style exists in CSS but is unused). Forces working memory on every page; breaks Visibility-of-System-Status site-wide. P1.
+- **[G5] Heading-level skips (card-header `<h5>` after the page `<h2>`/`<h3>`).** Confirmed on home (h2 "Season Standings" → h5 "League Rules") and tournament_detail (h3 "U.S. Open" → h5 "Current Picks & Standings"). Card headers hardcode `<h5>` regardless of document depth, breaking the SR outline. Detector `skipped-heading` on both pages. _Fix the shared card-header heading level (or set levels contextually). P2._
+- **[G6] Penalty marker "+$15" reads as a gain, not a debt.** Confirmed on home (Unit 2) and tournament_detail (Unit 4): the shared `.badge-penalty` renders a red `+$15` adjacent to/around earnings; the `+` connotes winnings in a money context. The conceptual ambiguity (owe vs earn) recurs wherever penalties show (home, tournament_detail, and likely my_picks + admin/payments). _Fix the shared component framing: "Penalty $15" / "Owes $15" / debit styling. P1._
+
+**Watch-list (candidate globals — confirm on later units before promoting):** `#fff` hardcoded in `.badge-status-*` / `.badge-cut` / `.badge-dq` etc. (violates DESIGN No-Pure-White rule, code-level); the "est." purse badge uses Bootstrap `bg-secondary` cool-gray (Status-Is-Cool drift, off-palette) on home/make_pick/tournament_detail; purse figures rendered in body sans rather than the gold/serif "Money-Is-Gold" register; rendered `&mdash;` em dashes in copy (skill/DESIGN copy rule). Several rank/standings tables reuse `loop.index` as "rank".
 
 **Detector false positive (do not fix):** `ai-color-palette → "Cyan gradient background"` — the only gradients in `style.css` are the **green** navbar (`:95`) and footer (`:670`) brand gradients (Augusta pine, per DESIGN.md). The detector misclassifies the brand green gradient as cyan. Genuinely intentional.
 
@@ -177,6 +182,49 @@ These trace to `base.html` / design tokens / `style.css` and therefore recur on 
 **Questions:** (1) If "unambiguous picture of who is available" is a promise, why is the *used* pool invisible? (2) For a once-per-season real-money lock, is *no* confirmation right, or have we conflated "avoid modals" with "avoid all ceremony"? (3) Is the pick form actually a *front door*, or a form that assumes you already decided elsewhere (zero signal of who's good among 56)? (4) Why does the only validation use the one interaction guaranteed to feel un-designed (`alert()`)? (5) On a phone, the rules sit below the submit button — which user does that serve?
 
 **Detector raw (Assessment B):** file scan `templates/make_pick.html` → `[]` (Jinja template, no computed CSS); URL `/pick/20` → login redirect (anonymous), 1× `ai-color-palette` = the green-gradient **false positive** on the login nav, not make_pick. No usable deterministic signal for this page.
+
+### Unit 4 — Tournament detail (tournament_detail.html)
+
+**Scope:** the picks "leaderboard"/standings (desktop table + mobile card list), earnings-as-ledger (projected vs earned badges), status pills (Active/Major), 1.5× communication, missed-cut **penalty** visibility & legibility, backup-activation, stat cards, projection/last-synced honesty, the legend, the `#` ranking, and no-pick states. (Shell = Unit 1.) **This is the money/trust surface.**
+**Rendered:** `http://127.0.0.1:5001/tournament/23` (in-progress **major** U.S. Open, active) — public route, so the URL detector works. Assessment A = isolated sub-agent (`[LLM]` tab, desktop + phone). Assessment B = `detect --json /tournament/23` (24 findings) + `[Human]` desktop & mobile screenshots. **Two findings verified empirically by the parent** via `querySelectorAll` (see P0/P1).
+
+**Nielsen scorecard: 25/40 (Acceptable — lowest unit so far)**
+
+| # | Heuristic | /4 | Key issue |
+|---|-----------|----|-----------|
+| 1 | Visibility of system status | 3 | Excellent "projections/last-synced" honesty; but projected-vs-final is signaled by badge color only — and that color is wrong on mobile |
+| 2 | Match real world | 3 | $ ledger language lands; "+$15" reads like a gain, not a debt ([G6]) |
+| 3 | User control & freedom | 3 | Breadcrumb + Back exits; no jump-to-my-row in 19 rows |
+| 4 | Consistency & standards | 1 | **Desktop/mobile disagree on money facts**: projected renders gold (desktop) vs green/"settled" (mobile); penalty shows on mobile but not desktop; active-$0 shows "$0" desktop vs "—" mobile |
+| 5 | Error prevention | 3 | Read-only; ambiguous "+$15" invites misread |
+| 6 | Recognition vs recall | 2 | Legend is at the very bottom after 19 rows; desktop legend promises a penalty symbol the desktop table never renders |
+| 7 | Flexibility & efficiency | 2 | No sort/filter/jump-to-me; can't collapse 13 no-pick rows |
+| 8 | Aesthetic & minimalist | 2 | 13/19 rows are "No Pick / – / $0" filler at full weight, burying the 8 real picks + leader |
+| 9 | Error recovery | 3 | Graceful sync-pending fallback; little error surface |
+| 10 | Help & documentation | 3 | Legend + major/projection alerts are real inline help; placement + phantom desktop penalty symbol cost a point |
+
+**Anti-patterns verdict:** **Not AI slop** (no side-stripes, gradient text, glassmorphism, modal; green header/nav gradients intentional). Weakest block = the three equal stat cards (closest to a hero-metric template, survives on serif-ledger treatment). Code-level DESIGN drifts: `#fff` hardcoded in several badges (No-Pure-White), "est." badge uses Bootstrap gray `bg-secondary` (Status-Is-Cool drift) → see watch-list. Detector: 20× low-contrast ([G1]), 3× `ai-color-palette` (green brand gradients — **false positives**, incl. the inline header gradient), 1× `skipped-heading` h3→h5 ([G5]).
+
+**Overall impression:** On-brand and, on desktop, genuinely ceremonial (gold leader row, 🏆, serif money). But as the **trust surface it has real correctness gaps**: the live penalty is hidden on desktop, projected money looks "banked" on mobile, and rank numbering misleads. The projection-honesty copy is the best single element in the whole sweep so far.
+
+**Priority issues** (each with suggested impeccable command):
+
+- **P0 [local] Desktop table never shows the live missed-cut penalty.** *What:* `+$15` renders on mobile cards and in the desktop **legend** but on **zero desktop rows** — verified: `.desktop-table .badge-penalty` = **0** vs `.mobile-card-list .badge-penalty` = **2**. Root cause: desktop badge is gated on `result.penalty_triggered and result.active_is_primary/active_is_backup` (tournament_detail.html:287-289, 310-312), but `active_player_id` is null for un-finalized live majors, so both flags are false; mobile (`:211`) gates on `penalty_triggered` alone. *Why:* on the money/trust surface the admin runs from desktop, a $15 obligation the main layout silently hides — while the legend advertises it — is the most trust-destroying failure possible. *Fix:* render the desktop penalty badge on `result.penalty_triggered` (drop/repair the `active_is_*` gate for live state), matching mobile. **Logic bug, not just visual** → fix-campaign, not a styling pass. → `/harden`.
+- **P1 [local] Projected earnings render as "settled green" on mobile.** *What:* verified — desktop `.badge-earnings-projected` (gold) ×6, mobile `.badge-earnings` (green/final) ×6 for the same live rows (tournament_detail.html:187-195). *Why:* phones are primary; gold-vs-green "is this final?" is a core ledger principle — mobile users can't tell projected from banked and could screenshot "$2.8M green" as won. *Fix:* branch the mobile badge on `tournament.status` to match desktop. → `/harden` / `/adapt`.
+- **P1 [local] Ranking is broken below paying positions.** *What:* `#` = `loop.index` over a list including 13 no-pick rows, so a $0 DQ pick is "#8" and a CUT pick "#19" with gaps, while $0 non-pickers occupy #7/#9-18. *Why:* a rank that misorders $0 rows erodes trust in the numbers on a standings table. *Fix:* rank only rows with a pick by earnings (shared ties); push no-pick rows below a divider / into a collapsed group; never let `loop.index` double as rank. → `/layout`.
+- **P1 [global G6] "+$15" reads as a gain, not a debt** (shared `badge-penalty`; also on home). *Fix:* debit framing "Owes $15" / "Penalty $15", keep red, drop the bare `+`. → `/clarify`.
+- **P2 [local] 13 empty no-pick rows bury the 8 real picks + leader.** *What:* >⅔ of the table is "No Pick / – / $0" at full visual weight, pushing real content below the fold both breakpoints. *Why:* violates glanceable-first + minimalist. *Fix:* collapse non-pickers into a muted "Didn't pick (13): …" line/toggle. → `/distill` / `/layout`.
+- **P3 [global G1] Major-multiplier alert + "You" badge at 4.07:1** (gold-deep on gold-wash) — under AA on the key 1.5× message. *Fix:* darken text / deepen wash; reconsider "You" reusing gold `badge-major` (collides identity with the money/major register). → `/audit`.
+
+**Persona red flags:**
+- *Alex (power user, desktop):* no sort/filter/jump-to-me over 19 rows (13 noise); will spot the **missing desktop penalty** (in legend, not table) and read it as a bug; rank putting a $0 DQ at #8 reads as plainly wrong.
+- *Casual member, phone, sunlight:* sees projected $2.8M in a **green "final" badge** → may think it's banked (the exact doubt the product exists to prevent); must thumb-scroll past ~15 cards to the bottom legend to decode 🔄/DQ; own "+$15" CUT reads as a bonus; three stacked stat cards eat the first mobile screen before any standing shows.
+
+**Minor observations:** active-$0 shows "$0" (desktop) vs "—" (mobile) — pick one; mobile rank sequence jumps 6→8→19 with gaps (omitted badge but counted index); legend below table on both breakpoints (consider above-table or touch-discoverable tooltips — `title=` exists on desktop only); "est." badge Bootstrap gray off-palette; `#fff` hardcodes (No-Pure-White); rendered `&mdash;` em dash in the In-Progress copy (copy rule); stat-card trio is the most generic block (consider folding "Current Leader" into the table). _Code refs from sub-agent: template 187-195, 287-289/310-312, 179/259-264; CSS 285-300, 383-391, 481-486, `#fff` at 304/313/321/366/379._
+
+**Questions:** (1) If desktop can hide a $15 debt while the legend advertises it, which surface does the admin trust when settling the pot? (2) Should a non-picker occupy a numbered standings row at all? (3) Is hue alone enough for projected-vs-final on a phone in sunlight (especially when it's the wrong hue)? (4) For a "well-run clubhouse" voice, should the page end on its most painful row (a CUT that owes money)? (5) In a ledger, debits are negative — why is a debt rendered with a `+`?
+
+**Detector raw (Assessment B, `/tournament/23`, 24 findings):** 20× low-contrast (`#8b95a2` muted + gold `#92722a` 4.1:1 → **[G1]**); 3× `ai-color-palette` "Cyan gradient" (navbar + footer + inline header green gradients → **false positives**); 1× `skipped-heading` h3→h5 (→ **[G5]**).
 
 ## Deferred prioritization & fix campaign
 
