@@ -66,7 +66,7 @@
                         {{ results_tournament.name }}
                     </a>
                     {% if results_tournament.status == 'active' %}
-                        <br><small class="text-muted">Earnings shown are projections. Final results updated Monday.</small>
+                        <br><small class="text-muted">{% if results_tournament.updated_at %}Projected as of {{ results_tournament.updated_at.strftime('%b %d, %I:%M %p') }} CT.{% else %}Projections, last sync pending.{% endif %} Final results updated Monday.</small>
                     {% endif %}
                 </div>
                 {% if results_tournament.status == 'complete' %}
@@ -168,6 +168,7 @@
                                     {% if tournament_picks[user.id].admin_override %}
                                         <span class="badge-override">👑</span>
                                     {% endif %}
+                                    <small class="text-muted d-block">↳ replaces {{ tournament_picks[user.id].primary }}</small>
                                     {% if tournament_picks[user.id].position %}
                                         <br><small class="text-muted">{{ tournament_picks[user.id].position }}{% if tournament_picks[user.id].score %} ({{ tournament_picks[user.id].score }}){% endif %}</small>
                                         {% if tournament_picks[user.id].penalty_triggered and results_tournament.is_major %}
@@ -332,6 +333,23 @@
         </table>
         </div>
 
+        {# ---- Board legend (decode the encoded symbols when picks are shown) ---- #}
+        {% if results_tournament and show_picks %}
+        <div class="legend-bar">
+            <strong>Legend:</strong>
+            🏆 Leader
+            &middot; <span class="badge-backup">🔄</span> Backup activated (primary WD before R2)
+            &middot; <span class="badge-override">👑</span> Admin override
+            &middot; <span class="badge badge-cut">CUT</span> Missed cut
+            &middot; <span class="badge badge-dq">DQ</span> Disqualified
+            &middot; <span class="badge-penalty">Penalty ${{ penalty_per_incident }}</span> Major CUT/DQ penalty
+            {% if results_tournament.status == 'active' %}
+            &middot; <span class="badge-earnings-projected">$ Projected</span> live
+            &middot; <span class="badge-earnings">$ Banked</span> settled
+            {% endif %}
+        </div>
+        {% endif %}
+
     </div>
 
     <!-- Sidebar -->
@@ -342,7 +360,7 @@
             <div class="card-body">
                 {% if not deadline_passed and field_synced %}
                     {% if user_pick %}
-                        <h5 class="text-green text-center font-display">Pick Submitted!</h5>
+                        <h3 class="text-green text-center font-display h5">Pick Submitted!</h3>
                         <hr>
                         <p class="mb-1"><strong>Primary:</strong> {{ user_pick.primary_player.full_name() }}</p>
                         <p class="mb-2"><strong>Backup:</strong> {{ user_pick.backup_player.full_name() }}</p>
@@ -354,7 +372,7 @@
                             </a>
                         </div>
                     {% else %}
-                        <h5 class="text-center font-display">Make Your Pick!</h5>
+                        <h3 class="text-center font-display h5">Make Your Pick!</h3>
                         <p class="mb-2 text-center text-muted small">Deadline: {{ upcoming_tournament.get_deadline_display() }}</p>
                         <div class="text-center">
                             <a href="{{ url_for('make_pick', tournament_id=upcoming_tournament.id) }}" class="btn btn-greenside btn-lg">
@@ -363,7 +381,7 @@
                         </div>
                     {% endif %}
                 {% else %}
-                    <h5 class="text-center font-display">{{ upcoming_tournament.name }}</h5>
+                    <h3 class="text-center font-display h5">{{ upcoming_tournament.name }}</h3>
                     <p class="text-muted small text-center mb-1">
                         {{ upcoming_tournament.start_date.strftime('%b %d') }} – {{ upcoming_tournament.end_date.strftime('%b %d') }}
                     </p>
@@ -381,7 +399,7 @@
         <!-- League Rules -->
         <div class="card sidebar-card">
             <div class="card-header card-header-green">
-                <h5 class="mb-0">League Rules</h5>
+                <h3 class="h5 mb-0">League Rules</h3>
             </div>
             <div class="card-body">
                 <ul class="mb-0">
@@ -398,7 +416,7 @@
         <!-- Prize Pool -->
         <div class="card sidebar-card mt-3">
             <div class="card-header card-header-gold">
-                <h5 class="mb-0">Prize Pool</h5>
+                <h3 class="h5 mb-0">Prize Pool</h3>
             </div>
             <div class="card-body">
                 {% set entry_total = entry_fee * users|length %}
@@ -417,7 +435,7 @@
         <!-- Season Progress -->
         <div class="card sidebar-card mt-3">
             <div class="card-header card-header-muted">
-                <h5 class="mb-0">Season Progress</h5>
+                <h3 class="h5 mb-0">Season Progress</h3>
             </div>
             <div class="card-body">
                 <div class="progress mb-2" style="height: 25px;">
