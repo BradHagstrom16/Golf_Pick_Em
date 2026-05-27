@@ -80,10 +80,10 @@
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">New Password</label>
-                                <input type="text" class="form-control" name="new_password" 
-                                       value="golf{{ user.id }}" required minlength="6">
+                                <input type="text" class="form-control" name="new_password"
+                                       minlength="6" placeholder="Leave blank to auto-generate">
                                 <small class="text-muted">
-                                    Default suggestion: golf{{ user.id }}
+                                    Leave blank to generate a secure temporary password (shown once after reset).
                                 </small>
                             </div>
                         </div>

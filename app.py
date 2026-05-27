@@ -5,6 +5,7 @@ Flask application with routes for the golf pick 'em fantasy league.
 """
 
 import os
+import secrets
 from functools import wraps
 from datetime import datetime, timezone
 import logging
@@ -645,19 +646,21 @@ def admin_reset_password(user_id):
     """Admin can reset a user's password."""
     user = db.get_or_404(User, user_id)
     new_password = request.form.get('new_password', '').strip()
-
+    generated = False
     if not new_password:
-        flash('No password provided.', 'error')
-        return redirect(url_for('admin_users'))
-
-    if len(new_password) < 6:
+        new_password = secrets.token_urlsafe(9)   # ~12 random chars; never golf{id}
+        generated = True
+    elif len(new_password) < 6:
         flash('Password must be at least 6 characters.', 'error')
         return redirect(url_for('admin_users'))
 
     user.set_password(new_password)
     db.session.commit()
 
-    flash(f'Password successfully reset for {user.get_display_name()}.', 'success')
+    if generated:
+        flash(f'Temporary password for {user.get_display_name()}: {new_password} — share it securely; shown only once.', 'success')
+    else:
+        flash(f'Password successfully reset for {user.get_display_name()}.', 'success')
     return redirect(url_for('admin_users'))
 
 

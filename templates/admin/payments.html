@@ -124,8 +124,17 @@ document.querySelectorAll('.payment-toggle').forEach(function(toggle) {
     toggle.addEventListener('change', function() {
         const userId = this.dataset.userId;
         const isPaid = this.checked;
+        const checkbox = this;
         postPayment(userId, { has_paid: isPaid }).then(data => {
-            if (data.success) location.reload();
+            if (data.success) {
+                location.reload();
+            } else {
+                checkbox.checked = !isPaid;  // revert — the change did not persist
+                alert(data.error || 'Could not update payment status. Please try again.');
+            }
+        }).catch(() => {
+            checkbox.checked = !isPaid;
+            alert('Could not update payment status. Please try again.');
         });
     });
 });
