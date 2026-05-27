@@ -6,25 +6,29 @@
 <div class="row justify-content-center">
     <div class="col-md-6 col-lg-4">
         <div class="card auth-card">
-            <div class="card-header card-header-green" style="text-align: center; padding: 1.5rem;">
-                <h4 class="mb-0" style="font-family: var(--font-display); font-size: 1.5rem; color: var(--text-on-dark);">Login</h4>
+            <div class="card-header card-header-green">
+                <h1 class="mb-0">Login</h1>
             </div>
             <div class="card-body">
                 <form method="POST">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="mb-3">
                         <label for="username" class="form-label">Username</label>
-                        <input type="text" class="form-control" id="username" name="username" required autofocus>
+                        <input type="text" class="form-control" id="username" name="username" required autofocus autocomplete="username">
                     </div>
 
                     <div class="mb-3">
                         <label for="password" class="form-label">Password</label>
-                        <input type="password" class="form-control" id="password" name="password" required>
-                        <div class="form-text">
-                            <a href="#" data-bs-toggle="modal" data-bs-target="#forgotPasswordModal">
-                                Forgot your password?
-                            </a>
-                        </div>
+                        <input type="password" class="form-control" id="password" name="password" required autocomplete="current-password">
+                        <details class="form-text forgot-help">
+                            <summary>Forgot your password?</summary>
+                            <p class="mb-0 mt-1">
+                                Contact the commissioner, Brad, to reset it:
+                                <a href="mailto:bhagstrom0@gmail.com">bhagstrom0@gmail.com</a>
+                                or <a href="tel:+16304083424">630-408-3424</a>.
+                                He'll verify you and send a temporary password you can change after logging in.
+                            </p>
+                        </details>
                     </div>
 
                     <button type="submit" class="btn btn-greenside w-100">Login</button>
@@ -35,32 +39,6 @@
                 <p class="text-center mb-0">
                     Don't have an account? <a href="{{ url_for('register') }}">Register here</a>
                 </p>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Forgot Password Modal -->
-<div class="modal fade" id="forgotPasswordModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title font-display">Forgot Password?</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <p>
-                    If you've forgotten your password, please contact the commissioner to have it reset.
-                </p>
-                <p class="mb-0 text-muted">
-                    <small>
-                        The commissioner will verify your identity and provide you with a new temporary password.
-                        You can then change it after logging in.
-                    </small>
-                </p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-outline-greenside" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
     </div>

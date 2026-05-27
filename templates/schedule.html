@@ -5,12 +5,26 @@
 {% block content %}
 <h2>{{ season_year }} Tournament Schedule</h2>
 
-<!-- ===== MOBILE CARD LIST (hidden on md+) ===== -->
-<div class="mobile-card-list" style="margin-top: 1rem;">
+{# Current-week anchor: the live tournament, or (when none) the next pick still open. #}
+{% set ns = namespace(anchor_id=None) %}
+{% for tournament in tournaments %}
+    {% if ns.anchor_id is none and tournament.status == 'active' %}{% set ns.anchor_id = tournament.id %}{% endif %}
+{% endfor %}
+{% if ns.anchor_id is none %}
     {% for tournament in tournaments %}
-    <div class="card mb-3 pick-card
-        {% if tournament.status == 'active' %}active-tournament
-        {% elif tournament.status == 'complete' %}complete{% endif %}">
+        {% if ns.anchor_id is none and tournament.status == 'upcoming' and not tournament.is_deadline_passed() %}{% set ns.anchor_id = tournament.id %}{% endif %}
+    {% endfor %}
+{% endif %}
+
+{% if ns.anchor_id %}
+<a href="#current-week" class="schedule-jump d-md-none">Jump to this week &darr;</a>
+{% endif %}
+
+<!-- ===== MOBILE CARD LIST (hidden on md+) ===== -->
+<div class="mobile-card-list schedule-list" style="margin-top: 1rem;">
+    {% for tournament in tournaments %}
+    <div class="card mb-3 pick-card{% if tournament.status == 'active' %} active-tournament{% elif tournament.status == 'complete' %} complete{% endif %}{% if tournament.id == ns.anchor_id %} next-pick{% endif %}"
+        {% if tournament.id == ns.anchor_id %}id="current-week"{% endif %}>
 
         <div class="card-header d-flex justify-content-between align-items-center py-2">
             <div>
@@ -20,17 +34,19 @@
                     {{ tournament.name }}
                 </a>
                 {% if tournament.is_major %}
-                    <span class="badge-major ms-1">Major</span>
+                    <span class="badge-major ms-1">1.5x Major</span>
                 {% endif %}
                 {% if tournament.is_team_event %}
-                    <span class="badge-team ms-1">Team</span>
+                    <span class="badge-team ms-1">Team Event</span>
                 {% endif %}
             </div>
             <div class="ms-2 flex-shrink-0">
                 {% if tournament.status == 'complete' %}
                     <span class="badge-status-complete">Complete</span>
                 {% elif tournament.status == 'active' %}
-                    <span class="badge-status-active">Active</span>
+                    <span class="badge-status-active">In Progress</span>
+                {% elif tournament.id == ns.anchor_id %}
+                    <span class="badge-next-pick">Next pick</span>
                 {% elif tournament.is_deadline_passed() %}
                     <span class="badge-status-locked">Locked</span>
                 {% else %}
@@ -82,7 +98,7 @@
         </thead>
         <tbody>
             {% for tournament in tournaments %}
-            <tr class="{% if tournament.status == 'active' %}row-active-tournament{% elif tournament.status == 'complete' %}row-complete{% endif %}">
+            <tr class="{% if tournament.status == 'active' %}row-active-tournament{% elif tournament.status == 'complete' %}row-complete{% endif %}{% if tournament.id == ns.anchor_id %} row-next-pick{% endif %}">
                 <td>{{ loop.index }}</td>
                 <td>
                     <a href="{{ url_for('tournament_detail', tournament_id=tournament.id) }}" class="text-decoration-none" style="color: var(--text-primary);">
@@ -103,6 +119,8 @@
                         <span class="badge-status-complete">Complete</span>
                     {% elif tournament.status == 'active' %}
                         <span class="badge-status-active">In Progress</span>
+                    {% elif tournament.id == ns.anchor_id %}
+                        <span class="badge-next-pick">Next pick</span>
                     {% elif tournament.is_deadline_passed() %}
                         <span class="badge-status-locked">Locked</span>
                     {% else %}
