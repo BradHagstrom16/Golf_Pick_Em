@@ -19,7 +19,7 @@ The dev DB (`golf_pickem.db`) was **not** cleared — it holds a full, realistic
 
 - [x] 1. Shell (base.html)
 - [x] 2. Home (index.html)
-- [ ] 3. Make a pick (make_pick.html)
+- [x] 3. Make a pick (make_pick.html)
 - [ ] 4. Tournament detail (tournament_detail.html)
 - [ ] 5. My picks (my_picks.html)
 - [ ] 6. Lighter public (schedule.html, errors/404, errors/500)
@@ -34,6 +34,7 @@ The dev DB (`golf_pickem.db`) was **not** cleared — it holds a full, realistic
 |------|------|-------------|-----------------|----------|
 | 1 | base.html | 27/40 | Not AI slop (1 detector flag = false positive) | 0 |
 | 2 | index.html | 28/40 | Not AI slop (.column-divider 2px→1px fixed in Session A) | 0 |
+| 3 | make_pick.html | 28/40 | Not AI slop | 0 |
 
 ## Global issues (recur across pages → fix-campaign Phase 1)
 
@@ -134,6 +135,48 @@ These trace to `base.html` / design tokens / `style.css` and therefore recur on 
 **Questions:** (1) During a live major should the hero flip to "your pick + your projected money + next deadline," with full standings one tap below? (2) If a member can't tell whether `+$15` is won or owed, is the ledger *metaphor* honored or just the ledger *aesthetic*? (3) Is "honest about projection category but silent about freshness" enough to keep Sunday trust? (4) Are 11 "No Pick" rows information or noise — should active state lead with who's actually playing? (5) Should any explanation that exists only on hover be considered missing, given a mostly-phone audience?
 
 **Detector raw (Assessment B, home-scoped from `/`):** `skipped-heading` h2 "Season Standings" → h5 "League Rules" (missing h3/h4 — add a visually-styled but correctly-leveled sidebar heading or aria); `layout-transition` `transition: width` on `.progress-bar` (style.css:526 — Season Progress bar; animate `transform`/`grid-template` instead, minor perf); muted-grey contrast → **[G1]**.
+
+### Unit 3 — Make a pick (make_pick.html)
+
+**Scope:** the pick-submission experience only — Tom Select primary/backup golfer dropdowns (search, formatting, touch), deadline clarity, used-player lockout communication, primary-vs-backup model, WD/backup rules messaging, "Available Golfers" count, confirm/submit/cancel + the same-player JS `alert()`. (Shell = Unit 1.)
+**Rendered:** `http://127.0.0.1:5001/pick/20` (Charles Schwab Challenge, upcoming/picks-open, deadline Thu May 28 07:00 CT) logged in as admin. Seeded a 60-player field + deadline; admin's 18 used players reduce the list to **56 available** (lockout via exclusion). Assessment A = isolated sub-agent (`[LLM]` tab; interacted with the Tom Select dropdown + phone width). **Assessment B limitation:** `/pick/20` is `@login_required`, so the anonymous URL-mode detector only reaches the login redirect; the file scan returns `[]` (Jinja template). Deterministic detector contributed nothing here — findings rest on Assessment A's authenticated DOM inspection + the `[Human]` screenshot. (This limitation applies to all 6 login/admin pages: make_pick, my_picks, change_password, admin/*.)
+
+**Nielsen scorecard: 28/40 (Good, lower band)**
+
+| # | Heuristic | /4 | Key issue |
+|---|-----------|----|-----------|
+| 1 | Visibility of system status | 3 | No inline "pick saved/locked" state; deadline is a static timestamp (no countdown) |
+| 2 | Match real world | 3 | "Last, First" inverts how fans name golfers; "WD" jargon unglossed |
+| 3 | User control & freedom | 3 | Same-player error force-clears backup instead of letting user correct |
+| 4 | Consistency & standards | 3 | Native `alert()` validation clashes with the otherwise inline branded form |
+| 5 | Error prevention | 2 | Same-player conflict is allowed then alerted, not prevented; no confirm before locking |
+| 6 | Recognition vs recall | 2 | Used-player lockout is silent omission — forces recall of who's been used |
+| 7 | Flexibility & efficiency | 3 | Type-to-search works, but punctuated names ("jj" vs "J.J.") fail |
+| 8 | Aesthetic & minimalist | 4 | Exemplary restraint — two fields, quiet rules card, a count |
+| 9 | Error recovery | 2 | Lone error path is a blunt `alert()` that wipes the field; server validation not surfaced |
+| 10 | Help & documentation | 3 | Pick Rules sidebar is good but below the fold on mobile |
+
+**Anti-patterns verdict:** **Not AI slop.** Clears all bans (no side-stripes — CSS comment documents the deliberate avoidance; no gradient text/glassmorphism/hero-tiles/card-grid; no modal). Recognizably Greenside Ledger (Augusta-green header, serif title, gold rules card, role-locked color; Tom Select highlight uses Mint Wash `--green-100` per DESIGN). Detector: n/a (login-required — see limitation above).
+
+**Overall impression:** Clean, on-brand, low-load form. The drag is **error prevention/recovery** (the native `alert()` crutch) and **recognition** (the invisible used-player rule) — plus a thin, unconfirmed submit moment for what is a real-money, once-per-season lock.
+
+**Priority issues** (each with suggested impeccable command):
+
+- **P1 [local] Same-player conflict uses a native `alert()` that wipes the field, not prevention.** *What:* the chosen primary stays selectable as backup; picking them fires `window.alert(...)` and clears the backup (make_pick.html:128-145). *Why:* error-prevention failure dressed as handling; the OS popup shatters the clubhouse tone and destroys the user's selection. *Fix:* filter the chosen primary out of the backup Tom Select options live (collision becomes impossible); if a guard remains, inline branded helper text, never `alert()`, and don't clear. → `/harden` (validation) + `/polish`.
+- **P2 [local→candidate global] Used-player lockout communicated only by silent omission.** *What:* used golfers are simply absent; no "X used this season" context, no used-roster, no per-row "used" treatment. *Why:* PRODUCT demands "an unambiguous picture of who is available" + "subtle rules → obvious state"; silent omission forces recall and can read as a bug. *Fix:* a cue near the count ("56 available · 18 used this season") and/or a collapsible "players you've used" list. → `/clarify`. _Candidate global with Unit 5 (my_picks) — the season-usage model surfaces there too._
+- **P3 [local] No submit confirmation / locked-in reassurance.** *What:* "Submit Pick" posts immediately, redirects away, no on-screen success ceremony. *Why:* the money moment of the app; a fat-finger phone submit on a once-per-season lock deserves certainty ("Your pick is in — editable until Thu 7:00 AM CT"). *Fix:* echo deadline + "you can still edit" at the submit affordance and a branded post-submit success state. **Avoid a modal** (ban) — use an inline confirmation summary. → `/onboard` / `/harden`.
+- **P2 [local] Plain-letter search fails for punctuated names.** *What:* typing `jj` returns nothing; only `J.J.` (with periods) matches Spaun. *Why:* no one types periods on a phone; a "no results" for an available player reads as "taken/used," undermining trust. *Fix:* normalize search (strip periods, nickname/first-name matching via Tom Select `searchField`/custom score). → `/harden`.
+- **P3 [local] Pick Rules + Available count below the fold on mobile.** *What:* on 390px they stack beneath Submit/Cancel. *Why:* the casual/first-timer needs the WD/backup rule + available context exactly while deciding, on the phone. *Fix:* hoist a condensed "X available · backup activates only if primary WDs before R2" line under the field labels on small screens. → `/adapt`.
+
+**Persona red flags:**
+- *Casual member, phone, sunlight:* **no decision support** in a flat 56-name list (no notable players / odds / tee-time ordering) → random-pick / abandonment risk; punctuated-name search dead-ends read as "unavailable" in glare; the `alert()` hijacks a distracted thumb and deletes the backup; no locked-in confirmation after a tab-switch. Positive: 48px targets, full-width buttons, bold glanceable deadline/purse.
+- *Alex (power user):* thinks in first names/nicknames — last-name-first + no nickname match + punctuation gap slow the expert path; `alert()` interrupts the keyboard flow and clears a field; **no at-a-glance "who I've already used" ledger** on the pick screen (must leave to My Picks) — removes the exact info the once-per-golfer strategist optimizes around; no inline tee-time/odds context forces a tab switch.
+
+**Minor observations:** selected single Tom Select value has no clear-"X" affordance (reopen to change); "Purse: $9,900,000" is body sans, not the serif/gold "Money-Is-Gold" register on a money screen (_candidate global — recurs on tournament_detail header_); 5-item rules list slightly exceeds the ≤4 chunk; "WD" unglossed; empty-submit relies on native `required` tooltip; static deadline could carry a relative cue ("in 2 days") without sportsbook urgency. The helper sub-labels use muted small text → **[G1]**.
+
+**Questions:** (1) If "unambiguous picture of who is available" is a promise, why is the *used* pool invisible? (2) For a once-per-season real-money lock, is *no* confirmation right, or have we conflated "avoid modals" with "avoid all ceremony"? (3) Is the pick form actually a *front door*, or a form that assumes you already decided elsewhere (zero signal of who's good among 56)? (4) Why does the only validation use the one interaction guaranteed to feel un-designed (`alert()`)? (5) On a phone, the rules sit below the submit button — which user does that serve?
+
+**Detector raw (Assessment B):** file scan `templates/make_pick.html` → `[]` (Jinja template, no computed CSS); URL `/pick/20` → login redirect (anonymous), 1× `ai-color-palette` = the green-gradient **false positive** on the login nav, not make_pick. No usable deterministic signal for this page.
 
 ## Deferred prioritization & fix campaign
 
