@@ -21,31 +21,41 @@
     {% block head %}{% endblock %}
 </head>
 <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
     <!-- Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-dark navbar-greenside">
+    <nav class="navbar navbar-expand-lg navbar-dark navbar-greenside" aria-label="Primary">
         <div class="container">
             <a class="navbar-brand" href="{{ url_for('index') }}">
                 Golf Pick 'Em <span style="font-family: var(--font-body); font-weight: 600; font-size: 0.75rem; opacity: 0.7; vertical-align: middle; margin-left: 0.25rem;">{{ season_year }}</span>
             </a>
+
+            {% if current_user.is_authenticated %}
+            <!-- Season total in the collapsed bar — the one number a phone user glances for (U1) -->
+            <span class="badge-points d-lg-none ms-auto me-2" aria-label="Your season total">
+                ${{ "{:,}".format(current_user.total_points) }}
+            </span>
+            {% endif %}
 
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
 
             <div class="collapse navbar-collapse" id="navbarNav">
+                {% set ep = request.endpoint %}
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('index') }}">Standings</a>
+                        <a class="nav-link {{ 'active' if ep == 'index' }}" {% if ep == 'index' %}aria-current="page"{% endif %} href="{{ url_for('index') }}">Standings</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('schedule') }}">Schedule</a>
+                        <a class="nav-link {{ 'active' if ep == 'schedule' }}" {% if ep == 'schedule' %}aria-current="page"{% endif %} href="{{ url_for('schedule') }}">Schedule</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('results') }}">Results</a>
+                        <a class="nav-link {{ 'active' if ep == 'results' }}" {% if ep == 'results' %}aria-current="page"{% endif %} href="{{ url_for('results') }}">Results</a>
                     </li>
                     {% if current_user.is_authenticated %}
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('my_picks') }}">My Picks</a>
+                        <a class="nav-link {{ 'active' if ep == 'my_picks' }}" {% if ep == 'my_picks' %}aria-current="page"{% endif %} href="{{ url_for('my_picks') }}">My Picks</a>
                     </li>
                     {% endif %}
                 </ul>
@@ -54,7 +64,7 @@
                     {% if current_user.is_authenticated %}
                         {% if current_user.is_admin %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('admin_dashboard') }}">
+                            <a class="nav-link {{ 'active' if ep and ep.startswith('admin') }}" {% if ep and ep.startswith('admin') %}aria-current="page"{% endif %} href="{{ url_for('admin_dashboard') }}">
                                 <span class="badge-admin">Admin</span>
                             </a>
                         </li>
@@ -64,7 +74,7 @@
                             <a class="nav-link dropdown-toggle" href="#" id="userDropdown"
                                 role="button" data-bs-toggle="dropdown" aria-expanded="false">
                                 {{ current_user.get_display_name() }}
-                                <span class="badge-points ms-1 d-none d-md-inline">
+                                <span class="badge-points ms-1 d-none d-lg-inline">
                                     ${{ "{:,}".format(current_user.total_points) }}
                                 </span>
                             </a>
@@ -84,10 +94,10 @@
                         </li>
                     {% else %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('login') }}">Login</a>
+                            <a class="nav-link {{ 'active' if ep == 'login' }}" {% if ep == 'login' %}aria-current="page"{% endif %} href="{{ url_for('login') }}">Login</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('register') }}">Register</a>
+                            <a class="nav-link {{ 'active' if ep == 'register' }}" {% if ep == 'register' %}aria-current="page"{% endif %} href="{{ url_for('register') }}">Register</a>
                         </li>
                     {% endif %}
                 </ul>
@@ -96,13 +106,13 @@
     </nav>
     
     <!-- Flash Messages -->
-    <div class="container mt-3">
+    <div class="container mt-3" aria-live="assertive" aria-atomic="true">
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show">
+                    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
                         {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Dismiss"></button>
                     </div>
                 {% endfor %}
             {% endif %}
@@ -110,7 +120,7 @@
     </div>
     
     <!-- Main Content -->
-    <main class="container my-4">
+    <main class="container my-4" id="main">
         {% block content %}{% endblock %}
     </main>
     

@@ -643,3 +643,27 @@ Notes that update earlier assumptions:
 - **Detector JSON schema (impeccable 2.1.8):** keys are `antipattern` / `name` / `description` / `snippet` / `file` / `line` — **not** the `rule` / `message` / `selector` the plan's Setup snippet first guessed. The `ai-color-palette` "Cyan gradient" finding carries **no** color or selector (snippet is the bare "Cyan gradient background"); `dark-glow` carries the hex ("Colored glow (#00432e) on dark background"). The filter therefore drops `dark-glow` by its own hex, but drops the cyan `ai-color-palette` only after verifying against `static/css/style.css` that **every** declared gradient is brand-green (`var(--green-*)` / brand-green hex) — so a genuinely-wrong non-green gradient added later is surfaced, never masked. (Plan Setup Step 2 corrected to match.)
 - **Admin trio now has a real (sparse) detector signal:** the prior Assessment-B for Unit 10 measured `index.html` (anonymous `@admin_required` redirect, 25× low-contrast noise — discarded). Through the harness the admin tables are nearly clean (tournaments 0, users 1× skipped-heading, payments 1× low-contrast). The admin cluster's real problems are **structural/visual** (G12 raw-Bootstrap, G13 mutation-safety, G11 flat-sans money) which the detector doesn't score — confirming the cluster's low Nielsen scores are a design/identity gap, not a detector-flag pile-up. (Note `cramped-padding` appeared only on U8 dashboard, which uses `table-sm`; the trio uses default-padded `table table-striped`.)
 - **register's 3× low-contrast** reproduces the Unit-7 Assessment-B finding deterministically (the three `<small class="text-muted">` form hints at 3.0:1 → G1).
+
+### Phase 2 verification (Session S2 — global tokens; branch `fix/phase2-global-tokens`)
+
+Re-ran the same `.critique_shots/harness.py` after the Phase 2 token/shell edits (`static/css/style.css` + `templates/base.html` + the shared est-purse / penalty inline snippets). Deterministic detector delta, same FP filter:
+
+| Page | Before (S1) | After (S2) | Δ | Remaining (post-filter) |
+|------|-------------|------------|---|--------------------------|
+| make_pick | 5 | 1 | −4 | skipped-heading×1 **[G5]** |
+| my_picks | 3 | 1 | −2 | skipped-heading×1 **[G5]** |
+| login | 0 | 0 | — | clean |
+| register | 3 | 0 | −3 | clean |
+| change_password | 0 | 0 | — | clean |
+| tournaments | 0 | 0 | — | clean |
+| users | 1 | 1 | — | skipped-heading×1 **[G5]** |
+| payments | 1 | 0 | −1 | clean |
+| **Total** | **13** | **3** | **−10** | all 3 = skipped-heading **[G5]** |
+
+- **All 10 `low-contrast` [G1] findings cleared** by the token-level fix: `--text-muted` deepened `#8b95a2 → #5e6776` (~5.3:1, was 3.0:1), `--gold-600` deepened `#92722a → #826419` (~5:1 on gold-wash, was 4.07:1), and `.text-gold` re-pointed to `--gold-600`. No new findings introduced (no regression on the clean pages).
+- **The 3 remaining findings are all `skipped-heading` [G5]** — these are per-page heading-*tag* corrections (make_pick `h4→h6`, my_picks/users `h2→h5`) that live in page templates and are **deferred to the page phases per Phase 2's file scope** (Phase 3 for make_pick/my_picks, Phase 5 for users). Phase 2 shipped only the *CSS foundation* for G5: card-header titles now inherit the header color at any level (`:is(h2…h6)`) with no font-size override, so the page phases can swap to a sequential level without a visual or color regression.
+- **Visual verification (chrome-devtools MCP, authenticated, desktop 1280 + 390px):**
+  - `index` — G4 active-nav renders (white-wash + gold underline on "Standings"); G1 muted subtitle/score-to-par legible; gold register **not dulled** (League-Rules "Majors pay 1.5×", Admin badge, navbar points chip all read as legible deep gold). U1 season total `$10,466,924` now rides in the **collapsed mobile bar** beside the toggler.
+  - `tournament/23` — G8 est chip renders as a **gold-wash pill** (`$21,500,000 [est.]`), replacing the gray Bootstrap chip; the G1 "multiplied by 1.5×!" major alert (the old 4.07:1 line) reads clearly.
+  - `my-picks` — DOM check: 3× `.badge-penalty` all read **"Penalty $15"**, zero `+` signs (G6); `main#main` + skip-link present (G3); live tokens confirmed (`--text-muted #5e6776`, `--gold-600 #826419`, `--focus-ring #9c7d2c`).
+- **Brand guardrail held:** the two green-gradient FPs stayed filtered; Pinehurst Pine `#006747` and the brand greens were not touched.
