@@ -284,7 +284,7 @@
                                             <span class="badge badge-dq">DQ</span>
                                         {% endif %}
                                     {% endif %}
-                                    {% if result.penalty_triggered and result.active_is_primary %}
+                                    {% if result.penalty_triggered and not result.backup_activated %}
                                         <span class="badge-penalty" title="Missed Major Cut Penalty">+${{ penalty_per_incident }}</span>
                                     {% endif %}
                                 {% else %}
@@ -307,7 +307,7 @@
                                             <span class="badge badge-dq">DQ</span>
                                         {% endif %}
                                     {% endif %}
-                                    {% if result.penalty_triggered and result.active_is_backup %}
+                                    {% if result.penalty_triggered and result.backup_activated %}
                                         <span class="badge-penalty" title="Missed Major Cut Penalty">+${{ penalty_per_incident }}</span>
                                     {% endif %}
                                 {% else %}
