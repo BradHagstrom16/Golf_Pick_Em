@@ -62,7 +62,8 @@ Two distinct mechanisms — use them correctly:
 | After implementing any route/model change | `coderabbit` review |
 | After modifying `.py` files | `pyright-lsp` |
 | After completing a feature — reduce complexity | `code-simplifier` |
-| UI changes needing browser verification | `playwright` |
+| Any UI / design work (critique, polish, redesign, new screen, copy) | `impeccable` skill — reads `PRODUCT.md` + `DESIGN.md` |
+| UI changes needing browser verification | `playwright` or Chrome DevTools MCP |
 | Needs awareness of library/framework APIs | `context7` |
 | End of each logical unit of work | `commit-commands` |
 | Non-trivial change ready for review | Open a PR with `gh pr create` and include `@coderabbitai review` in the body |
@@ -155,6 +156,10 @@ flask db stamp head
 - `force_schedule_sync.py` — Forces `sync_schedule()` any day of the week, bypassing the Monday gate. Use when a major announces its purse mid-week.
 
 **Frontend:** Jinja2 templates with Bootstrap 5. Tom Select for player dropdowns on `make_pick.html`. No build step.
+
+**Design context:** `PRODUCT.md` (strategy) and `DESIGN.md` (visual spec — "The Greenside Ledger": Augusta greens + gold, DM Serif Display + Plus Jakarta Sans) at the repo root are authoritative; `.impeccable/design.json` is the renderable sidecar. Run the `impeccable` skill for all UI/design work — it reads these files.
+
+**Visually verifying CSS/component states:** the dev DB has no `active` tournament (only complete/upcoming) and pages require login, so render a standalone harness HTML linking the real `static/css/style.css` + Bootstrap + Google Fonts, serve the repo root with `python -m http.server`, and screenshot via Chrome DevTools MCP.
 
 ## Critical Domain Logic
 
