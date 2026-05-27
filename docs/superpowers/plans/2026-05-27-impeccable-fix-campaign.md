@@ -26,6 +26,22 @@ This campaign spans 5 PRs and ~50 issues. Following this repo's own plan convent
 
 ---
 
+## Execution strategy (per phase) — read at the start of every session
+
+This campaign is executed **one phase (or a natural grouping of phases) per session, with a `/clear` between sessions**, NOT as a single blanket subagent-driven or inline run. Each phase is assigned the execution strategy that fits the work; a cleared session re-orients by reading this section, then expands that phase's roadmap row into bite-sized tasks and executes with the assigned strategy. Phase boundaries are natural break points: each ends in a PR + a re-critique verification gate, and the Phase-2-before-3–5 merge dependency is enforced by doing one PR per session.
+
+| Session | Phase(s) | Execution strategy | Rationale |
+|---|---|---|---|
+| **S1** | Setup + Phase 1 (logic) | Setup **inline**; Phase 1 **subagent-driven** (`superpowers:subagent-driven-development`) | Setup is tooling you adapt to live output. Phase 1 is the textbook subagent fit — discrete TDD tasks, binary pass/fail, file-disjoint — and the review-between-tasks step is where `pick-resolution-audit` guards the U4/U9 money logic. Both are non-visual code; pair them. |
+| **S2** | Phase 2 (global tokens) | **Inline** (`superpowers:executing-plans`) | Highest-coupling, highest-blast-radius work — contrast tokens, focus ring, gold contrast, penalty component, money treatment all interact. One operator holding the token system in context beats farmed-out edits; the `/audit`→`/colorize`→`/typeset` passes are interactive in-browser. Own focused session; **merge before S3–S5.** |
+| **S3** | Phase 3 (core loop) | **Inline**, with a small **subagent batch** for mechanical fixes | Bottleneck is design taste + 2-breakpoint visual verification (inline strength). Exception: pure template-binding fixes (U5 row-status class, live-row link, as-of timestamp) are a mechanical subagent batch up front. Split into two sessions (front doors / trust surfaces) if context grows. |
+| **S4** | Phase 4 (lighter public) | **Inline**, light | Mostly applying S2's tokens + small locals; the auth trio shares one pattern so a single fix propagates. Small enough that inline is simpler than dispatching. |
+| **S5** | Phase 5 (admin) | **Split**: subagent-driven for G12 migration, **inline** for G13 + U9 confirm UI | G12 is a well-specified mechanical class-swap (three templates → three verifiable subagent tasks). G13 + the confirm UI is interaction safety on a money-re-resolve flow — must be verified in-browser against Phase 1's logic gate, so it needs a careful inline eye. Likely 1–2 sessions. |
+
+**Per-session ritual:** (1) read this section + the target phase's roadmap row; (2) cut the phase branch; (3) expand the row into bite-sized tasks; (4) execute with the assigned strategy; (5) run the phase's re-critique verification and record the score delta in the findings doc; (6) open the PR tagged `@coderabbitai review`; (7) `/clear` before the next session (merge S2 before starting S3).
+
+---
+
 ## Setup: Re-baseline + harness false-positive filter
 
 **Files:**
