@@ -143,3 +143,18 @@ def make_pick(db):
         return pick
 
     return _make
+
+
+@pytest.fixture
+def client(app):
+    app.config['WTF_CSRF_ENABLED'] = False
+    return app.test_client()
+
+
+@pytest.fixture
+def login(client):
+    def _login(user):
+        with client.session_transaction() as sess:
+            sess['_user_id'] = str(user.id)
+        return client
+    return _login
