@@ -568,6 +568,7 @@ def register():
         if errors:
             for error in errors:
                 flash(error, 'error')
+            return render_template('register.html', username=username, email=email, display_name=display_name)
         else:
             user = User(
                 username=username,
