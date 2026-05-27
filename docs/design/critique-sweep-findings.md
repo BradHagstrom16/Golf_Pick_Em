@@ -508,4 +508,118 @@ These trace to `base.html` / design tokens / `style.css` and therefore recur on 
 
 ## Deferred prioritization & fix campaign
 
-_Filled at consolidation (Session F)._
+Filled at consolidation (Session F, 2026-05-27). This pools every issue found across the 10 units — the 13 globals (G1–G13) plus each unit's P0–P3 locals — into one prioritized, ordered campaign. The campaign itself is specced/planned separately in `docs/superpowers/specs/2026-05-27-impeccable-fix-campaign-design.md` + `docs/superpowers/plans/2026-05-27-impeccable-fix-campaign.md`; this section is the authoritative source-of-truth list those documents draw from.
+
+### Prioritization decisions (the deferred critique "Ask the User" step, run once)
+
+- **First phase = logic/route correctness, not CSS** (delegated to the assessor; decided objectively). The two code P0s — U4's silently-hidden live missed-cut penalty on the money/trust surface, and U7's register-form wipe on the front gate — are the highest-severity items in the entire pool, are **independent of the token work** (they touch `app.py` routes + template/JS logic, disjoint from `style.css`/`base.html`, so no rework risk), and break member trust in ways no styling pass can repair. They open the campaign. The global-token foundation still precedes every page phase that depends on it (so the spec's "shared edits land first" intent holds for all the CSS work).
+- **Admin cluster = one phase, G12+G13 led.** The lowest-scoring group (U8 19, U9 21, U10 21) collapses almost entirely to G12 (raw Bootstrap instead of the existing design-system classes — a largely mechanical class swap) plus G13 (mutation safety). Migrate all three admin templates and add the safety pattern in a single phase; recovers most of the identity at once.
+- **Re-score: retro-apply the authenticated harness for a clean baseline first.** Before fixing, re-run the detector on the four login-gated units (3/5/7/10) through the Session-E authenticated render harness so their before/after deltas are deterministic rather than Assessment-A-only. The spec's per-phase "score moved" re-critique still applies on top.
+- **Commit landing: current branch.** Session F's filled section + the new fix-campaign spec/plan commit onto `docs/impeccable-critique-sweep` (head was d938fb7), where all 10 units' commits already live, keeping the sweep self-contained. Each *fix* phase (the campaign proper) then gets its own branch + PR tagged `@coderabbitai review` per the branch-strategy preference.
+
+### Phase ordering (rationale)
+
+1. **Phase 1 — Logic & route correctness** (NOT an impeccable/CSS pass). Code/logic only; uses TDD, and `pick-resolution-audit` wherever earnings/resolution logic is touched. Opens the campaign because it carries the trust-breaking P0s and is file-disjoint from everything else.
+2. **Phase 2 — Global shell & token foundation** (`style.css` + `base.html`). The propagating fixes; must land before the page phases that consume the new tokens/components. This is the spec's "shell/tokens first."
+3. **Phase 3 — Core-loop pages** (`index`, `make_pick`, `tournament_detail`, `my_picks`). The two front doors + the money/trust surfaces; apply the per-page locals and per-template application of G7.
+4. **Phase 4 — Lighter public** (`schedule`, auth trio, error pages). Lower traffic; applies G8/G9/G10 per-surface plus locals.
+5. **Phase 5 — Admin cluster** (`admin/dashboard`, `admin/override_pick`, `admin/{tournaments,users,payments}`). Highest-leverage, lowest-scoring; G12 migration + G13 safety + G11 gold money, one phase. The U9 P0 **confirm UI** lands here (its logic gate shipped in Phase 1).
+
+Within each phase, fix P0 → P1 → P2 → P3. After each phase, re-run `critique` on the changed pages to confirm the Nielsen score moved (verification step folded into the campaign plan).
+
+### Master prioritized list (every pooled issue → phase + command)
+
+"Command" = the suggested impeccable sub-command for a styling pass, or **code/logic — not a CSS pass** for anything an impeccable command cannot fix.
+
+#### Phase 1 — Logic & route correctness (code/logic — not a CSS pass)
+
+| Source | Issue | Sev | Fix vehicle |
+|---|---|---|---|
+| U4 | **P0** Desktop `tournament_detail` never renders the live missed-cut penalty — `active_is_primary/backup` null on un-finalized live majors gates the badge off (template `:287-289,310-312`); mobile gates on `penalty_triggered` alone. The trust surface silently hides a $15 debt the legend advertises. | P0 | code/logic — TDD + `pick-resolution-audit` (penalty display derives from resolve logic) |
+| U7 | **P0** Register route re-renders with **no context** on a validation error, wiping username/email/display-name (`app.py` register route). The single most likely abandonment trigger in the app. | P0 | code/route — TDD |
+| U9 | **P0** (logic half of G13) Override-pick commit on a `complete` tournament silently re-resolves earnings/total/1.5×/penalty (`app.py:1010-1023,1041-1047`) with no status gate or consequence path. The *gate + consequence wiring* is code; the *confirm UI* is Phase 5. | P0 | code/route — TDD + `pick-resolution-audit` (re-resolve recomputes earnings) |
+| U4 | **P1** Ranking misuses `loop.index` over a list including 13 no-pick rows, so a $0 DQ pick ranks "#8". Rank only picked rows by earnings; push no-pick rows below a divider. | P1 | code/logic (template) |
+| U3 | **P1** Same-player conflict fires a native `alert()` that **wipes the backup** (`make_pick.html:128-145`). Filter the chosen primary out of the backup Tom Select options live so the collision is impossible; never `alert()`/clear. | P1 | code/logic (JS) |
+| U9 | **P1** (local) Same-player guard `alert()` wipes the backup (`:215-233`) **and** USED options are not `disabled` (`anyDisabled:false`) — selectable, caught only server-side. Disable USED options; dynamically disable the backup option matching the primary. | P1 | code/logic (template + JS) |
+| U10 | **P2** Reset-password modal pre-fills a guessable cleartext default `golf{id}` (`users.html:83-87`); payment toggle POSTs on change → `location.reload()` with an **empty `else`** that silently swallows a failed toggle (`payments.html`). Generate a random default; surface toggle failures. | P2 | code/logic (route + JS) |
+| U3 | **P2** Plain-letter search fails punctuated names (`jj` ≠ `J.J.`) — a "no results" for an available player reads as "taken." Normalize Tom Select `searchField`/scoring (strip periods, nickname match). | P2 | code/logic (JS config) |
+
+#### Phase 2 — Global shell & token foundation (`style.css` + `base.html`; propagates everywhere)
+
+| Source | Issue | Sev | Command |
+|---|---|---|---|
+| **G1** | Low-contrast tokens fail WCAG AA: `--text-muted #8b95a2` (2.7–3.0:1), `--gold-500 #b8993e` (2.7:1), alert-warning gold-on-gold `#92722a` (4.0–4.1:1). Fix at the token level (leads → Slate `#4a5568` ≈7:1; reserve Stone for tertiary; darken/deepen the gold-wash alert) → propagates to every page. | P1 | `/audit` (contrast) → `/polish` |
+| **G2** | Status-blue role-leak: Bootstrap-blue `:focus` ring on all chrome (and the admin paid toggle, fixed in Phase 5). Define a brand `:focus-visible` ring (gold/paper). | P1 | `/audit` + `/polish` |
+| **G4** | No active-nav / `aria-current` (the `.nav-link.active` style exists but is unused). Bind from the route endpoint; style with white-wash + gold underline. | P1 | `/polish` + `/clarify` |
+| **G6** | Penalty "+$15" reads as a gain. Reframe the shared `.badge-penalty` + penalty blocks to debit ("Penalty $15" / "Owes $15", drop the bare `+`). | P1 | `/clarify` |
+| **G9** | Form controls/buttons below the 44px tap minimum (auth inputs 38px, submit 36px, nav toggler 40px, mobile card buttons ~32px). Add `min-height:44–48px` + padding to `.form-control`/`.btn` (esp. the mobile block); pad control-like links. | P1 | `/adapt` |
+| **G10** | Shared flash region has no `role="alert"`/`aria-live` (`base.html:99`) and errors aren't tied to fields. Add the live-region role globally + scaffold the field-error (`aria-invalid`/`aria-describedby`) pattern. | P1 | `/harden` + `/audit` |
+| **G11** | Standalone money in body sans/ink, not the gold-or-serif ledger register. Add a shared money-figure treatment (serif and/or Clubhouse Gold, right-aligned tabular-num). Applied per-surface in Phases 3 & 5. | P1 | `/typeset` + `/colorize` |
+| **G8** | "est." purse chip is off-palette `bg-secondary` gray, ~9px, tooltip-only meaning. Replace the shared inline snippet with a real gold-register token chip (gold-wash fill / gold-deep text, ≥0.65rem). | P2 | `/polish` + `/audit` |
+| **G3** | No skip-to-content link; `<nav>` unlabeled, `<main>` has no id. Add visually-hidden-focusable skip link → `#main`, `aria-label="Primary"`, `id="main"`. | P2 | `/harden` or `/audit` |
+| **G5** | Heading-level skips (card-header `<h5>` after page `<h2>`/`<h3>`). Fix the shared card-header level / set levels contextually. | P2 | `/audit` |
+| U1 | **P1** (local) Season points total (`$13.1M`) is `d-none d-md-inline` — hidden on the primary device with no mobile fallback. Surface a compact total in the collapsed bar / expanded menu (shell = `base.html`). | P1 | `/adapt` / `/layout` |
+
+#### Phase 3 — Core-loop pages (`index`, `make_pick`, `tournament_detail`, `my_picks`)
+
+| Source | Issue | Sev | Command |
+|---|---|---|---|
+| **G7** | Mobile renders projected (live) earnings in settled-green, losing the gold-projected distinction (tournament_detail mobile cards + `my_picks.html:57-68`). Key the mobile money pill on `tournament.status` exactly as the desktop branch does. *(Per-surface application of the global.)* | P1 | `/adapt` / `/harden` |
+| U4 | **P1** Projected earnings render as "settled green" on mobile (the U4 instance of G7; verified gold ×6 desktop vs green ×6 mobile). | P1 | `/adapt` / `/harden` |
+| U5 | **P1** Desktop `my_picks` table binds no row-status class, so `.row-active-tournament`/`.row-complete` are dead here while `schedule.html` binds them correctly — the live $4.2M row reads identical to settled rows. Bind the status class on the desktop `<tr>`. | P1 | `/layout` |
+| U5 | **P1** The active/live row dead-ends with an inert "Locked" — the highest-intent moment has no tap-through. Give active tournaments a "Watch Live"/"View" link to `tournament_detail`. | P1 | `/clarify` / `/layout` |
+| U2 | **P1** Encoded board symbols (🔄 👑 CUT DQ +$15, gold-vs-green split) have no on-screen legend. Add a compact legend (reuse the unused `.legend-bar`) when a tournament is active. | P1 | `/clarify` + `/polish` |
+| U2 | **P1** No "as-of" timestamp on the live projected board; no refresh. Add "Projected as of {{ last_sync }} CT" to the In Progress banner. | P1 | `/harden` |
+| U4 | **P2** 13 empty no-pick rows bury the 8 real picks + leader. Collapse non-pickers into a muted "Didn't pick (13): …" line/toggle. | P2 | `/distill` / `/layout` |
+| U3 | **P2** Used-player lockout communicated only by silent omission. Add a cue near the count ("56 available · 18 used this season") and/or a collapsible used list. | P2 | `/clarify` |
+| U2 | **P2** Mobile loses the desktop backup-WD tooltip. Render backup state as visible text on mobile ("↳ replaces {primary}"). | P2 | `/adapt` |
+| U2 | **P2** No next-pick deadline/front door during an active tournament (CTA suppressed). Keep a lightweight "Next pick: {tournament} · deadline {time}" thread visible. | P2 | `/onboard` / `/layout` |
+| U5 | **P2** Legend omits the load-bearing money color code (gold=projected, green=banked), 1.5×, Team, status pills (+ the G6 penalty reframe). Add those rows to the Legend. | P2 | `/clarify` |
+| U5 | **P2** (G9 application) Mobile card-footer CTAs ~32px. Apply the Phase-2 44px floor in the `my_picks` mobile block. | P2 | `/adapt` |
+| U3 | **P3** No submit confirmation / locked-in reassurance for a once-per-season real-money lock. Add an **inline** confirmation summary (avoid the modal ban) echoing deadline + "editable until …". | P3 | `/onboard` / `/harden` |
+| U3 | **P3** Pick Rules + Available count below the fold on mobile. Hoist a condensed rule/count line under the field labels at small widths. | P3 | `/adapt` |
+| U4 | **P3** (G1 application) Major-multiplier alert + "You" badge at 4.07:1; "You" reusing gold `badge-major` collides with the major/money register. Darken text / deepen wash; reconsider the "You" badge color. | P3 | `/audit` |
+
+#### Phase 4 — Lighter public (`schedule.html`, auth trio, `errors/{404,500}.html`)
+
+| Source | Issue | Sev | Command |
+|---|---|---|---|
+| U6 | **P1** (G8 application) "est." chip breaks the role-locked palette + unreadable at ~9px on `schedule`. Apply the Phase-2 gold-register token chip. | P1 | `/polish` + `/audit` |
+| U6 | **P1** (G1 application) Error-page lead copy fails AA (2.86–2.9:1) — the single recovery line near-invisible. Lead → Slate `#4a5568`. | P1 | `/audit` |
+| U6 | **P1** No "current week" anchor; flat hierarchy across 32 rows buries the live edge ~20 rows down. Emphasize the active/next-upcoming tournament + in-page anchor; dim the settled tail. | P1 | `/layout` |
+| U7 | **P1** Login "Forgot password?" is an info-only Bootstrap **modal** that dead-ends (modal-ban trip), naming no commissioner. Replace with an inline `<details>`/help line + `mailto:`. | P1 | `/clarify` + `/distill` |
+| U6 | **P2** Desktop/mobile label parity drift ("1.5x Major" vs "Major", "Team Event" vs "Team", "In Progress" vs "Active"). Carry the informative "1.5x" form to mobile; pick one of Active/In Progress. | P2 | `/clarify` |
+| U6 | **P2** 500 page offers no real recovery path ("try again later", no retry). Add a "Try again" (reload the failed URL) + a low-key contact line. | P2 | `/harden` |
+| U7 | **P2** No `autocomplete` on any field across the trio — password managers can't autofill/generate/save. Add `username`/`current-password`/`new-password`/`email` as appropriate. | P2 | `/harden` |
+| U7 | **P2** `.auth-card` floats at rest (`shadow-md`/`border:none`, DESIGN.md:193 violation) + no `<h1>` (only `<h4>`). Rest at `shadow-sm` + green hairline, lift on hover; promote the card header to `<h1>` styled down. | P2 | `/polish` + `/audit` |
+
+#### Phase 5 — Admin cluster (`admin/dashboard`, `admin/override_pick`, `admin/{tournaments,users,payments}`)
+
+| Source | Issue | Sev | Command |
+|---|---|---|---|
+| **G12** | The admin section bypasses the design system (raw `.table`/`bg-info`/`bg-warning`/`btn-*`) instead of the existing `.table-greenside`/`.btn-greenside`/`.badge-status-*`/`.stat-card`/`.mobile-card-list`. The structural root of the whole admin cluster. Class-swap migration recovers most identity mechanically. | P1 | `/colorize` + `/polish` |
+| **G13** | Admin money-mutations have no confirm/consequence-summary/undo. Add a consistent safety pattern: inline confirm + plain-language consequence + old→new summary; never a bare `alert()` or silently-swallowed failure. **The U9 P0 confirm UI lands here** (logic gate shipped Phase 1). | P1 (P0 case) | `/harden` |
+| **G11** | (admin application) Pot/purse/points/Penalty-Pot totals render in flat sans ink across all three admin surfaces — the numbers the admin trusts without auditing have the least weight. Apply the Phase-2 gold/serif money treatment. | P1 | `/typeset` + `/colorize` |
+| U8 | **P1** "Process Results" is an unguarded 10-button yellow wall (38px) — highest-consequence action, lowest ceremony (idempotent, so P1 not P0). Confirm naming the tournament + busy/done state + ≥44px + distinct gravity. | P1 | `/harden` |
+| U8 | **P1** No `.mobile-card-list` fallback — tables wrap/cram on the admin's phone (6× `cramped-padding`). Add a mobile card per tournament. *(Part of G12.)* | P1 | `/adapt` |
+| U9 | **P1** Raw-Bootstrap, role-violating chrome: blue `.btn-primary` *load* button as the loud primary while the destructive yellow commit looks secondary (inverted priority); cyan `border-info` sidebar; gold warning banner diluting Money-Is-Gold. Map to `.btn-outline-greenside` (load) / `.btn-greenside` + danger weight (commit) / green hairline selects. *(G12.)* | P1 | `/colorize` + `/polish` |
+| U10 | **P1** All three tables use raw `table table-striped` instead of `.table-greenside` — the forbidden cold gray panel. One class swap recovers the identity. *(G12.)* | P1 | `/polish` / `/colorize` |
+| U10 | **P1** (G2 + G1 application) Paid toggle is Bootstrap blue (role-locked to active tournament); `bg-info` Team/In-Progress badge white-on-cyan **1.96:1**; status ternary inverts brand (active→green, upcoming→blue). Re-key toggle to gold/green; replace contextual badges with brand classes. | P1 | `/audit` + `/polish` |
+| U10 | **P1** No mobile fallback — 8-column tables overflow ~230px on a real phone; payments' 4 cards eat the first screen. Add `.table-responsive` minimum, ideally `.mobile-card-list`. *(Part of G12.)* | P1 | `/adapt` |
+| U10 | **P1** (absolute bans) Payments' 4-card summary = hero-metric/identical-grid; users' **19 eager reset modals** = modal-as-first-thought (+ 19× DOM weight, no `aria-labelledby`). Replace the stat strip with a quiet inline ledger summary; collapse the 19 modals into one reusable dialog (or inline confirm row). | P1 | `/distill` + `/harden` |
+| U9 | **P2** Mobile loses the "Existing Pick" context below the form + commit button. Hoist a compact "Currently: {old}/{old}" summary above the selects (or fold into the P0 confirm). | P2 | `/adapt` |
+| U9 | **P2** No status/consequence cue distinguishing upcoming (harmless) vs complete (re-resolves money). After Stage 1, render a status chip + a consequence line that changes with status. | P2 | `/clarify` |
+| U8 | **P2** Backend jargon leaks (`./run_sync.sh earnings`, raw "By Endpoint"). Plain-language pending note; tuck/drop the endpoint breakdown. | P2 | `/clarify` |
+| U8 | **P3** (G1/G5 application) Stat-card labels 3.0:1 + heading skips. Darken labels to `--text-secondary`; contextual heading levels. | P3 | `/audit` |
+| U9 | **P3** (G1/G9/G10 application) Warning-banner/helper contrast under AA; 38px Note input below 44px; flash errors top-detached. Apply the Phase-2 token/tap-target/flash fixes here. | P3 | `/audit` + `/harden` |
+
+### Not in scope / never "fix"
+
+- **Detector false positive — the brand green navbar/footer gradient**, reported as both `ai-color-palette` "Cyan gradient" and `dark-glow` "#00432e on dark" (both = `style.css:95` `--green-900`→`-800`; footer at `:670`). Genuinely intentional Augusta-pine brand gradient; do **not** change the design to "fix" it. The two stops (`#00432e`/`#005c3f`) compute to hue **~161°**, just past the coarse green→cyan bucket boundary (~150°), so the classifier mislabels the teal-leaning brand green as cyan, and `#00432e`'s ~13% lightness trips the separate `dark-glow` heuristic — a tool-classifier limitation, not a design error. Brand anchor Pinehurst Pine `#006747` **stays** (decision 2026-05-27). The CLI has no ignore/config mechanism (only `--fast`/`--json`), so the proper fix lives at the tooling layer: the campaign **Setup step** adds a **signature-tight** known-FP filter to `.critique_shots/harness.py` post-processing — keyed to the `#00432e`/`#005c3f` tokens + the navbar/footer selectors, **never** a loose "contains cyan" string match (which would mask a genuinely-wrong cyan gradient introduced later) — so future re-critiques stay deterministic and noise-free without touching one pixel of correct design. (Real `border-left`/side-stripe findings remain genuine — the `.column-divider` case in Session A was a real violation, already fixed.)
+- **Watch-list code-level residue** to sweep opportunistically inside the phases above (not standalone work): `#fff` hardcoded in `.badge-status-*`/`.badge-cut`/`.badge-dq` (No-Pure-White); No-Pure-Black `btn-warning` text (rolls into G12); rendered `&mdash;` em dashes in copy (e.g. `payments.html:99`); several tables reusing `loop.index` as rank (the U4 case is Phase 1; audit `index`/`schedule`/admin for the same).
+
+### Methodology note for the campaign
+
+- **Authenticated render harness is retro-applicable** to Units 3/5/7/10 for a deterministic re-baseline (per the decision above). Reproducible via the `.critique_shots/harness.py` snippet documented in the Tooling note (Flask test client + injected admin session → repo-root HTML → `python -m http.server 8765` → `impeccable detect --json`). Non-mutating (GET + the non-saving `load_field` POST only).
+- **Per-phase verification:** re-run `impeccable critique` on each changed page after its phase and confirm the Nielsen `/40` moved up; record the delta. Admin pages (Phase 5) need the authenticated harness for a real detector signal.
+- **Branching:** each *fix* phase = its own branch + PR tagged `@coderabbitai review`; phases land in order (Phase 2 tokens must merge before Phases 3–5 consume them). Phase 1 (logic) and Phase 2 (tokens) may proceed in parallel — disjoint files.
