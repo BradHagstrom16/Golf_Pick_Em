@@ -12,99 +12,141 @@
 
 <h2>Payment Tracking</h2>
 
-<!-- Summary Cards -->
-<div class="row mb-4">
-    <div class="col-md-3">
-        <div class="card text-center border-success">
-            <div class="card-body">
-                <h3 class="text-success">{{ paid_count }}</h3>
-                <p class="mb-0">Paid</p>
-            </div>
-        </div>
+<!-- Quiet inline ledger summary (replaces the 4 hero-metric cards) -->
+<div class="ledger-summary">
+    <div class="ledger-item">
+        <span class="ledger-label">Paid</span>
+        <span class="ledger-value">{{ paid_count }}</span>
     </div>
-    <div class="col-md-3">
-        <div class="card text-center border-danger">
-            <div class="card-body">
-                <h3 class="text-danger">{{ unpaid_count }}</h3>
-                <p class="mb-0">Unpaid</p>
-            </div>
-        </div>
+    <div class="ledger-item">
+        <span class="ledger-label">Unpaid</span>
+        <span class="ledger-value">{{ unpaid_count }}</span>
     </div>
-    <div class="col-md-3">
-        <div class="card text-center border-success">
-            <div class="card-body">
-                <h3 class="text-success">${{ total_collected }}</h3>
-                <p class="mb-0">Collected (${{ entry_fee }} × {{ paid_count }})</p>
-            </div>
-        </div>
+    <div class="ledger-item">
+        <span class="ledger-label">Collected</span>
+        <span class="ledger-value text-gold">${{ total_collected }}</span>
+        <span class="text-muted small">${{ entry_fee }} &times; {{ paid_count }}</span>
     </div>
-    <div class="col-md-3">
-        <div class="card text-center" style="border-color: var(--danger);">
-            <div class="card-body">
-                <h3 style="color: var(--danger);">${{ total_penalty_pot }}</h3>
-                <p class="mb-0">Penalty Pot <small class="text-muted">(${{ total_penalty_collected }} collected)</small></p>
-            </div>
-        </div>
+    <div class="ledger-item">
+        <span class="ledger-label">Penalty Pot</span>
+        <span class="ledger-value text-gold">${{ total_penalty_pot }}</span>
+        <span class="text-muted small">${{ total_penalty_collected }} collected</span>
     </div>
 </div>
 
-<table class="table table-striped">
-    <thead style="background-color: var(--green-800); color: var(--text-on-dark);">
-        <tr>
-            <th>Player</th>
-            <th>Email</th>
-            <th class="text-center">Payment Status</th>
-            <th class="text-center">Penalty</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for user in users %}
-        {% set ps = penalty_summary[user.id] %}
-        <tr>
-            <td><strong>{{ user.get_display_name() }}</strong></td>
-            <td>{{ user.email }}</td>
-            <td class="text-center">
-                <div class="form-check form-switch d-inline-block">
-                    <input class="form-check-input payment-toggle" type="checkbox"
-                           data-user-id="{{ user.id }}"
-                           data-username="{{ user.get_display_name() }}"
-                           {% if user.has_paid %}checked{% endif %}>
-                </div>
-                {% if user.has_paid %}
-                    <span class="badge bg-success">Paid</span>
-                {% else %}
-                    <span class="badge bg-danger">Unpaid</span>
-                {% endif %}
-            </td>
-            <td class="text-center">
-                {% if ps.owed > 0 %}
-                    <div class="small mb-1">
-                        Owed: <strong>${{ ps.owed }}</strong>
-                        {% if ps.outstanding > 0 %}
-                            &middot; <span style="color: var(--danger);">Outstanding: ${{ ps.outstanding }}</span>
-                        {% else %}
-                            &middot; <span class="text-success">Settled</span>
-                        {% endif %}
-                    </div>
-                    <div class="d-inline-flex align-items-center gap-1">
-                        <input type="number" min="0" step="1"
-                               class="form-control form-control-sm penalty-input"
-                               style="width: 80px;"
+<!-- Desktop table -->
+<div class="table-responsive desktop-table-wrap">
+    <table class="table table-greenside desktop-table">
+        <thead>
+            <tr>
+                <th>Player</th>
+                <th>Email</th>
+                <th class="text-center">Payment Status</th>
+                <th class="text-center">Penalty</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in users %}
+            {% set ps = penalty_summary[user.id] %}
+            <tr>
+                <td><strong>{{ user.get_display_name() }}</strong></td>
+                <td>{{ user.email }}</td>
+                <td class="text-center">
+                    <div class="form-check form-switch d-inline-block align-middle">
+                        <input class="form-check-input payment-toggle" type="checkbox"
+                               aria-label="Mark {{ user.get_display_name() }} as paid"
                                data-user-id="{{ user.id }}"
-                               value="{{ ps.paid }}">
-                        <button class="btn btn-sm btn-outline-secondary penalty-save"
-                                data-user-id="{{ user.id }}">Save</button>
+                               data-username="{{ user.get_display_name() }}"
+                               {% if user.has_paid %}checked{% endif %}>
                     </div>
-                {% else %}
-                    <span class="text-muted small">&mdash;</span>
-                {% endif %}
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+                    {% if user.has_paid %}
+                        <span class="badge-paid">Paid</span>
+                    {% else %}
+                        <span class="badge-unpaid">Unpaid</span>
+                    {% endif %}
+                </td>
+                <td class="text-center">
+                    {% if ps.owed > 0 %}
+                        <div class="small mb-1">
+                            Owed: <strong>${{ ps.owed }}</strong>
+                            {% if ps.outstanding > 0 %}
+                                <span class="badge-penalty ms-1">Outstanding ${{ ps.outstanding }}</span>
+                            {% else %}
+                                <span class="text-green fw-bold ms-1">Settled</span>
+                            {% endif %}
+                        </div>
+                        <div class="penalty-group d-inline-flex align-items-center gap-1">
+                            <input type="number" min="0" step="1"
+                                   class="form-control form-control-sm penalty-input"
+                                   style="width: 80px;"
+                                   aria-label="Penalty paid by {{ user.get_display_name() }}"
+                                   data-user-id="{{ user.id }}"
+                                   value="{{ ps.paid }}">
+                            <button class="btn btn-outline-greenside btn-sm penalty-save"
+                                    data-user-id="{{ user.id }}">Save</button>
+                        </div>
+                    {% else %}
+                        <span class="text-muted small">None</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
 
-<a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">← Back to Dashboard</a>
+<!-- Mobile cards -->
+<div class="mobile-card-list">
+    {% for user in users %}
+    {% set ps = penalty_summary[user.id] %}
+    <div class="card pick-card mb-2">
+        <div class="card-header d-flex justify-content-between align-items-center py-2">
+            <span class="fw-bold" style="color: var(--text-primary);">{{ user.get_display_name() }}</span>
+            {% if user.has_paid %}
+                <span class="badge-paid">Paid</span>
+            {% else %}
+                <span class="badge-unpaid">Unpaid</span>
+            {% endif %}
+        </div>
+        <div class="card-body py-2 small">
+            <div class="text-muted mb-2">{{ user.email }}</div>
+            <div class="form-check form-switch mb-2">
+                <input class="form-check-input payment-toggle" type="checkbox"
+                       id="paid-m-{{ user.id }}"
+                       aria-label="Mark {{ user.get_display_name() }} as paid"
+                       data-user-id="{{ user.id }}"
+                       data-username="{{ user.get_display_name() }}"
+                       {% if user.has_paid %}checked{% endif %}>
+                <label class="form-check-label" for="paid-m-{{ user.id }}">Entry fee paid</label>
+            </div>
+            {% if ps.owed > 0 %}
+                <div class="mb-1">
+                    Penalty owed: <strong>${{ ps.owed }}</strong>
+                    {% if ps.outstanding > 0 %}
+                        <span class="badge-penalty ms-1">Outstanding ${{ ps.outstanding }}</span>
+                    {% else %}
+                        <span class="text-green fw-bold ms-1">Settled</span>
+                    {% endif %}
+                </div>
+                <div class="penalty-group d-flex align-items-center gap-1">
+                    <input type="number" min="0" step="1"
+                           class="form-control form-control-sm penalty-input"
+                           style="width: 90px;"
+                           aria-label="Penalty paid by {{ user.get_display_name() }}"
+                           data-user-id="{{ user.id }}"
+                           value="{{ ps.paid }}">
+                    <button class="btn btn-outline-greenside btn-sm penalty-save"
+                            data-user-id="{{ user.id }}">Save</button>
+                </div>
+            {% else %}
+                <div class="text-muted">No penalty owed.</div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-greenside">Back to Dashboard</a>
 {% endblock %}
 
 {% block scripts %}
@@ -120,11 +162,19 @@ function postPayment(userId, body) {
     }).then(response => response.json());
 }
 
+// Paid toggle — confirm the money change before posting (it flips a settled-money
+// fact), then post; on failure revert the checkbox and say so.
 document.querySelectorAll('.payment-toggle').forEach(function(toggle) {
     toggle.addEventListener('change', function() {
         const userId = this.dataset.userId;
+        const name = this.dataset.username || 'this player';
         const isPaid = this.checked;
         const checkbox = this;
+        const verb = isPaid ? 'paid' : 'unpaid';
+        if (!window.confirm(`Mark ${name} as ${verb}?`)) {
+            checkbox.checked = !isPaid;  // user backed out — restore prior state
+            return;
+        }
         postPayment(userId, { has_paid: isPaid }).then(data => {
             if (data.success) {
                 location.reload();
@@ -139,21 +189,26 @@ document.querySelectorAll('.payment-toggle').forEach(function(toggle) {
     });
 });
 
+// Penalty Save — read the input in the SAME control group as the clicked button
+// so the desktop and mobile copies stay independent (both render the same row).
 document.querySelectorAll('.penalty-save').forEach(function(btn) {
     btn.addEventListener('click', function() {
         const userId = this.dataset.userId;
-        const input = document.querySelector(`.penalty-input[data-user-id="${userId}"]`);
-        const value = parseInt(input.value, 10);
+        const group = this.closest('.penalty-group');
+        const input = group ? group.querySelector('.penalty-input') : null;
+        const value = input ? parseInt(input.value, 10) : NaN;
         if (isNaN(value) || value < 0) {
-            alert('Penalty paid must be a non-negative integer');
+            alert('Penalty paid must be a non-negative whole number.');
             return;
         }
         postPayment(userId, { penalty_paid: value }).then(data => {
             if (data.success) {
                 location.reload();
             } else {
-                alert(data.error || 'Update failed');
+                alert(data.error || 'Could not update the penalty. Please try again.');
             }
+        }).catch(() => {
+            alert('Could not update the penalty. Please try again.');
         });
     });
 });

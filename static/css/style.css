@@ -499,6 +499,30 @@ a:hover { color: var(--green-500); }
   font-size: 0.65rem;
 }
 
+/* Entry-fee settled — green (good/banked), not the cool status palette and not
+   the danger register. Unpaid stays the quiet neutral .badge-unpaid above. */
+.badge-paid {
+  background-color: var(--green-100);
+  color: var(--green-800);
+  font-weight: 600;
+  font-size: 0.75rem;
+  padding: 0.3em 0.65em;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(0, 103, 71, 0.2);
+}
+
+/* Admin marker — Clubhouse Gold register (matches the nav admin badge), never
+   the off-palette Bootstrap yellow bg-warning. */
+.badge-admin {
+  background-color: var(--gold-100);
+  color: var(--gold-600);
+  font-weight: 700;
+  font-size: 0.7rem;
+  padding: 0.3em 0.6em;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(184, 153, 62, 0.3);
+}
+
 /* ----------------------------------------------------------------------------
    Buttons
    ---------------------------------------------------------------------------- */
@@ -1064,3 +1088,75 @@ footer.footer-greenside a {
 .text-gold { color: var(--gold-600) !important; }  /* gold-600 (AA); gold-500 is a fill, not text */
 .bg-cream { background-color: var(--cream) !important; }
 .font-display { font-family: var(--font-display) !important; }
+
+/* ----------------------------------------------------------------------------
+   Admin surfaces — keep the clubhouse warmth (PRODUCT/DESIGN forbid the cold
+   gray Bootstrap admin panel). Brand classes carry the chrome; these rules cover
+   the few admin-only affordances the design system didn't already name.
+   ---------------------------------------------------------------------------- */
+
+/* Paid toggle — re-keyed off Bootstrap status-blue (blue is role-locked to a live
+   tournament) to the brand pine. Higher specificity than .form-check-input:checked. */
+.form-check-input.payment-toggle:checked {
+  background-color: var(--green-700);
+  border-color: var(--green-700);
+}
+.form-check-input.payment-toggle:focus {
+  border-color: var(--green-400);
+  box-shadow: 0 0 0 0.2rem rgba(0, 103, 71, 0.15);
+}
+
+/* Quiet inline ledger summary — replaces the 4-card hero-metric strip. A single
+   flat row of label/figure pairs; the money rides the gold/serif money register. */
+.ledger-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem 2.5rem;
+  align-items: baseline;
+  padding: 0.75rem 0 1rem;
+  border-bottom: 1px solid rgba(0, 67, 46, 0.1);
+  margin-bottom: 1.25rem;
+}
+.ledger-summary .ledger-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.ledger-summary .ledger-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+.ledger-summary .ledger-value {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  font-size: 1.4rem;
+  line-height: 1.1;
+  color: var(--green-700);
+}
+
+/* Process-Results busy state — disabled commit shows it's working, prevents
+   double-submission on a phone (idempotent, but the feedback still matters). */
+.btn[aria-busy="true"] {
+  opacity: 0.65;
+  pointer-events: none;
+}
+
+/* Override-pick form selects rest on the brand green hairline (DESIGN inputs rule),
+   not the neutral-gray Bootstrap default. Focus already greens globally (Phase 2). */
+.override-form .form-select,
+.override-form .form-control {
+  border-color: rgba(0, 67, 46, 0.15);
+}
+
+/* The consequence cue distinguishing a harmless upcoming save from a money-
+   re-resolving complete save. Quiet at rest; the red confirm gate carries the weight. */
+.override-consequence-cue {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+}

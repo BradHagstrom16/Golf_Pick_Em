@@ -1028,14 +1028,23 @@ def admin_override_pick():
                     # season total, and (at a major) the 1.5x + missed-cut penalty. Require an
                     # explicit confirm and surface the consequence; commit nothing here.
                     override_pending_confirm = True
+                    # Display-only consequence summary for the confirm UI. Resolves the
+                    # NEW selections to names for an old->new diff; touches no resolve/
+                    # earnings math (the commit branch below owns all of that unchanged).
+                    field_by_id = {p.id: p for p in field_players} if field_players else {}
+                    new_primary = field_by_id.get(primary_id)
+                    new_backup = field_by_id.get(backup_id)
                     override_consequence = {
                         'member': selected_user.get_display_name(),
                         'tournament': selected_tournament.name,
+                        'is_major': selected_tournament.is_major,
                         'current_total': selected_user.total_points or 0,
                         'current_points': existing_pick.points_earned if existing_pick else None,
                         'has_existing': existing_pick is not None,
                         'old_primary': existing_pick.primary_player.full_name() if existing_pick else None,
                         'old_backup': existing_pick.backup_player.full_name() if existing_pick else None,
+                        'new_primary': new_primary.full_name() if new_primary else None,
+                        'new_backup': new_backup.full_name() if new_backup else None,
                         'new_primary_id': primary_id,
                         'new_backup_id': backup_id,
                         'note': override_note,

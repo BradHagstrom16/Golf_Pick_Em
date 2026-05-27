@@ -5,156 +5,124 @@
 {% block content %}
 <h2>Admin Dashboard</h2>
 
-<div class="row mb-4">
-    <!-- Quick Stats -->
-    <div class="col-md-4">
-        <div class="card text-center">
-            <div class="card-body">
-                <h3>{{ total_users }}</h3>
-                <p class="text-muted mb-0">Total Players</p>
-            </div>
-        </div>
+<!-- League at a glance — quiet inline ledger, not a hero-metric card grid -->
+<div class="ledger-summary">
+    <div class="ledger-item">
+        <span class="ledger-label">Players</span>
+        <span class="ledger-value">{{ total_users }}</span>
     </div>
-    <div class="col-md-4">
-        <div class="card text-center">
-            <div class="card-body">
-                <h3>{{ paid_users }} / {{ total_users }}</h3>
-                <p class="text-muted mb-0">Paid Players</p>
-            </div>
-        </div>
+    <div class="ledger-item">
+        <span class="ledger-label">Paid</span>
+        <span class="ledger-value">{{ paid_users }} <small class="text-muted" style="font-size:0.95rem;">/ {{ total_users }}</small></span>
     </div>
-    <div class="col-md-4">
-        <div class="card text-center">
-            <div class="card-body">
-                <h3>${{ paid_users * entry_fee }}</h3>
-                <p class="text-muted mb-0">Collected</p>
-            </div>
-        </div>
+    <div class="ledger-item">
+        <span class="ledger-label">Collected</span>
+        <span class="ledger-value text-gold">${{ "{:,}".format(paid_users * entry_fee) }}</span>
     </div>
 </div>
 
-<!-- API Usage Tracking -->
-<div class="row mb-4">
-    <div class="col-12">
-        <div class="card border-{{ 'danger' if api_usage.percentage > 80 else 'warning' if api_usage.percentage > 60 else 'info' }}">
-            <div class="card-header bg-{{ 'danger' if api_usage.percentage > 80 else 'warning' if api_usage.percentage > 60 else 'info' }} text-white">
-                <h5 class="mb-0">📊 API Usage - {{ api_usage.month }}/{{ api_usage.year }}</h5>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-4">
-                        <h2 class="text-{{ 'danger' if api_usage.percentage > 80 else 'warning' if api_usage.percentage > 60 else 'success' }}">
-                            {{ api_usage.total_calls }} / {{ api_usage.limit }}
-                        </h2>
-                        <p class="text-muted mb-0">API Calls This Month</p>
-                        <div class="progress mt-2" style="height: 25px;">
-                            <div class="progress-bar bg-{{ 'danger' if api_usage.percentage > 80 else 'warning' if api_usage.percentage > 60 else 'success' }}" 
-                                 role="progressbar" 
-                                 style="width: {{ api_usage.percentage }}%">
-                                {{ api_usage.percentage }}%
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <p class="mb-1"><strong>Remaining:</strong> {{ api_usage.limit - api_usage.total_calls }} calls</p>
-                        <p class="mb-1"><strong>Last API Call:</strong> 
-                            {% if api_usage.last_call %}
-                                {{ api_usage.last_call.strftime('%b %d, %I:%M %p') }}
-                            {% else %}
-                                No calls yet
-                            {% endif %}
-                        </p>
-                        {% if api_usage.percentage > 80 %}
-                            <div class="alert alert-danger mb-0 mt-2">
-                                <small><strong>⚠️ High Usage!</strong> Approaching monthly limit.</small>
-                            </div>
-                        {% elif api_usage.percentage > 60 %}
-                            <div class="alert alert-warning mb-0 mt-2">
-                                <small><strong>⚡ Moderate Usage</strong> - Monitor remaining calls.</small>
-                            </div>
-                        {% else %}
-                            <div class="alert alert-success mb-0 mt-2">
-                                <small><strong>✅ Healthy Usage</strong> - Well within limits.</small>
-                            </div>
-                        {% endif %}
-                    </div>
-                    <div class="col-md-4">
-                        <p class="mb-1"><strong>By Endpoint:</strong></p>
-                        <ul class="mb-0 small">
-                            {% for endpoint, count in api_usage.by_endpoint.items() %}
-                                <li>{{ endpoint }}: {{ count }} calls</li>
-                            {% else %}
-                                <li class="text-muted">No calls yet</li>
-                            {% endfor %}
-                        </ul>
+<!-- API Usage — calm by default (brand pine header); level reads from the bar + note, not a loud cyan panel -->
+<div class="card mb-4">
+    <div class="card-header card-header-green">
+        <h3 class="h5 mb-0">API Usage &middot; {{ api_usage.month }}/{{ api_usage.year }}</h3>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="font-display text-green" style="font-size:1.75rem; line-height:1.1;">
+                    {{ api_usage.total_calls }} / {{ api_usage.limit }}
+                </div>
+                <p class="text-muted mb-2">API calls this month</p>
+                <div class="progress" style="height: 22px;">
+                    <div class="progress-bar" role="progressbar"
+                         style="width: {{ api_usage.percentage }}%"
+                         aria-valuenow="{{ api_usage.percentage }}" aria-valuemin="0" aria-valuemax="100">
+                        {{ api_usage.percentage }}%
                     </div>
                 </div>
+            </div>
+            <div class="col-md-6">
+                <p class="mb-1"><strong>Remaining:</strong> {{ api_usage.limit - api_usage.total_calls }} calls</p>
+                <p class="mb-2"><strong>Last call:</strong>
+                    {% if api_usage.last_call %}
+                        {{ api_usage.last_call.strftime('%b %d, %I:%M %p') }}
+                    {% else %}
+                        No calls yet
+                    {% endif %}
+                </p>
+                {% if api_usage.percentage > 80 %}
+                    <div class="alert alert-danger mb-0" role="alert">
+                        <strong>High usage.</strong> Approaching the monthly limit.
+                    </div>
+                {% elif api_usage.percentage > 60 %}
+                    <div class="alert alert-warning mb-0" role="alert">
+                        <strong>Moderate usage.</strong> Keep an eye on remaining calls.
+                    </div>
+                {% else %}
+                    <div class="alert alert-success mb-0" role="alert">
+                        <strong>Healthy.</strong> Well within the monthly limit.
+                    </div>
+                {% endif %}
             </div>
         </div>
     </div>
 </div>
 
 <!-- Admin Actions -->
-<div class="row mb-4">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header bg-warning">
-                <h5 class="mb-0">Admin Actions</h5>
-            </div>
-            <div class="card-body">
-                <a href="{{ url_for('admin_tournaments') }}" class="btn btn-primary me-2">
-                    ⛳ Manage Tournaments
-                </a>
-                <a href="{{ url_for('admin_users') }}" class="btn btn-secondary me-2">
-                    👥 Manage Users
-                </a>
-                <a href="{{ url_for('admin_payments') }}" class="btn btn-success me-2">
-                    💰 Track Payments
-                </a>
-                <a href="{{ url_for('admin_override_pick') }}" class="btn btn-warning me-2">
-                    👑 Override Pick
-                </a>
-            </div>
+<div class="card mb-4">
+    <div class="card-header card-header-green">
+        <h3 class="h5 mb-0">Admin Actions</h3>
+    </div>
+    <div class="card-body">
+        <div class="d-flex flex-wrap gap-2">
+            <a href="{{ url_for('admin_tournaments') }}" class="btn btn-outline-greenside">
+                ⛳ Manage Tournaments
+            </a>
+            <a href="{{ url_for('admin_users') }}" class="btn btn-outline-greenside">
+                👥 Manage Users
+            </a>
+            <a href="{{ url_for('admin_payments') }}" class="btn btn-outline-greenside">
+                💰 Track Payments
+            </a>
+            <a href="{{ url_for('admin_override_pick') }}" class="btn btn-gold">
+                👑 Override Pick
+            </a>
         </div>
     </div>
 </div>
 
 <!-- Pending Earnings Finalization -->
 {% if pending_finalization %}
-<div class="row mb-4">
-    <div class="col-12">
-        <div class="card border-warning">
-            <div class="card-header card-header-gold">
-                <h5 class="mb-0">⚠️ Tournaments Pending Earnings Finalization</h5>
-            </div>
-            <div class="card-body">
-                <p class="text-muted mb-3">
-                    These tournaments are marked complete but haven't had official earnings synced from the API yet.
-                    Run <code>./run_sync.sh earnings</code> or wait for the Monday scheduled task.
-                </p>
-                <table class="table table-sm mb-0">
-                    <thead>
-                        <tr>
-                            <th>Tournament</th>
-                            <th>End Date</th>
-                            <th>Picks</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for tournament in pending_finalization %}
-                        <tr>
-                            <td>{{ tournament.name }}</td>
-                            <td>{{ tournament.end_date.strftime('%b %d, %Y') }}</td>
-                            <td>{{ tournament.picks.count() }}</td>
-                            <td>
-                                <span class="badge bg-warning text-dark">Projections Only</span>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+<div class="card mb-4">
+    <div class="card-header card-header-gold">
+        <h3 class="h5 mb-0">⚠️ Pending Earnings Finalization</h3>
+    </div>
+    <div class="card-body">
+        <p class="text-muted mb-3">
+            These tournaments are complete but their official earnings haven't synced yet.
+            They finalize automatically on the Monday sync; standings show projected money until then.
+        </p>
+        <div class="table-responsive">
+            <table class="table table-greenside mb-0">
+                <thead>
+                    <tr>
+                        <th>Tournament</th>
+                        <th>End Date</th>
+                        <th>Picks</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for tournament in pending_finalization %}
+                    <tr>
+                        <td>{{ tournament.name }}</td>
+                        <td>{{ tournament.end_date.strftime('%b %d, %Y') }}</td>
+                        <td>{{ tournament.picks.count() }}</td>
+                        <td><span class="badge-earnings-projected">Projected only</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
 </div>
@@ -163,44 +131,110 @@
 <!-- Tournaments Overview -->
 <div class="card">
     <div class="card-header card-header-green">
-        <h5 class="mb-0">Tournament Status</h5>
+        <h3 class="h5 mb-0">Tournament Status</h3>
     </div>
     <div class="card-body">
-        <table class="table table-sm">
-            <thead>
-                <tr>
-                    <th>Tournament</th>
-                    <th>Date</th>
-                    <th>Status</th>
-                    <th>Picks</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for tournament in tournaments[:10] %}
-                <tr>
-                    <td>{{ tournament.name }}</td>
-                    <td>{{ tournament.start_date.strftime('%b %d') }}</td>
-                    <td>
-                        <span class="badge bg-{{ 'secondary' if tournament.status == 'complete' else 'success' if tournament.status == 'active' else 'primary' }}">
-                            {{ tournament.status|capitalize }}
-                        </span>
-                    </td>
-                    <td>{{ tournament.picks.count() }}</td>
-                    <td>
-                        {% if tournament.status == 'complete' %}
-                            <form action="{{ url_for('admin_process_results', tournament_id=tournament.id) }}" method="POST" style="display: inline;">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" class="btn btn-sm btn-warning">Process Results</button>
-                            </form>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <!-- Desktop table -->
+        <div class="table-responsive desktop-table-wrap">
+            <table class="table table-greenside desktop-table">
+                <thead>
+                    <tr>
+                        <th>Tournament</th>
+                        <th>Date</th>
+                        <th>Status</th>
+                        <th>Picks</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for tournament in tournaments[:10] %}
+                    <tr>
+                        <td>{{ tournament.name }}</td>
+                        <td>{{ tournament.start_date.strftime('%b %d') }}</td>
+                        <td>
+                            {% if tournament.status == 'complete' %}
+                                <span class="badge-status-complete">Complete</span>
+                            {% elif tournament.status == 'active' %}
+                                <span class="badge-status-active">Active</span>
+                            {% else %}
+                                <span class="badge-status-upcoming">Upcoming</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ tournament.picks.count() }}</td>
+                        <td>
+                            {% if tournament.status == 'complete' %}
+                                <form action="{{ url_for('admin_process_results', tournament_id=tournament.id) }}"
+                                      method="POST" class="process-results-form d-inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn btn-greenside"
+                                            data-tournament="{{ tournament.name }}">Process Results</button>
+                                </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
 
-        <a href="{{ url_for('admin_tournaments') }}">View All Tournaments →</a>
+        <!-- Mobile cards -->
+        <div class="mobile-card-list">
+            {% for tournament in tournaments[:10] %}
+            <div class="card pick-card mb-2
+                {% if tournament.status == 'active' %}active-tournament
+                {% elif tournament.status == 'complete' %}complete{% endif %}">
+                <div class="card-header d-flex justify-content-between align-items-center py-2">
+                    <span class="fw-bold" style="color: var(--text-primary);">{{ tournament.name }}</span>
+                    {% if tournament.status == 'complete' %}
+                        <span class="badge-status-complete">Complete</span>
+                    {% elif tournament.status == 'active' %}
+                        <span class="badge-status-active">Active</span>
+                    {% else %}
+                        <span class="badge-status-upcoming">Upcoming</span>
+                    {% endif %}
+                </div>
+                <div class="card-body py-2">
+                    <div class="d-flex justify-content-between small">
+                        <span class="text-muted">{{ tournament.start_date.strftime('%b %d') }}</span>
+                        <span>{{ tournament.picks.count() }} picks</span>
+                    </div>
+                    {% if tournament.status == 'complete' %}
+                    <form action="{{ url_for('admin_process_results', tournament_id=tournament.id) }}"
+                          method="POST" class="process-results-form mt-2">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-greenside w-100"
+                                data-tournament="{{ tournament.name }}">Process Results</button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <a href="{{ url_for('admin_tournaments') }}" class="btn btn-outline-greenside btn-sm mt-2">View all tournaments</a>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Process Results is the highest-consequence dashboard action. Confirm it names
+// the tournament, then lock the button into a busy state to prevent a double-tap
+// (the route is idempotent, but the feedback still matters on a phone).
+document.querySelectorAll('.process-results-form').forEach(function (form) {
+    form.addEventListener('submit', function (e) {
+        var btn = form.querySelector('button[type="submit"]');
+        var name = btn ? btn.dataset.tournament : 'this tournament';
+        if (!window.confirm('Process results for ' + name + '? This finalizes earnings for everyone who picked.')) {
+            e.preventDefault();
+            return;
+        }
+        if (btn) {
+            btn.setAttribute('aria-busy', 'true');
+            btn.disabled = true;
+            btn.textContent = 'Processing…';
+        }
+    });
+});
+</script>
 {% endblock %}
