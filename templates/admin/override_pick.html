@@ -25,9 +25,44 @@
                 <h5 class="mb-0">Create/Edit Override Pick</h5>
             </div>
             <div class="card-body">
+
+                {% if override_pending_confirm %}
+                <div class="alert alert-danger" role="alert">
+                    <h6 class="alert-heading"><strong>Confirmation required before re-resolving</strong></h6>
+                    <p class="mb-2">
+                        Confirming will re-resolve this pick and recalculate
+                        <strong>{{ override_consequence.member }}</strong>'s earnings and season total for
+                        <strong>{{ override_consequence.tournament }}</strong>.
+                        {% if override_consequence.has_existing %}
+                            This will replace their existing pick
+                            (<strong>{{ override_consequence.old_primary }}</strong> /
+                            <strong>{{ override_consequence.old_backup }}</strong>)
+                            and their current season total of
+                            <strong>${{ "{:,}".format(override_consequence.current_total) }}</strong>
+                            will be recalculated.
+                        {% else %}
+                            A new pick will be created and resolved; their current season total of
+                            <strong>${{ "{:,}".format(override_consequence.current_total) }}</strong>
+                            will be recalculated.
+                        {% endif %}
+                    </p>
+                    <form method="POST">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="tournament_id" value="{{ selected_tournament.id }}">
+                        <input type="hidden" name="user_id" value="{{ selected_user.id }}">
+                        <input type="hidden" name="primary_player_id" value="{{ override_consequence.new_primary_id }}">
+                        <input type="hidden" name="backup_player_id" value="{{ override_consequence.new_backup_id }}">
+                        <input type="hidden" name="override_note" value="{{ override_consequence.note or '' }}">
+                        <input type="hidden" name="confirm" value="1">
+                        <button type="submit" class="btn btn-danger">Confirm &amp; Re-resolve</button>
+                        <a href="{{ url_for('admin_override_pick') }}" class="btn btn-outline-secondary ms-2">Cancel</a>
+                    </form>
+                </div>
+                {% endif %}
+
                 <form method="POST" id="overrideForm">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    
+
                     <!-- Tournament Selection -->
                     <div class="mb-4">
                         <label for="tournament_id" class="form-label">
