@@ -635,11 +635,14 @@ footer.footer-greenside a {
 /* Field-error scaffold — wired per-form in Phase 4 via aria-invalid/aria-describedby */
 .form-control[aria-invalid="true"],
 .form-control.is-invalid,
-.form-select[aria-invalid="true"] {
+.form-select[aria-invalid="true"],
+.form-select.is-invalid {
   border-color: var(--danger);
 }
 .form-control[aria-invalid="true"]:focus,
-.form-control.is-invalid:focus {
+.form-control.is-invalid:focus,
+.form-select[aria-invalid="true"]:focus,
+.form-select.is-invalid:focus {
   box-shadow: 0 0 0 0.2rem rgba(185, 28, 28, 0.15);
 }
 .field-error {
