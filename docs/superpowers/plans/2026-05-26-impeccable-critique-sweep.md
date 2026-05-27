@@ -141,7 +141,7 @@ This is the parameterized procedure each unit instantiates. Tasks 3–4 fill it 
    - **Primary — live-URL render:** `npx impeccable detect --json <URL>` (Puppeteer renders real linked CSS). **JSON is written to stderr; exit code 2 = findings, 0 = clean.** Capture with `> out.raw 2>&1` then slice from the first `[`. NOTE: the URL render is **anonymous** — for `@login_required` / `@admin` routes it hits the login redirect, so for those pages fall back to (a) scanning the rendered HTML another way and (b) a logged-in `[Human]`-tab screenshot for the visual; public routes (`/`, `/schedule`, `/login`, `/register`, `/tournament/<id>`) render fully.
    - **Secondary — file scan:** `npx impeccable detect --json templates/<file>` is weak for these templates (jsdom can't resolve the Jinja `{{ url_for }}` stylesheet link → usually returns `[]`); run it only as a cross-check, don't rely on it.
    - **Visual (replaces the nonexistent overlay):** in a NEW tab `navigate_page` to **URL** (shares the logged-in session), `document.title = '[Human] ' + document.title`, `take_screenshot` (and a phone-width `resize_page` + screenshot where mobile matters). Read findings off the detector JSON, not a console overlay.
-   - Note false positives (Jinja artifacts; the intentional `.column-divider` `border-left`; the brand **green** gradient that the detector misreads as a "Cyan gradient").
+   - Note false positives (Jinja artifacts; the brand **green** navbar/footer gradient that the detector misreads as a "Cyan gradient"). _NOTE: the `.column-divider` `border-left` is **no longer** a false positive — it was a real DESIGN.md:261 side-stripe violation, fixed to 1px in Session A. Treat any `border-left`/side-stripe finding as a genuine candidate._
    - No server to stop (no `live` process).
 
 4. **Synthesize combined report (parent):** Merge A + B into the standard critique report — Nielsen scorecard table `/40`; Anti-Patterns verdict (LLM + detector + overlay summary); Overall impression; What's working; Priority issues (P0–P3, each with a **suggested impeccable command**); Persona red flags; Minor observations; Questions. Tag each priority issue **[global]** (recurs / traces to shell/tokens/CSS) or **[local]**.
@@ -182,7 +182,7 @@ Capture JSON. Then start the overlay and inject (per Task 2 step 3) at `http://1
 ```bash
 npx impeccable live stop
 ```
-Note: `.column-divider` `border-left` is intentional/structural (per CLAUDE.md) — flag as a false positive if the detector reports it.
+Note: the brand **green** navbar/footer gradient is misread by the detector as a "Cyan gradient" — that is the false positive. (The `.column-divider` `border-left`, once labeled intentional, was actually a DESIGN.md:261 violation and was fixed to 1px in Session A — no longer an exception.)
 
 - [ ] **Step 4: Synthesize + append to findings doc**
 
@@ -262,6 +262,20 @@ Stop the backgrounded `flask run` and confirm no stray `npx impeccable live` ser
 
 ---
 
+## Session A learnings & forward prep (added after Session A — read before Session B)
+
+**Environment reality — do NOT clear the DB.** `golf_pickem.db` was found **not** cleared; it holds a full realistic 2026 season. Per user decision we **preserve & augment** (seed only what's missing) — this gives far richer, more authentic standings/leaderboard renders than a hand-seed, and the seeded state **persists on disk across sessions**, so Session B inherits it without re-seeding. **Recommendation: keep preserving & augmenting; do not wipe.** If the DB is ever lost, `docs/design/seed_critique_sessionA.py` (run via `PYTHONPATH=/Users/bhagstrom/Golf_Pick_Em python docs/design/seed_critique_sessionA.py`) reproduces the Session-A augment (admin password + in-progress major #23 + leaderboard + picks). Seeded ids are recorded at the top of the findings doc.
+
+**CLI reality (already folded into Task 2 step 3):** use `impeccable detect --json <url|file>` (JSON on **stderr**, exit 2 = findings); there is **no `impeccable live` overlay**. URL render is anonymous (login-required routes redirect → use a logged-in `[Human]` screenshot for the visual). The only standing detector false positive is the brand **green** gradient ("Cyan gradient"); the `.column-divider` side-stripe was real and is fixed.
+
+**Browser/session mechanics that worked:** one Chrome instance (chrome-devtools MCP) holds the admin session cookie; all tabs share it (SECRET_KEY is stable so the session survives a server restart). Each Assessment-A sub-agent opens its own `[LLM]` tab; the parent keeps a `[Human]` tab. Sub-agent `[LLM]` tabs **accumulate** across units — optionally `close_page` stale ones between units to reduce `list_pages` clutter. The seeded home renders the full active-major state (projected badges, backup 🔄, two penalty badges) — good for Units 2/4.
+
+**Per-session seeding prep (augment, don't wipe):**
+- **Session B — Unit 3 Make-pick (`/pick/20`)**: Charles Schwab Challenge (id **20**, upcoming, starts 2026-05-28, deadline NOT passed = picks open) currently has **0 field players** — seed a `TournamentField` (~40–60 players) so the Tom Select dropdown populates, and add a few `SeasonPlayerUsage` rows for the admin (user 1) so the **used-player lockout** state is visible. Unit 4 Tournament-detail uses the in-progress major **id 23** (already seeded) and/or complete majors **13/18** for the final-earnings + 1.5× + penalty ledger.
+- **Session C — Unit 6 Schedule (`/schedule`)**: ⚠️ **id 23 (U.S. Open) was date-shifted** into the current week to drive Home's active state, so it will appear **out of order** on the schedule. Before critiquing `/schedule`, either restore its real dates (`start 2026-06-18`, `end 2026-06-21`, `pick_deadline` ~`2026-06-18 06:30`, `status='upcoming'`) — but that drops the in-progress-major render Units needing it have already used — or annotate the finding as a known seed artifact. Cleanest: finish all units that need the active major (B's Unit 4) **before** restoring id 23 for the schedule critique.
+- **Session D — Unit 7 Auth trio**: log **out** first (`/logout`) for `/login` and `/register`; `/change-password` needs login.
+- **Admin units (8–10)**: already authenticated as admin; routes render directly (URL-mode detector will redirect — use logged-in screenshots).
+
 ## Remaining Units (roadmap — subsequent sessions reuse Task 2)
 
 Each row is a parameter set for the Task 2 procedure. URLs use the ids seeded in Task 1 step 2 (the DB is a playground — seed/adjust state per row as needed). Detail these into full tasks (like Tasks 3–4) at the start of each session.
@@ -285,4 +299,4 @@ Each row is a parameter set for the Task 2 procedure. URLs use the ids seeded in
 
 - **Spec coverage:** workflow model (deferred-fix sweep) → Tasks defer Q&A + pool into doc ✓; render strategy (live logged-in dev app) → Task 1 steps 1,4 ✓; hybrid granularity / 10 units → Tasks 3–4 + roadmap ✓; two isolated assessments → Task 2 steps 2–3 ✓; findings doc structure → Task 1 step 5 ✓; pacing → Sessions A–F ✓; fix handoff → Session F note ✓.
 - **Placeholder scan:** sub-agent prompts and CLI commands are written out in full for the two executed units; `?/40` and `<verdict>` in matrix rows are runtime outputs, not plan placeholders; roadmap rows are explicitly flagged as to-be-detailed per session.
-- **Type/parameter consistency:** credentials (`Sun Day Regrets` / `CritiqueSweep!2026`), port (`5001`), tab labels (`[LLM]` / `[Human]`), and doc path (`docs/design/critique-sweep-findings.md`) are identical across all tasks. Tournament ids (18 major-complete, 20 upcoming) match the verified dev DB.
+- **Type/parameter consistency:** credentials (`Sun Day Regrets` / `CritiqueSweep!2026`), port (`5001`), tab labels (`[LLM]` / `[Human]`), and doc path (`docs/design/critique-sweep-findings.md`) are identical across all tasks. ~~Tournament ids (18 major-complete, 20 upcoming) match the verified dev DB.~~ **(Superseded after Session A: the DB was not cleared; actual seeded ids are admin user 1, in-progress major #23, complete majors #13/#18, upcoming #20 — see findings doc + the Session A learnings section above.)**

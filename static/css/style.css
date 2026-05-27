@@ -258,15 +258,15 @@ a:hover { color: var(--green-500); }
   background-color: var(--green-50) !important;
 }
 
-/* Column divider */
+/* Column divider — 1px hairline per DESIGN.md (no colored side-stripe >1px). */
 .column-divider {
-  border-left: 2px solid rgba(0, 103, 71, 0.15) !important;
+  border-left: 1px solid rgba(0, 103, 71, 0.25) !important;
 }
 .table-greenside > tbody > tr > td.column-divider {
-  border-left: 2px solid rgba(0, 103, 71, 0.15) !important;
+  border-left: 1px solid rgba(0, 103, 71, 0.25) !important;
 }
 .table-greenside > thead > tr > th.column-divider {
-  border-left: 2px solid rgba(0, 103, 71, 0.25) !important;
+  border-left: 1px solid rgba(0, 103, 71, 0.4) !important;
 }
 
 /* Active tournament row highlight */

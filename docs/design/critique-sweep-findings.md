@@ -33,7 +33,7 @@ The dev DB (`golf_pickem.db`) was **not** cleared — it holds a full, realistic
 | Unit | Page | Nielsen /40 | AI-slop verdict | P0 count |
 |------|------|-------------|-----------------|----------|
 | 1 | base.html | 27/40 | Not AI slop (1 detector flag = false positive) | 0 |
-| 2 | index.html | 28/40 | Not AI slop (.column-divider = intentional exception) | 0 |
+| 2 | index.html | 28/40 | Not AI slop (.column-divider 2px→1px fixed in Session A) | 0 |
 
 ## Global issues (recur across pages → fix-campaign Phase 1)
 
@@ -44,7 +44,9 @@ These trace to `base.html` / design tokens / `style.css` and therefore recur on 
 - **[G3] No skip-to-content link; `<nav>` and `<main>` lack landmarks/ids.** No skip link, `<nav>` has no `aria-label`, `<main>` has no `id`. Keyboard/SR users tab through the full nav on every page. PRODUCT.md commits to WCAG 2.1 AA. P2.
 - **[G4] No active-nav / `aria-current` state.** The nav never marks the current section (`.nav-link.active` style exists in CSS but is unused). Forces working memory on every page; breaks Visibility-of-System-Status site-wide. P1.
 
-**Detector false positive (do not fix):** `ai-color-palette → "Cyan gradient background"` — the only gradients in `style.css` are the **green** navbar (`:95`) and footer (`:670`) brand gradients (Augusta pine, per DESIGN.md). The detector misclassifies the brand green gradient as cyan. Intentional, analogous to the `.column-divider` border-left exception.
+**Detector false positive (do not fix):** `ai-color-palette → "Cyan gradient background"` — the only gradients in `style.css` are the **green** navbar (`:95`) and footer (`:670`) brand gradients (Augusta pine, per DESIGN.md). The detector misclassifies the brand green gradient as cyan. Genuinely intentional.
+
+**Resolved in Session A (user-authorized, isolated):** `.column-divider` `border-left` was `2px` (style.css:262-270) — a real **DESIGN.md:261 violation** ("no colored side-stripe >1px"), *not* a false positive. The prior "intentional exception" framing predated adopting impeccable/DESIGN.md standards. Since this class is used **only in `index.html`** (already critiqued — zero cross-contamination with un-examined pages), it was reduced to a **1px hairline** (`td` `rgba(0,103,71,0.25)`, `th` `0.4`) per DESIGN.md's prescribed fix and verified (computed 1px + visual). Unlike the green-gradient, do **not** treat a `border-left`/side-stripe detector finding as a blanket false positive going forward.
 
 ## Per-unit reports
 
@@ -111,7 +113,7 @@ These trace to `base.html` / design tokens / `style.css` and therefore recur on 
 | 9 | Error recovery | 3 | Empty cells (No Pick/None/$0) handled gracefully; no real error path |
 | 10 | Help & documentation | 2 | Rules card is good but doesn't decode on-board symbols; bottom-of-page on mobile |
 
-**Anti-patterns verdict:** **Not AI slop.** Ledger identity executed (Augusta green, gold-for-money, cream, serif-over-sans, flat-at-rest). No gradient text/glassmorphism/hero-tiles/icon-card-grid/modals. Assessment A raised `.column-divider` `border-left: 2px` (style.css:262-270) as a by-the-letter side-stripe-ban trip — **this is the documented intentional exception** (CLAUDE.md; it's a column separator, not a decorative accent) and the deterministic detector did **not** flag it. **Not a fix target.** Detector home-scoped flags: `skipped-heading` (h2→h5) and `layout-transition` (`transition: width` on progress bar); contrast greys trace to global **[G1]**.
+**Anti-patterns verdict:** **Not AI slop.** Ledger identity executed (Augusta green, gold-for-money, cream, serif-over-sans, flat-at-rest). No gradient text/glassmorphism/hero-tiles/icon-card-grid/modals. Assessment A raised `.column-divider` `border-left: 2px` (style.css:262-270) as a by-the-letter side-stripe-ban trip — on review this was a **real DESIGN.md:261 violation**, not the intentional exception it had been labeled; it is used only in this template, so it was **fixed in Session A** (2px → 1px hairline, user-authorized — see Global-issues note). Detector home-scoped flags: `skipped-heading` (h2→h5) and `layout-transition` (`transition: width` on progress bar); contrast greys trace to global **[G1]**.
 
 **Overall impression:** Strong, on-brand, glanceable foundation. The recurring drag is **symbol/state legibility without a key** and **projection honesty over time** — both most acute on mobile, the primary device.
 
