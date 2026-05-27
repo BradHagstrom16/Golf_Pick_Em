@@ -18,7 +18,7 @@ The dev DB (`golf_pickem.db`) was **not** cleared — it holds a full, realistic
 ## Status
 
 - [x] 1. Shell (base.html)
-- [ ] 2. Home (index.html)
+- [x] 2. Home (index.html)
 - [ ] 3. Make a pick (make_pick.html)
 - [ ] 4. Tournament detail (tournament_detail.html)
 - [ ] 5. My picks (my_picks.html)
@@ -33,6 +33,7 @@ The dev DB (`golf_pickem.db`) was **not** cleared — it holds a full, realistic
 | Unit | Page | Nielsen /40 | AI-slop verdict | P0 count |
 |------|------|-------------|-----------------|----------|
 | 1 | base.html | 27/40 | Not AI slop (1 detector flag = false positive) | 0 |
+| 2 | index.html | 28/40 | Not AI slop (.column-divider = intentional exception) | 0 |
 
 ## Global issues (recur across pages → fix-campaign Phase 1)
 
@@ -89,6 +90,48 @@ These trace to `base.html` / design tokens / `style.css` and therefore recur on 
 **Questions:** (1) Why hide the user's points total on the device most people check from? (2) Is the missing active-nav state deliberate or never wired? (3) Where is the shell's "ask the steward" (rules/help) affordance for a new member? (4) Should focus be gold to stay in brand voice? (5) Wordmark-only lockup — intentional restraint or unfinished?
 
 **Detector raw (Assessment B, `/` anonymous render, 15 findings):** 12× low-contrast (3 unique pairs → [G1]), 1× `ai-color-palette` "Cyan gradient" (**false positive**), 1× `layout-transition` `transition: width` (home progress bar → Unit 2), 1× `skipped-heading` h2→h5 (home content → Unit 2).
+
+### Unit 2 — Home (index.html)
+
+**Scope:** home body content only — standings (desktop table + mobile card list), pick CTA, earnings/dollar presentation, deadline visibility, the active "In Progress" banner, projected-vs-earned distinction, penalty/backup state legibility, empty states. (Shell = Unit 1.)
+**Rendered:** `http://127.0.0.1:5001/` logged in as admin (rank 1) with the seeded **in-progress major (U.S. Open)** → active-tournament state: "In Progress / 1.5× Major" banner, "U.S. Open Pick / Position / Projected" columns, projected badges, a backup-activation row (Denny McCarthy 🔄), two live penalty badges (CUT +$15, DQ +$15). Assessment A inspected desktop (1280) + phone (390×844). Assessment B = `impeccable detect --json /` + `[Human]` screenshot.
+
+**Nielsen scorecard: 28/40 (Good, lower end)**
+
+| # | Heuristic | /4 | Key issue |
+|---|-----------|----|-----------|
+| 1 | Visibility of system status | 3 | "Projections" stated but no "as-of" timestamp / no refresh — board can go silently stale |
+| 2 | Match real world | 3 | Fluent golf, but raw CUT/DQ/🔄/+$15 codes with no key |
+| 3 | User control & freedom | 3 | Read-only board; no in-context next-pick exit during active week |
+| 4 | Consistency & standards | 3 | Backup-pick affordance differs by breakpoint (desktop tooltip, mobile nothing) |
+| 5 | Error prevention | 3 | Low error surface; good defaults (self-highlight, leader mark) |
+| 6 | Recognition vs recall | 2 | Dense encoded board (🔄 👑 🏆 CUT DQ +$15, gold/green badges) with no legend |
+| 7 | Flexibility & efficiency | 2 | No sort/filter/jump-to-me; 11/19 rows are "No Pick" noise during the major |
+| 8 | Aesthetic & minimalist | 4 | Ledger identity fully realized; role-locked color, clear hierarchy |
+| 9 | Error recovery | 3 | Empty cells (No Pick/None/$0) handled gracefully; no real error path |
+| 10 | Help & documentation | 2 | Rules card is good but doesn't decode on-board symbols; bottom-of-page on mobile |
+
+**Anti-patterns verdict:** **Not AI slop.** Ledger identity executed (Augusta green, gold-for-money, cream, serif-over-sans, flat-at-rest). No gradient text/glassmorphism/hero-tiles/icon-card-grid/modals. Assessment A raised `.column-divider` `border-left: 2px` (style.css:262-270) as a by-the-letter side-stripe-ban trip — **this is the documented intentional exception** (CLAUDE.md; it's a column separator, not a decorative accent) and the deterministic detector did **not** flag it. **Not a fix target.** Detector home-scoped flags: `skipped-heading` (h2→h5) and `layout-transition` (`transition: width` on progress bar); contrast greys trace to global **[G1]**.
+
+**Overall impression:** Strong, on-brand, glanceable foundation. The recurring drag is **symbol/state legibility without a key** and **projection honesty over time** — both most acute on mobile, the primary device.
+
+**Priority issues** (each with suggested impeccable command):
+
+- **P1 [local→candidate global] Encoded board symbols have no on-screen legend.** *What:* 🔄 (backup), 👑 (override), CUT, DQ, +$15 (penalty), green-vs-gold badge split — no key on the page. *Why:* breaks Recognition-over-recall + "subtle rules demand obvious state"; members can't trust numbers they can't decode. *Fix:* compact legend row beneath standings (and mobile cards) shown when `results_tournament` is active; reuse the unused `.legend-bar` class. → `/clarify` + `/polish`. _Re-evaluate as global once Units 4 (tournament_detail) & 5 (my_picks) confirm the same vocabulary._
+- **P1 [local→candidate global] Penalty marker reads as earnings, not a debt.** *What:* red `badge-penalty` "+$15" sits beside the projected-earnings column; "+$" parses as money gained. *Why:* in a money game, "owe $15" vs "earned $15" is trust-breaking. *Fix:* label explicitly (`Penalty +$15` / minus glyph) and/or move out of the earnings-adjacent slot; the `title` is hover-only (absent on mobile). → `/clarify`. _Shared component (`badge-penalty`) → likely global._
+- **P1 [local] No "as-of" timestamp on a live projected board.** *What:* "projections, updated Monday" says *that* but never *when last updated*; no auto-refresh. *Why:* glanceable-first + ledger-trust demand freshness certainty on a Sunday. *Fix:* "Projected as of {{ last_sync }} CT" in the In Progress banner; consider soft refresh. → `/harden` (live-data states).
+- **P2 [local] Mobile loses the backup-WD explanation desktop has.** *What:* desktop 🔄 has a tooltip ("{primary} WD — backup activated"); the mobile card (index.html:166-167) has 🔄 with no tooltip/label. *Why:* phone is primary yet gets the weaker explanation of the most confusing state. *Fix:* render backup state as visible text on mobile (e.g. "↳ replaces {primary}"). → `/adapt`.
+- **P2 [local] No next-pick deadline / front door during an active tournament.** *What:* when a tournament is `active`, the upcoming-pick CTA is suppressed; page shows no deadline and no path to next week's pick. *Why:* breaks "two equal front doors" — a member opening to lock a golfer has no thread. *Fix:* keep a lightweight "Next pick: {tournament} · deadline {time}" line/CTA visible during active play when an upcoming tournament with a field exists. → `/onboard` / `/layout`.
+
+**Persona red flags:**
+- *Alex (power user):* no locate-rival / jump-to-self / sort / filter (wants "who still has skin in the U.S. Open"); 11/19 "No Pick" rows dilute the 8 live ones; the live-projection watcher is exactly who distrusts a no-timestamp board.
+- *Casual member, phone, sunlight:* the muted score-to-par greys ("(-10)", "(+2)", "No Pick") are the lowest-contrast tokens and wash out first ([G1]); hits 🔄/CUT/DQ/+$15 with no key and no tappable explanation (tooltips hover-only); opens to "lock this week's golfer" and finds no deadline/pick button in the active state.
+
+**Minor observations:** two rank vocabularies (desktop medals 🏆🥈🥉 vs mobile mint/gold `.rank-badge`); **dead CSS** — `.row-leader` / `.row-active-tournament` / `.row-complete` are defined but the desktop `<tr>` only ever gets `.row-current-user`, so the leader mint-wash and active-row blue never render on desktop (missing class binding or dead rules); inline `style="…"` on the est-purse badge + standings subtitle (index.html:10,45,371) bypasses tokens; long display names wrap and desync row-height/baseline.
+
+**Questions:** (1) During a live major should the hero flip to "your pick + your projected money + next deadline," with full standings one tap below? (2) If a member can't tell whether `+$15` is won or owed, is the ledger *metaphor* honored or just the ledger *aesthetic*? (3) Is "honest about projection category but silent about freshness" enough to keep Sunday trust? (4) Are 11 "No Pick" rows information or noise — should active state lead with who's actually playing? (5) Should any explanation that exists only on hover be considered missing, given a mostly-phone audience?
+
+**Detector raw (Assessment B, home-scoped from `/`):** `skipped-heading` h2 "Season Standings" → h5 "League Rules" (missing h3/h4 — add a visually-styled but correctly-leveled sidebar heading or aria); `layout-transition` `transition: width` on `.progress-bar` (style.css:526 — Season Progress bar; animate `transform`/`grid-template` instead, minor perf); muted-grey contrast → **[G1]**.
 
 ## Deferred prioritization & fix campaign
 
