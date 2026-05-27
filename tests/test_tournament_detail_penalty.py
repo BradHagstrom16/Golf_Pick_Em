@@ -16,16 +16,16 @@ def _make_past_deadline():
 
 class TestDesktopPenaltyBadge:
 
-    def test_live_major_primary_cut_badge_absent_on_desktop_before_fix(
+    def test_live_major_primary_cut_shows_penalty_once_in_primary_column(
         self, db, make_user, make_player, make_tournament, make_result, make_pick, login
     ):
         """
         LIVE major — primary player missed the cut — desktop table must show
         badge-penalty exactly once (in the primary-pick column).
 
-        Before the fix this test FAILS because active_is_primary is False
-        (active_player_id is NULL on un-finalized tournaments).
-        After the fix it PASSES.
+        On an un-finalized tournament active_player_id is NULL, so the previous
+        active_is_primary gate suppressed the badge entirely; gating on
+        backup_activated (False for a non-WD cut) renders it in the primary column.
         """
         # 1. Users
         admin = make_user(username='admin', is_admin=True)
@@ -91,4 +91,46 @@ class TestDesktopPenaltyBadge:
         assert desktop.count('badge-penalty') == 1, (
             f'FAIL: badge must render exactly once, not in both columns — '
             f'found {desktop.count("badge-penalty")} occurrences'
+        )
+
+    def test_live_major_backup_activated_cut_shows_penalty_once_in_backup_column(
+        self, db, make_user, make_player, make_tournament, make_result, make_pick, login
+    ):
+        """
+        LIVE major — primary WD'd before R2 (backup activated) and the backup
+        missed the cut — the penalty badge must render exactly once and in the
+        BACKUP column, never the primary column. Guards the backup-activated half
+        of the backup_activated gate (the primary-cut test guards the other half).
+        """
+        admin = make_user(username='admin2', is_admin=True)
+        member = make_user(username='member2')
+        primary = make_player(first_name='Wd', last_name='Primary')
+        backup = make_player(first_name='Cut', last_name='Backup')
+
+        major = make_tournament(name='Test Major 2', is_major=True, status='active', purse=0)
+        major.pick_deadline = _make_past_deadline()
+        db.session.flush()
+
+        # Primary withdrew before completing R2 → backup activates on a live tournament
+        make_result(major, primary, status='wd', earnings=0, rounds_completed=1)
+        # Backup is now the active golfer and missed the cut at the major
+        make_result(major, backup, status='cut', earnings=0, rounds_completed=2,
+                    final_position='CUT')
+        make_pick(member, major, primary=primary, backup=backup, penalty_triggered=True)
+        db.session.commit()
+
+        resp = login(admin).get(f'/tournament/{major.id}')
+        assert resp.status_code == 200
+        html = resp.get_data(as_text=True)
+        assert 'Cut Backup' in html, 'Backup name missing — picks not rendering'
+
+        start = html.index('desktop-table')
+        desktop = html[start: start + html[start:].index('</table>')]
+
+        assert desktop.count('badge-penalty') == 1, (
+            f'badge must render exactly once — found {desktop.count("badge-penalty")}'
+        )
+        assert desktop.index('badge-penalty') > desktop.index('Cut Backup'), (
+            'penalty badge must sit in the backup column (after the backup name), '
+            'not the primary column'
         )

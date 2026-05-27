@@ -415,8 +415,6 @@ def tournament_detail(tournament_id):
                 'admin_override': pick.admin_override,
                 'admin_override_note': pick.admin_override_note,
                 'penalty_triggered': pick.penalty_triggered,
-                'active_is_primary': pick.active_player_id == pick.primary_player_id,
-                'active_is_backup': pick.active_player_id == pick.backup_player_id,
             })
         else:
             pick_results.append({
@@ -434,8 +432,6 @@ def tournament_detail(tournament_id):
                 'admin_override': False,
                 'admin_override_note': None,
                 'penalty_triggered': False,
-                'active_is_primary': False,
-                'active_is_backup': False,
             })
 
     # Sort results
