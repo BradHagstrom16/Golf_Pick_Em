@@ -17,8 +17,8 @@
   --green-50:  #f0faf5;
 
   /* Gold — warm accents */
-  --gold-600: #92722a;
-  --gold-500: #b8993e;
+  --gold-600: #826419;  /* gold-deep text: ~5:1 on gold-wash / ~5.5:1 on white (AA; was #92722a @ 4.0:1) */
+  --gold-500: #b8993e;  /* gold fills only — fails AA as text (2.7:1); .text-gold uses --gold-600 */
   --gold-400: #c4a747;
   --gold-300: #d4be6a;
   --gold-100: #faf3e0;
@@ -27,10 +27,10 @@
   --cream:    #faf8f4;
   --white:    #ffffff;
 
-  /* Text */
+  /* Text — three tiers, all AA on cream/white/mint */
   --text-primary:   #1a1f25;
-  --text-secondary: #4a5568;
-  --text-muted:     #8b95a2;
+  --text-secondary: #4a5568;            /* Slate ~7:1 */
+  --text-muted:     #5e6776;            /* Stone, deepened to ~5.3:1 (was #8b95a2 @ 3.0:1, sub-AA) */
   --text-on-dark:   #f7f8f9;
 
   /* Status */
@@ -58,6 +58,9 @@
   --shadow-sm: 0 1px 3px rgba(0, 67, 46, 0.08);
   --shadow-md: 0 4px 12px rgba(0, 67, 46, 0.10);
   --shadow-lg: 0 8px 24px rgba(0, 67, 46, 0.12);
+
+  /* Focus — brand gold ring (≥3:1 on cream/white for WCAG 1.4.11; never status-blue) */
+  --focus-ring: #9c7d2c;
 }
 
 /* ----------------------------------------------------------------------------
@@ -87,6 +90,45 @@ a {
   transition: color 0.15s ease;
 }
 a:hover { color: var(--green-500); }
+
+/* Brand focus ring — gold on light, paper on the dark green chrome.
+   Replaces Bootstrap's role-locked status-blue glow (blue = tournament status only). */
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.btn:focus-visible {
+  box-shadow: none;  /* drop Bootstrap's blue focus glow; the outline is the indicator */
+}
+.navbar-greenside :focus-visible,
+.footer-greenside :focus-visible {
+  outline-color: var(--text-on-dark);
+}
+/* Inputs keep their dedicated green focus ring (below); avoid a doubled outline. */
+.form-control:focus-visible,
+.form-select:focus-visible {
+  outline: none;
+}
+
+/* ----------------------------------------------------------------------------
+   Skip link — visually hidden until focused (keyboard/SR bypass of the nav)
+   ---------------------------------------------------------------------------- */
+.skip-link {
+  position: absolute;
+  left: 0.5rem;
+  top: -3.5rem;
+  z-index: 2000;
+  background-color: var(--green-700);
+  color: var(--text-on-dark);
+  padding: 0.6rem 1rem;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  transition: top 0.15s ease;
+}
+.skip-link:focus {
+  top: 0.5rem;
+  color: var(--text-on-dark);
+}
 
 /* ----------------------------------------------------------------------------
    Navbar
@@ -119,6 +161,10 @@ a:hover { color: var(--green-500); }
 .navbar-greenside .nav-link.active {
   color: var(--text-on-dark) !important;
   background-color: rgba(255, 255, 255, 0.08);
+}
+/* Current section: white-wash + a gold underline marker (Visibility-of-Status) */
+.navbar-greenside .nav-link.active {
+  box-shadow: inset 0 -2px 0 var(--gold-300);
 }
 
 .navbar-greenside .badge-admin {
@@ -173,10 +219,9 @@ a:hover { color: var(--green-500); }
   border-bottom: none;
   padding: 0.75rem 1.25rem;
 }
-.card-header-green h3,
-.card-header-green h4,
-.card-header-green h5,
-.card-header-green h6 {
+/* Card-header titles inherit the header's color at any heading level, so the page
+   phases can use a sequential level (no h2->h5 skip, G5) without a color regression. */
+.card-header-green :is(h2, h3, h4, h5, h6) {
   color: var(--text-on-dark);
   margin-bottom: 0;
 }
@@ -187,14 +232,14 @@ a:hover { color: var(--green-500); }
   border-radius: var(--radius-md) var(--radius-md) 0 0 !important;
   border-bottom: none;
 }
-.card-header-dark h5 { color: var(--text-on-dark); margin-bottom: 0; }
+.card-header-dark :is(h2, h3, h4, h5, h6) { color: var(--text-on-dark); margin-bottom: 0; }
 
 .card-header-gold {
   background-color: var(--gold-100);
   color: var(--gold-600);
   border-bottom: 1px solid rgba(184, 153, 62, 0.2);
 }
-.card-header-gold h5, .card-header-gold h6 {
+.card-header-gold :is(h2, h3, h4, h5, h6) {
   color: var(--gold-600);
   margin-bottom: 0;
 }
@@ -204,7 +249,7 @@ a:hover { color: var(--green-500); }
   color: var(--text-secondary);
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
 }
-.card-header-muted h5, .card-header-muted h6 {
+.card-header-muted :is(h2, h3, h4, h5, h6) {
   color: var(--text-secondary);
   margin-bottom: 0;
 }
@@ -350,6 +395,22 @@ a:hover { color: var(--green-500); }
   padding: 0.3em 0.6em;
   border-radius: var(--radius-sm);
   border: 1px solid rgba(184, 153, 62, 0.3);
+}
+
+/* Estimated-purse qualifier — a gold-register money chip, not Bootstrap gray.
+   "est." is a money qualifier, so it lives in the gold register (Money-Is-Gold),
+   never the cool status palette. Legible (>=0.65rem) without the desktop tooltip. */
+.badge-est {
+  display: inline-block;
+  background-color: var(--gold-100);
+  color: var(--gold-600);
+  font-weight: 600;
+  font-size: 0.68rem;
+  padding: 0.15em 0.45em;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(184, 153, 62, 0.3);
+  vertical-align: middle;
+  letter-spacing: 0.02em;
 }
 
 .badge-team {
@@ -571,6 +632,45 @@ footer.footer-greenside a {
   box-shadow: 0 0 0 0.2rem rgba(0, 103, 71, 0.15);
 }
 
+/* Field-error scaffold — wired per-form in Phase 4 via aria-invalid/aria-describedby */
+.form-control[aria-invalid="true"],
+.form-control.is-invalid,
+.form-select[aria-invalid="true"],
+.form-select.is-invalid {
+  border-color: var(--danger);
+}
+.form-control[aria-invalid="true"]:focus,
+.form-control.is-invalid:focus,
+.form-select[aria-invalid="true"]:focus,
+.form-select.is-invalid:focus {
+  box-shadow: 0 0 0 0.2rem rgba(185, 28, 28, 0.15);
+}
+.field-error {
+  color: var(--danger);
+  font-size: 0.8rem;
+  margin-top: 0.25rem;
+}
+
+/* ----------------------------------------------------------------------------
+   Tap targets — WCAG 2.5.5 thumb-use floor (phone-first audience)
+   ---------------------------------------------------------------------------- */
+.btn:not(.btn-close):not(.btn-sm),
+.form-control,
+.form-select {
+  min-height: 44px;
+}
+/* Center label text vertically within the taller button box */
+.btn:not(.btn-close):not(.btn-sm) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+.dropdown-item {
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
 /* ----------------------------------------------------------------------------
    Mobile Card Layout Utilities
    ---------------------------------------------------------------------------- */
@@ -751,6 +851,13 @@ footer.footer-greenside a {
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   }
 
+  /* Match the 48px Tom Select picker floor for all controls on the phone */
+  .btn:not(.btn-close):not(.btn-sm),
+  .form-control,
+  .form-select {
+    min-height: 48px;
+  }
+
   /* Tighter container padding */
   main.container {
     padding-left: 0.75rem;
@@ -826,9 +933,23 @@ footer.footer-greenside a {
 }
 
 /* ----------------------------------------------------------------------------
+   Money figures — "Money-Is-Gold" ledger treatment
+   ---------------------------------------------------------------------------- */
+/* Shared treatment for standalone dollar amounts (purse headers, admin pot/points
+   totals). Serif gravity + tabular figures for column scanning. Surfaces add
+   .text-end for right-alignment and .text-gold for projected/at-risk money.
+   Applied per-surface in Phases 3 & 5. */
+.money-figure {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  color: var(--green-700);
+  white-space: nowrap;
+}
+
+/* ----------------------------------------------------------------------------
    Utility Classes
    ---------------------------------------------------------------------------- */
 .text-green { color: var(--green-700) !important; }
-.text-gold { color: var(--gold-500) !important; }
+.text-gold { color: var(--gold-600) !important; }  /* gold-600 (AA); gold-500 is a fill, not text */
 .bg-cream { background-color: var(--cream) !important; }
 .font-display { font-family: var(--font-display) !important; }

@@ -564,6 +564,7 @@ Within each phase, fix P0 → P1 → P2 → P3. After each phase, re-run `critiq
 
 | Source | Issue | Sev | Command |
 |---|---|---|---|
+| **G5** | **DEFERRED FROM PHASE 2 (heading-tag fixes).** Phase 2 shipped only the level-agnostic card-header CSS; the actual `skipped-heading` tag corrections live in these page templates: make_pick `<h4>…<h6>` (missing h5), my_picks `<h2>…<h5>` (missing h3/h4), and audit index `<h2> "Season Standings"…<h5> "League Rules"`. Swap to a sequential heading level — visual-neutral given the Phase-2 CSS. Each clears one harness `skipped-heading` finding (make_pick 1→0, my_picks 1→0). | P2 | `/audit` |
 | **G7** | Mobile renders projected (live) earnings in settled-green, losing the gold-projected distinction (tournament_detail mobile cards + `my_picks.html:57-68`). Key the mobile money pill on `tournament.status` exactly as the desktop branch does. *(Per-surface application of the global.)* | P1 | `/adapt` / `/harden` |
 | U4 | **P1** Projected earnings render as "settled green" on mobile (the U4 instance of G7; verified gold ×6 desktop vs green ×6 mobile). | P1 | `/adapt` / `/harden` |
 | U5 | **P1** Desktop `my_picks` table binds no row-status class, so `.row-active-tournament`/`.row-complete` are dead here while `schedule.html` binds them correctly — the live $4.2M row reads identical to settled rows. Bind the status class on the desktop `<tr>`. | P1 | `/layout` |
@@ -600,6 +601,7 @@ Within each phase, fix P0 → P1 → P2 → P3. After each phase, re-run `critiq
 | **G12** | The admin section bypasses the design system (raw `.table`/`bg-info`/`bg-warning`/`btn-*`) instead of the existing `.table-greenside`/`.btn-greenside`/`.badge-status-*`/`.stat-card`/`.mobile-card-list`. The structural root of the whole admin cluster. Class-swap migration recovers most identity mechanically. | P1 | `/colorize` + `/polish` |
 | **G13** | Admin money-mutations have no confirm/consequence-summary/undo. Add a consistent safety pattern: inline confirm + plain-language consequence + old→new summary; never a bare `alert()` or silently-swallowed failure. **The U9 P0 confirm UI lands here** (logic gate shipped Phase 1). | P1 (P0 case) | `/harden` |
 | **G11** | (admin application) Pot/purse/points/Penalty-Pot totals render in flat sans ink across all three admin surfaces — the numbers the admin trusts without auditing have the least weight. Apply the Phase-2 gold/serif money treatment. | P1 | `/typeset` + `/colorize` |
+| **G5** | **DEFERRED FROM PHASE 2 (heading-tag fixes).** Correct the admin `skipped-heading` tags using the level-agnostic card-header CSS Phase 2 shipped: users `<h2> "Manage Users"…<h5> "Reset Password for …"` (missing h3/h4 — clears the harness `users` `skipped-heading` 1→0), plus the U8 dashboard heading skips (also noted in the U8 P3 row). Swap to sequential levels — visual-neutral. | P2 | `/audit` |
 | U8 | **P1** "Process Results" is an unguarded 10-button yellow wall (38px) — highest-consequence action, lowest ceremony (idempotent, so P1 not P0). Confirm naming the tournament + busy/done state + ≥44px + distinct gravity. | P1 | `/harden` |
 | U8 | **P1** No `.mobile-card-list` fallback — tables wrap/cram on the admin's phone (6× `cramped-padding`). Add a mobile card per tournament. *(Part of G12.)* | P1 | `/adapt` |
 | U9 | **P1** Raw-Bootstrap, role-violating chrome: blue `.btn-primary` *load* button as the loud primary while the destructive yellow commit looks secondary (inverted priority); cyan `border-info` sidebar; gold warning banner diluting Money-Is-Gold. Map to `.btn-outline-greenside` (load) / `.btn-greenside` + danger weight (commit) / green hairline selects. *(G12.)* | P1 | `/colorize` + `/polish` |
@@ -643,3 +645,27 @@ Notes that update earlier assumptions:
 - **Detector JSON schema (impeccable 2.1.8):** keys are `antipattern` / `name` / `description` / `snippet` / `file` / `line` — **not** the `rule` / `message` / `selector` the plan's Setup snippet first guessed. The `ai-color-palette` "Cyan gradient" finding carries **no** color or selector (snippet is the bare "Cyan gradient background"); `dark-glow` carries the hex ("Colored glow (#00432e) on dark background"). The filter therefore drops `dark-glow` by its own hex, but drops the cyan `ai-color-palette` only after verifying against `static/css/style.css` that **every** declared gradient is brand-green (`var(--green-*)` / brand-green hex) — so a genuinely-wrong non-green gradient added later is surfaced, never masked. (Plan Setup Step 2 corrected to match.)
 - **Admin trio now has a real (sparse) detector signal:** the prior Assessment-B for Unit 10 measured `index.html` (anonymous `@admin_required` redirect, 25× low-contrast noise — discarded). Through the harness the admin tables are nearly clean (tournaments 0, users 1× skipped-heading, payments 1× low-contrast). The admin cluster's real problems are **structural/visual** (G12 raw-Bootstrap, G13 mutation-safety, G11 flat-sans money) which the detector doesn't score — confirming the cluster's low Nielsen scores are a design/identity gap, not a detector-flag pile-up. (Note `cramped-padding` appeared only on U8 dashboard, which uses `table-sm`; the trio uses default-padded `table table-striped`.)
 - **register's 3× low-contrast** reproduces the Unit-7 Assessment-B finding deterministically (the three `<small class="text-muted">` form hints at 3.0:1 → G1).
+
+### Phase 2 verification (Session S2 — global tokens; branch `fix/phase2-global-tokens`)
+
+Re-ran the same `.critique_shots/harness.py` after the Phase 2 token/shell edits (`static/css/style.css` + `templates/base.html` + the shared est-purse / penalty inline snippets). Deterministic detector delta, same FP filter:
+
+| Page | Before (S1) | After (S2) | Δ | Remaining (post-filter) |
+|------|-------------|------------|---|--------------------------|
+| make_pick | 5 | 1 | −4 | skipped-heading×1 **[G5]** |
+| my_picks | 3 | 1 | −2 | skipped-heading×1 **[G5]** |
+| login | 0 | 0 | — | clean |
+| register | 3 | 0 | −3 | clean |
+| change_password | 0 | 0 | — | clean |
+| tournaments | 0 | 0 | — | clean |
+| users | 1 | 1 | — | skipped-heading×1 **[G5]** |
+| payments | 1 | 0 | −1 | clean |
+| **Total** | **13** | **3** | **−10** | all 3 = skipped-heading **[G5]** |
+
+- **All 10 `low-contrast` [G1] findings cleared** by the token-level fix: `--text-muted` deepened `#8b95a2 → #5e6776` (~5.3:1, was 3.0:1), `--gold-600` deepened `#92722a → #826419` (~5:1 on gold-wash, was 4.07:1), and `.text-gold` re-pointed to `--gold-600`. No new findings introduced (no regression on the clean pages).
+- **The 3 remaining findings are all `skipped-heading` [G5]** — these are per-page heading-*tag* corrections (make_pick `h4→h6`, my_picks/users `h2→h5`) that live in page templates and are **deferred to the page phases per Phase 2's file scope** (Phase 3 for make_pick/my_picks, Phase 5 for users). Phase 2 shipped only the *CSS foundation* for G5: card-header titles now inherit the header color at any level (`:is(h2…h6)`) with no font-size override, so the page phases can swap to a sequential level without a visual or color regression.
+- **Visual verification (chrome-devtools MCP, authenticated, desktop 1280 + 390px):**
+  - `index` — G4 active-nav renders (white-wash + gold underline on "Standings"); G1 muted subtitle/score-to-par legible; gold register **not dulled** (League-Rules "Majors pay 1.5×", Admin badge, navbar points chip all read as legible deep gold). U1 season total `$10,466,924` now rides in the **collapsed mobile bar** beside the toggler.
+  - `tournament/23` — G8 est chip renders as a **gold-wash pill** (`$21,500,000 [est.]`), replacing the gray Bootstrap chip; the G1 "multiplied by 1.5×!" major alert (the old 4.07:1 line) reads clearly.
+  - `my-picks` — DOM check: 3× `.badge-penalty` all read **"Penalty $15"**, zero `+` signs (G6); `main#main` + skip-link present (G3); live tokens confirmed (`--text-muted #5e6776`, `--gold-600 #826419`, `--focus-ring #9c7d2c`).
+- **Brand guardrail held:** the two green-gradient FPs stayed filtered; Pinehurst Pine `#006747` and the brand greens were not touched.
