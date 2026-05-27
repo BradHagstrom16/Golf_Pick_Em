@@ -4,7 +4,7 @@
 
 **Goal:** Run an impeccable `critique` on every HTML page in Golf Pick 'Em as a deferred-fix diagnostic sweep, pooling all findings into one living doc that hands off to a separate fix campaign.
 
-**Architecture:** Each of 10 critique units follows the impeccable critique workflow: an isolated LLM design-review sub-agent (Assessment A) plus a parent-run deterministic detector + browser overlay (Assessment B), synthesized into a combined report appended to `docs/design/critique-sweep-findings.md`. Pages render in the live Flask dev app, viewed through a logged-in Chrome session driven by the chrome-devtools MCP. Per-unit interactive Q&A is deferred; prioritization happens once at consolidation.
+**Architecture:** Each of 10 critique units follows the impeccable critique workflow: an isolated LLM design-review sub-agent (Assessment A) plus a parent-run deterministic detector + browser overlay (Assessment B), synthesized into a combined report appended to `docs/design/critique-sweep-findings.md`. Pages render in the live Flask dev app, viewed through a logged-in Chrome session driven by the chrome-devtools MCP. The dev SQLite DB is a **disposable playground** (cleared before the sweep): seed whatever state a unit needs — an in-progress tournament with live/projected earnings, a major mid-round to show the 1.5× multiplier and missed-cut penalty live, the admin user with a submitted pick, another user with none — rather than depending on fixed rows or building harnesses. Per-unit interactive Q&A is deferred; prioritization happens once at consolidation.
 
 **Tech Stack:** Flask + Jinja2 + Bootstrap 5 (server-rendered), SQLite dev DB, `npx impeccable` CLI (Node v24), chrome-devtools MCP for browser automation, Claude `Agent` tool for assessment isolation.
 
@@ -20,7 +20,7 @@ This sweep writes NO production code. Files touched:
 
 - **Create:** `docs/design/critique-sweep-findings.md` — the living findings doc (status checklist, scorecard matrix, global-issues list, per-unit reports, deferred prioritization). One responsibility: accumulate critique output across sessions.
 - **Read-only (never modified during the sweep):** all `templates/**/*.html`, `static/css/style.css`, `PRODUCT.md`, `DESIGN.md`.
-- **Throwaway (only if a state can't render from dev data):** a standalone harness HTML in a temp dir, deleted after use.
+- **Disposable playground DB** (`golf_pickem.db`): seed/mutate freely via `flask shell` + the `models.py` models to produce any state a unit needs. Cleared before the sweep, so capture the ids you seed and use those (do NOT assume prior ids like 18/20). Harnesses are now a last resort only if a state genuinely can't be seeded.
 
 ---
 
@@ -37,19 +37,15 @@ FLASK_ENV=development flask run --port 5001
 ```
 Run this in the background. Expected: server boots, "Running on http://127.0.0.1:5001". (Port 5001 avoids the macOS AirPlay conflict on 5000.)
 
-- [ ] **Step 2: Set a known password on the admin user**
+- [ ] **Step 2: Bootstrap the cleared playground DB**
 
-Run:
-```bash
-flask shell <<'PYEOF'
-from models import db, User
-u = db.session.get(User, 1)
-u.set_password('CritiqueSweep!2026')
-db.session.commit()
-print('password set for', u.username)
-PYEOF
-```
-Expected: `password set for Sun Day Regrets`. Credentials for the sweep: username `Sun Day Regrets`, password `CritiqueSweep!2026`.
+The DB is cleared before the sweep, so build it up. First ensure the schema (`flask db upgrade`). Then read `models.py` for exact field names before seeding, and via `flask shell` create:
+- an **admin user** with known creds: username `Sun Day Regrets`, password `CritiqueSweep!2026`, `is_admin=True` (use `u.set_password(...)`);
+- a **second non-admin user** (to populate standings and an "unsubmitted pick" state);
+- enough **tournaments** to cover the sweep's render targets: at least one `complete` (with finalized `TournamentResult` rows + earnings), one `upcoming` with picks open (drives `make_pick`), and one `active`/in-progress — make this one a **major** (Masters/PGA/US Open/The Open) mid-round with a live leaderboard so `tournament_detail` and `index` show projected earnings, the 1.5× multiplier, and the live missed-cut penalty;
+- **picks**: the admin user with a submitted pick on the in-progress tournament, the second user with none.
+
+Capture the seeded tournament/user ids and record them at the top of the findings doc (the roadmap's example ids 18/20 are gone). Sweep credentials: `Sun Day Regrets` / `CritiqueSweep!2026`.
 
 - [ ] **Step 3: Warm the impeccable CLI**
 
@@ -268,12 +264,12 @@ Stop the backgrounded `flask run` and confirm no stray `npx impeccable live` ser
 
 ## Remaining Units (roadmap — subsequent sessions reuse Task 2)
 
-Each row is a parameter set for the Task 2 procedure. Render data confirmed against the dev DB (19 complete, 13 upcoming tournaments). Detail these into full tasks (like Tasks 3–4) at the start of each session.
+Each row is a parameter set for the Task 2 procedure. URLs use the ids seeded in Task 1 step 2 (the DB is a playground — seed/adjust state per row as needed). Detail these into full tasks (like Tasks 3–4) at the start of each session.
 
 | Unit | PAGES | URL | SCOPE focus | PERSONAS |
 |---|---|---|---|---|
-| 3 Make-pick | `make_pick.html` | `/pick/20` (Charles Schwab Challenge, upcoming) | Tom Select golfer dropdown, deadline clarity, used-player lockout display, primary/backup pick affordance, confirm/submit | casual-member-on-phone, Alex |
-| 4 Tournament detail | `tournament_detail.html` | `/tournament/18` (PGA Championship — a *major*, complete: exercises 1.5× multiplier + missed-cut penalty + final-earnings ledger) | leaderboard table, earnings-as-ledger, status pills, major-multiplier & penalty visibility | Alex, casual-member-on-phone |
+| 3 Make-pick | `make_pick.html` | `/pick/<upcoming-id>` (seed an upcoming tournament with picks open; seed some used players to show lockout) | Tom Select golfer dropdown, deadline clarity, used-player lockout display, primary/backup pick affordance, confirm/submit | casual-member-on-phone, Alex |
+| 4 Tournament detail | `tournament_detail.html` | `/tournament/<major-id>` (seed a *major* in-progress or complete to exercise the 1.5× multiplier + missed-cut penalty + earnings ledger) | leaderboard table, earnings-as-ledger, status pills, major-multiplier & penalty visibility | Alex, casual-member-on-phone |
 | 5 My-picks | `my_picks.html` | `/my-picks` (logged in) | season pick history, WD/backup/penalty state legibility, totals, "subtle rules → obvious state" | casual-member, Alex |
 | 6 Lighter public | `schedule.html`, `errors/404.html`, `errors/500.html` | `/schedule`; for errors `/tournament/99999` (404) and a forced 500 or a harness | season schedule scanability + est-purse badge; error-page copy + recovery path (link home) | Jordan, casual-member |
 | 7 Auth trio | `login.html`, `register.html`, `change_password.html` | `/login`, `/register`, `/change-password` (log out first for the first two) | form clarity, validation/error states, brand presence on entry, tap targets | Jordan, casual-member |
