@@ -7,12 +7,19 @@ active play because `index()` collapses the single next-tournament query onto th
 active one, leaving `upcoming_tournament` None. These tests pin the additive
 `next_pick_*` context the route must expose and the CTA the template must render.
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from flask import template_rendered
 
-from models import TournamentField
+from models import LEAGUE_TZ, TournamentField
+
+
+def _now_ct():
+    """Current league Central time as a naive datetime, the form the tournament
+    date/deadline columns store (CLAUDE.md: deadlines are naive CT in SQLite).
+    Mirrors the idiom in test_tournament_detail_ranking/penalty."""
+    return datetime.now(timezone.utc).astimezone(LEAGUE_TZ).replace(tzinfo=None)
 
 
 @pytest.fixture
@@ -40,7 +47,7 @@ def _ctx(captured, name='index.html'):
 
 def _seed_active(make_tournament):
     """An in-progress tournament: deadline passed, not yet ended."""
-    now = datetime.now()
+    now = _now_ct()
     return make_tournament(
         name='U.S. Open',
         status='active',
@@ -53,7 +60,7 @@ def _seed_active(make_tournament):
 
 def _seed_next_upcoming(make_tournament):
     """The next upcoming tournament after the active one (deadline in the future)."""
-    now = datetime.now()
+    now = _now_ct()
     return make_tournament(
         name='Travelers Championship',
         status='upcoming',
@@ -93,7 +100,7 @@ def test_active_play_exposes_next_pick_context(
 
 
 def test_active_play_renders_next_pick_cta(
-    db, login, make_user, make_tournament, make_player, captured_templates
+    db, login, make_user, make_tournament, make_player
 ):
     """An authenticated member with no pick sees a next-pick CTA naming the
     upcoming tournament and linking to make_pick."""
