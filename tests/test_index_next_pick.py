@@ -15,7 +15,7 @@ from flask import template_rendered
 from models import LEAGUE_TZ, TournamentField
 
 
-def _now_ct():
+def _now_ct() -> datetime:
     """Current league Central time as a naive datetime, the form the tournament
     date/deadline columns store (CLAUDE.md: deadlines are naive CT in SQLite).
     Mirrors the idiom in test_tournament_detail_ranking/penalty."""
