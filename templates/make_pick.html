@@ -133,6 +133,9 @@
 {% endblock %}
 
 {% block scripts %}
+{# Selects only render when there are players; gate the Tom Select init on the
+   same condition so the empty state doesn't hit a missing element. #}
+{% if available_players %}
 <script>
 // Fix 1.8: normalized search — strips periods/spaces/punctuation so "jj" matches "J.J."
 function normalizeSearch(s) {
@@ -192,4 +195,5 @@ function excludeFrom(target, excludeId) {
 primarySelect.on('change', function(v) { excludeFrom(backupSelect, v); });
 backupSelect.on('change', function(v) { excludeFrom(primarySelect, v); });
 </script>
+{% endif %}
 {% endblock %}

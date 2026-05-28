@@ -9,7 +9,7 @@ shows a "No golfers available yet" state with a way back.
 from models import TournamentField
 
 
-def test_empty_field_shows_empty_state_not_form(db, login, make_user,
+def test_empty_field_shows_empty_state_not_form(login, make_user,
                                                 make_tournament):
     """No field synced → empty-state message + Back action, and no pick form."""
     user = make_user(username='emptystate_user')
@@ -35,6 +35,9 @@ def test_empty_field_shows_empty_state_not_form(db, login, make_user,
     assert 'name="primary_player_id"' not in html
     assert 'name="backup_player_id"' not in html
     assert 'Submit Pick' not in html
+
+    # ...and the Tom Select init must not run against elements that don't exist.
+    assert 'new TomSelect' not in html
 
 
 def test_synced_field_renders_form_not_empty_state(db, login, make_user,
