@@ -877,6 +877,25 @@ footer.footer-greenside a {
   background-color: var(--white);
   color: var(--text-primary);
 }
+/* Header gradient (was inline); more specific than .card-header-green so it wins */
+.tournament-header .card-header {
+  background: linear-gradient(135deg, var(--green-800) 0%, var(--green-700) 100%);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+/* De-inlined one-offs from tournament_detail's summary + picks surfaces */
+.meta-label {
+  margin-bottom: 0.25rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.stat-value-danger { color: var(--danger); }
+.field-count-badge { font-size: 0.85rem; }
+.picks-mobile-list { padding-top: 0.75rem; }
+.col-rank-num { width: 50px; }
 
 /* ----------------------------------------------------------------------------
    Pick Submission Sidebar

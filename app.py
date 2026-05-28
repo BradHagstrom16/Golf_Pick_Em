@@ -505,11 +505,15 @@ def tournament_detail(tournament_id):
 
     # Get current user's pick for this tournament
     user_pick = None
+    current_user_result = None
     if current_user.is_authenticated:
         user_pick = Pick.query.filter_by(
             user_id=current_user.id,
             tournament_id=tournament_id
         ).first()
+        # The summary "Your Pick" stat card reuses the already-built result row.
+        current_user_result = next(
+            (r for r in pick_results if r['user'].id == current_user.id), None)
 
     return render_template('tournament_detail.html',
                          tournament=tournament,
@@ -523,7 +527,8 @@ def tournament_detail(tournament_id):
                          penalty_count=penalty_count,
                          penalty_total=penalty_total,
                          penalty_per_incident=PENALTY_PER_INCIDENT,
-                         user_pick=user_pick)
+                         user_pick=user_pick,
+                         current_user_result=current_user_result)
 
 
 # ============================================================================
