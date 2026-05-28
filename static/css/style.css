@@ -940,6 +940,16 @@ footer.footer-greenside a {
   border-radius: var(--radius-md);
 }
 
+/* Quiet uppercase eyebrow above a CTA (e.g. "Next Pick" during active play) —
+   the label register, so the thread reads as secondary to the live banner. */
+.cta-eyebrow {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
 /* ----------------------------------------------------------------------------
    Legend
    ---------------------------------------------------------------------------- */

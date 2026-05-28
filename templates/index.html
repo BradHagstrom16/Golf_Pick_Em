@@ -125,6 +125,36 @@
         </div>
         {% endif %}
 
+        {# ---- Next-pick thread during active play (two equal front doors) ---- #}
+        {# upcoming_tournament is None while a tournament is active, so the CTA #}
+        {# above is suppressed; surface the next pick so the thread never breaks. #}
+        {% set next_pick_field_synced = next_pick_field_count > 0 %}
+        {% set next_pick_deadline_passed = next_pick_tournament.is_deadline_passed() if next_pick_tournament else true %}
+        {% set show_next_pick = current_user.is_authenticated and next_pick_tournament and next_pick_field_synced and not next_pick_deadline_passed %}
+        {% if show_next_pick %}
+        <div class="d-lg-none mb-3">
+            <div class="card pick-cta-card">
+                <div class="card-body py-2 text-center">
+                    <span class="cta-eyebrow d-block">Next Pick</span>
+                    {% if next_pick_user_pick %}
+                        <span class="text-green fw-bold">{{ next_pick_tournament.name }}</span>
+                        <span class="text-muted mx-1">&middot;</span>
+                        <span class="small">{{ next_pick_user_pick.primary_player.full_name() }}</span>
+                        <span class="text-muted mx-1">&middot;</span>
+                        <a href="{{ url_for('make_pick', tournament_id=next_pick_tournament.id) }}"
+                           class="btn btn-outline-greenside btn-sm py-0">Edit</a>
+                    {% else %}
+                        <a href="{{ url_for('make_pick', tournament_id=next_pick_tournament.id) }}"
+                           class="btn btn-greenside btn-sm w-100">
+                            Pick for {{ next_pick_tournament.name }}
+                        </a>
+                        <span class="text-muted small d-block mt-1">Deadline: {{ next_pick_tournament.get_deadline_display() }}</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
         {# ---- Mobile Standings Card List (hidden on desktop) ---- #}
         <div class="mobile-card-list">
             {% for user in users %}
@@ -391,6 +421,39 @@
                     {% if not field_synced %}
                     <p class="text-muted small text-center mb-0"><em>Field not yet available</em></p>
                     {% endif %}
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        {# Next-pick thread during active play (desktop; mobile CTA is above standings) #}
+        {% if show_next_pick %}
+        <div class="card pick-cta-card mb-3 d-none d-lg-block">
+            <div class="card-body">
+                <span class="cta-eyebrow d-block text-center mb-1">Next Pick</span>
+                {% if next_pick_user_pick %}
+                    <h3 class="text-green text-center font-display h5">{{ next_pick_tournament.name }}</h3>
+                    <hr>
+                    <p class="mb-1"><strong>Primary:</strong> {{ next_pick_user_pick.primary_player.full_name() }}</p>
+                    <p class="mb-2"><strong>Backup:</strong> {{ next_pick_user_pick.backup_player.full_name() }}</p>
+                    <p class="text-muted small mb-3">Deadline: {{ next_pick_tournament.get_deadline_display() }}</p>
+                    <div class="text-center">
+                        <a href="{{ url_for('make_pick', tournament_id=next_pick_tournament.id) }}"
+                            class="btn btn-outline-greenside btn-sm fw-semibold">
+                            Edit Pick
+                        </a>
+                    </div>
+                {% else %}
+                    <h3 class="text-center font-display h5">{{ next_pick_tournament.name }}</h3>
+                    {% if next_pick_tournament.is_major %}
+                    <p class="text-center mb-2"><span class="badge-major">1.5x Major</span></p>
+                    {% endif %}
+                    <p class="text-muted small text-center mb-3">Deadline: {{ next_pick_tournament.get_deadline_display() }}</p>
+                    <div class="text-center">
+                        <a href="{{ url_for('make_pick', tournament_id=next_pick_tournament.id) }}" class="btn btn-greenside">
+                            Pick for {{ next_pick_tournament.name }}
+                        </a>
+                    </div>
                 {% endif %}
             </div>
         </div>
