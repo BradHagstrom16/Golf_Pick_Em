@@ -998,10 +998,66 @@ footer.footer-greenside a {
 /* ----------------------------------------------------------------------------
    Legend
    ---------------------------------------------------------------------------- */
-.legend-bar {
+/* ----------------------------------------------------------------------------
+   Legend — the key that decodes the board's chips. One grammar on every
+   surface: each chip is glued to its gloss (tight 0.45rem), and entries sit
+   wide apart (1.5rem), so proximity alone pairs each symbol with its meaning.
+   No middot ribbon, no run-on sentence.
+   ---------------------------------------------------------------------------- */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.55rem 1.5rem;
   font-size: 0.8rem;
   color: var(--text-muted);
-  padding: 0.75rem 0;
+}
+
+/* Each entry: chip in an auto column, gloss in the rest so it wraps under
+   itself instead of under the chip. The whole entry stays one wrapping unit. */
+.legend__item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: baseline;
+  gap: 0.45rem;
+}
+
+/* Small uppercase lead-in ("Legend") for the inline bars. */
+.legend__lead {
+  font-family: var(--font-body);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* Under-table footnote variant (index, tournament detail): hairline separates
+   the key from the table it explains. */
+.legend--bar {
+  margin-top: 0.5rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid rgba(0, 67, 46, 0.08);
+}
+
+/* Comprehensive reference variant (my_picks sidebar): one entry per row,
+   sorted into labeled clusters. */
+.legend--stack {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  gap: 0.5rem;
+}
+.legend-group + .legend-group {
+  margin-top: 0.95rem;
+}
+.legend-group__label {
+  font-family: var(--font-body);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 0 0 0.5rem;
 }
 
 /* Collapsed "Didn't pick (N)" disclosure — keeps non-pickers out of the paying

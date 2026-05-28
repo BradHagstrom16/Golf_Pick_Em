@@ -367,17 +367,17 @@
 
         {# ---- Board legend (decode the encoded symbols when picks are shown) ---- #}
         {% if results_tournament and show_picks %}
-        <div class="legend-bar">
-            <strong>Legend:</strong>
-            🏆 Leader
-            &middot; <span class="state-pill state-pill-backup">🔄 Backup</span> primary WD before R2
-            &middot; <span class="state-pill state-pill-override">👑 Override</span> admin-set pick
-            &middot; <span class="badge badge-cut">CUT</span> Missed cut
-            &middot; <span class="badge badge-dq">DQ</span> Disqualified
-            &middot; <span class="badge-penalty">Penalty ${{ penalty_per_incident }}</span> Major CUT/DQ penalty
+        <div class="legend legend--bar">
+            <span class="legend__lead">Legend</span>
+            <span class="legend__item"><span aria-hidden="true">🏆</span> Leader</span>
+            <span class="legend__item"><span class="state-pill state-pill-backup">🔄 Backup</span> Primary withdrew before round 2</span>
+            <span class="legend__item"><span class="state-pill state-pill-override">👑 Override</span> Commissioner set this pick</span>
+            <span class="legend__item"><span class="badge badge-cut">CUT</span> Missed cut</span>
+            <span class="legend__item"><span class="badge badge-dq">DQ</span> Disqualified</span>
+            <span class="legend__item"><span class="badge-penalty">Penalty ${{ penalty_per_incident }}</span> Cut or DQ at a major (owed to the pot)</span>
             {% if results_tournament.status == 'active' %}
-            &middot; <span class="badge-earnings-projected">$ Projected</span> live
-            &middot; <span class="badge-earnings">$ Banked</span> settled
+            <span class="legend__item"><span class="badge-earnings-projected">$ Projected</span> Live earnings, not yet final</span>
+            <span class="legend__item"><span class="badge-earnings">$ Banked</span> Settled earnings</span>
             {% endif %}
         </div>
         {% endif %}
