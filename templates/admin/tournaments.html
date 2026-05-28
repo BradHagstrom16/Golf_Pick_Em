@@ -12,57 +12,153 @@
 
 <h2>Manage Tournaments</h2>
 
-<table class="table table-striped">
-    <thead style="background-color: var(--green-800); color: var(--text-on-dark);">
-        <tr>
-            <th>#</th>
-            <th>Tournament</th>
-            <th>Dates</th>
-            <th>Purse</th>
-            <th>Deadline</th>
-            <th>Status</th>
-            <th>Picks</th>
-            <th>Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for tournament in tournaments %}
-        <tr>
-            <td>{{ loop.index }}</td>
-            <td>
-                <strong>{{ tournament.name }}</strong>
-                {% if tournament.is_team_event %}
-                    <span class="badge bg-info">Team</span>
-                {% endif %}
-            </td>
-            <td>{{ tournament.start_date.strftime('%b %d') }} - {{ tournament.end_date.strftime('%b %d') }}</td>
-            <td>${{ "{:,}".format(tournament.purse) }}</td>
-            <td>{{ tournament.get_deadline_display() }}</td>
-            <td>
-                <span class="badge bg-{{ 'secondary' if tournament.status == 'complete' else 'success' if tournament.status == 'active' else 'primary' }}">
-                    {{ tournament.status|capitalize }}
-                </span>
-            </td>
-            <td>{{ tournament.picks.count() }}</td>
-            <td>
-                {% if tournament.status == 'complete' %}
-                    <form action="{{ url_for('admin_process_results', tournament_id=tournament.id) }}" method="POST" style="display: inline;">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit" class="btn btn-sm btn-warning"
-                                onclick="return confirm('Process results for {{ tournament.name }}?')">
-                            Process Results
-                        </button>
-                    </form>
-                {% elif tournament.status == 'upcoming' %}
-                    <span class="text-muted">-</span>
-                {% else %}
-                    <span class="badge bg-info">In Progress</span>
-                {% endif %}
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+<!-- ===== MOBILE CARD LIST (hidden on md+) ===== -->
+<div class="mobile-card-list">
+    {% for tournament in tournaments %}
+    <div class="card mb-3 pick-card
+        {% if tournament.status == 'active' %}active-tournament
+        {% elif tournament.status == 'complete' %}complete{% endif %}">
 
-<a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">← Back to Dashboard</a>
+        <!-- Card header: name + team/status badges -->
+        <div class="card-header d-flex justify-content-between align-items-start py-2">
+            <div>
+                <span class="fw-bold" style="color: var(--text-primary);">{{ loop.index }}. {{ tournament.name }}</span>
+                {% if tournament.is_team_event %}
+                    <span class="badge-team ms-1">Team</span>
+                {% endif %}
+            </div>
+            <div class="ms-2 flex-shrink-0">
+                {% if tournament.status == 'complete' %}
+                    <span class="badge-status-complete">Complete</span>
+                {% elif tournament.status == 'active' %}
+                    <span class="badge-status-active">Active</span>
+                {% else %}
+                    <span class="badge-status-upcoming">Upcoming</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Card body: key info -->
+        <div class="card-body py-2">
+            <div class="row g-2 small">
+                <div class="col-6">
+                    <div class="text-muted">Dates</div>
+                    <div>{{ tournament.start_date.strftime('%b %d') }} - {{ tournament.end_date.strftime('%b %d') }}</div>
+                </div>
+                <div class="col-6 text-end">
+                    <div class="text-muted">Purse</div>
+                    <div>{% if tournament.effective_purse %}<span class="money-figure">${{ "{:,}".format(tournament.effective_purse) }}</span>{% if tournament.purse_is_estimate %} <span class="badge-est" title="Estimate. Official purse announced week-of.">est.</span>{% endif %}{% else %}TBD{% endif %}</div>
+                </div>
+                <div class="col-6">
+                    <div class="text-muted">Pick Deadline</div>
+                    <div>{{ tournament.get_deadline_display() }}</div>
+                </div>
+                <div class="col-6 text-end">
+                    <div class="text-muted">Picks</div>
+                    <div class="fw-bold">{{ tournament.picks.count() }}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card footer: action -->
+        <div class="card-footer py-2 bg-transparent">
+            {% if tournament.status == 'complete' %}
+                <form action="{{ url_for('admin_process_results', tournament_id=tournament.id) }}" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-greenside btn-sm w-100 process-results-btn"
+                            data-tournament="{{ tournament.name }}">
+                        Process Results
+                    </button>
+                </form>
+            {% elif tournament.status == 'active' %}
+                <span class="badge-status-active">In Progress</span>
+            {% else %}
+                <span class="text-muted small">No actions yet</span>
+            {% endif %}
+        </div>
+
+    </div>
+    {% endfor %}
+</div>
+<!-- END MOBILE CARD LIST -->
+
+<!-- ===== DESKTOP TABLE (hidden on mobile) ===== -->
+<div class="table-responsive desktop-table-wrap">
+    <table class="table table-greenside desktop-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Tournament</th>
+                <th>Dates</th>
+                <th>Purse</th>
+                <th>Deadline</th>
+                <th>Status</th>
+                <th>Picks</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for tournament in tournaments %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td>
+                    <strong>{{ tournament.name }}</strong>
+                    {% if tournament.is_team_event %}
+                        <span class="badge-team">Team</span>
+                    {% endif %}
+                </td>
+                <td>{{ tournament.start_date.strftime('%b %d') }} - {{ tournament.end_date.strftime('%b %d') }}</td>
+                <td>{% if tournament.effective_purse %}<span class="money-figure">${{ "{:,}".format(tournament.effective_purse) }}</span>{% if tournament.purse_is_estimate %} <span class="badge-est" title="Estimate. Official purse announced week-of.">est.</span>{% endif %}{% else %}TBD{% endif %}</td>
+                <td>{{ tournament.get_deadline_display() }}</td>
+                <td>
+                    {% if tournament.status == 'complete' %}
+                        <span class="badge-status-complete">Complete</span>
+                    {% elif tournament.status == 'active' %}
+                        <span class="badge-status-active">Active</span>
+                    {% else %}
+                        <span class="badge-status-upcoming">Upcoming</span>
+                    {% endif %}
+                </td>
+                <td>{{ tournament.picks.count() }}</td>
+                <td>
+                    {% if tournament.status == 'complete' %}
+                        <form action="{{ url_for('admin_process_results', tournament_id=tournament.id) }}" method="POST" style="display: inline;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-greenside btn-sm process-results-btn"
+                                    data-tournament="{{ tournament.name }}">
+                                Process Results
+                            </button>
+                        </form>
+                    {% elif tournament.status == 'upcoming' %}
+                        <span class="text-muted">-</span>
+                    {% else %}
+                        <span class="badge-status-active">In Progress</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+<!-- END DESKTOP TABLE -->
+
+<a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-greenside">Back to Dashboard</a>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.querySelectorAll('.process-results-btn').forEach(function (btn) {
+        var form = btn.closest('form');
+        if (!form || form.dataset.confirmBound) {
+            return;
+        }
+        form.dataset.confirmBound = '1';
+        form.addEventListener('submit', function (e) {
+            var name = btn.dataset.tournament;
+            if (!window.confirm('Process results for ' + name + '? This finalizes earnings for everyone who picked.')) {
+                e.preventDefault();
+            }
+        });
+    });
+</script>
 {% endblock %}

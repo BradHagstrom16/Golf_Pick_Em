@@ -45,6 +45,11 @@ PAGES = [
     ("u7_login", "GET", "/login", None, False),
     ("u7_register", "GET", "/register", None, False),
     ("u7_change_password", "GET", "/change-password", None, True),
+    ("u8_dashboard", "GET", "/admin", None, True),
+    ("u9_override_stage1", "GET", "/admin/override-pick", None, True),
+    # Stage 2: the non-saving load_field POST renders the field selects without committing.
+    ("u9_override_stage2", "POST", "/admin/override-pick",
+     {"tournament_id": "20", "user_id": "9", "load_field": "1"}, True),
     ("u10_tournaments", "GET", "/admin/tournaments", None, True),
     ("u10_users", "GET", "/admin/users", None, True),
     ("u10_payments", "GET", "/admin/payments", None, True),

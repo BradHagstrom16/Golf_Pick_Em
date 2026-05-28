@@ -242,4 +242,5 @@ __marimo__/
 
 # Impeccable critique render harness — keep the script, ignore rendered shots
 .critique_shots/*.html
+.critique_shots/*.png
 .critique_shots/__pycache__/

@@ -12,40 +12,44 @@
 
 <h2>👑 Admin Override Pick</h2>
 
-<div class="alert alert-warning">
-    <strong>⚠️ Admin Override Mode</strong><br>
-    Use this to create or modify picks after the deadline has passed. 
-    Picks created this way will be marked with a 👑 icon visible to all users.
+<div class="alert alert-greenside">
+    <strong>Admin Override Mode.</strong>
+    Create or modify a pick after the deadline has passed.
+    Picks made this way are marked with a 👑 icon visible to all members.
 </div>
 
 <div class="row">
     <div class="col-lg-8">
         <div class="card">
-            <div class="card-header card-header-gold">
-                <h5 class="mb-0">Create/Edit Override Pick</h5>
+            <div class="card-header card-header-green">
+                <h3 class="h5 mb-0">Create/Edit Override Pick</h3>
             </div>
             <div class="card-body">
 
                 {% if override_pending_confirm %}
                 <div class="alert alert-danger" role="alert">
-                    <h6 class="alert-heading"><strong>Confirmation required before re-resolving</strong></h6>
+                    <h4 class="h6 alert-heading"><strong>Confirm before re-resolving</strong></h4>
                     <p class="mb-2">
-                        Confirming will re-resolve this pick and recalculate
-                        <strong>{{ override_consequence.member }}</strong>'s earnings and season total for
-                        <strong>{{ override_consequence.tournament }}</strong>.
-                        {% if override_consequence.has_existing %}
-                            This will replace their existing pick
-                            (<strong>{{ override_consequence.old_primary }}</strong> /
-                            <strong>{{ override_consequence.old_backup }}</strong>)
-                            and their current season total of
-                            <strong>${{ "{:,}".format(override_consequence.current_total) }}</strong>
-                            will be recalculated.
-                        {% else %}
-                            A new pick will be created and resolved; their current season total of
-                            <strong>${{ "{:,}".format(override_consequence.current_total) }}</strong>
-                            will be recalculated.
+                        <strong>{{ override_consequence.tournament }}</strong> is complete, so saving this
+                        recalculates <strong>{{ override_consequence.member }}</strong>'s earnings and season total
+                        (currently <strong>${{ "{:,}".format(override_consequence.current_total) }}</strong>).
+                        {% if override_consequence.is_major %}
+                            It is a major, so the 1.5&times; multiplier and missed-cut penalty re-fire.
                         {% endif %}
                     </p>
+                    <dl class="row mb-2 small">
+                        {% if override_consequence.has_existing %}
+                        <dt class="col-3">Currently</dt>
+                        <dd class="col-9">
+                            {{ override_consequence.old_primary }} / {{ override_consequence.old_backup }}
+                        </dd>
+                        {% endif %}
+                        <dt class="col-3">{% if override_consequence.has_existing %}Changing to{% else %}New pick{% endif %}</dt>
+                        <dd class="col-9">
+                            <strong>{{ override_consequence.new_primary }}</strong> /
+                            <strong>{{ override_consequence.new_backup }}</strong>
+                        </dd>
+                    </dl>
                     <form method="POST">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <input type="hidden" name="tournament_id" value="{{ selected_tournament.id }}">
@@ -54,13 +58,13 @@
                         <input type="hidden" name="backup_player_id" value="{{ override_consequence.new_backup_id }}">
                         <input type="hidden" name="override_note" value="{{ override_consequence.note or '' }}">
                         <input type="hidden" name="confirm" value="1">
-                        <button type="submit" class="btn btn-danger">Confirm &amp; Re-resolve</button>
-                        <a href="{{ url_for('admin_override_pick') }}" class="btn btn-outline-secondary ms-2">Cancel</a>
+                        <button type="submit" class="btn btn-danger">Confirm &amp; re-resolve</button>
+                        <a href="{{ url_for('admin_override_pick') }}" class="btn btn-outline-greenside ms-2">Cancel</a>
                     </form>
                 </div>
                 {% endif %}
 
-                <form method="POST" id="overrideForm">
+                <form method="POST" id="overrideForm" class="override-form">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
                     <!-- Tournament Selection -->
@@ -98,6 +102,28 @@
                     </div>
 
                     {% if field_players %}
+                    <!-- Status / consequence cue: harmless upcoming save vs money re-resolve -->
+                    <div class="override-consequence-cue">
+                        {% if selected_tournament.status == 'complete' %}
+                            <span class="badge-status-complete">Complete</span>
+                            <span>Saving re-resolves {{ selected_user.get_display_name() }}'s earnings and season total{% if selected_tournament.is_major %} (major: 1.5&times; and missed-cut penalty apply){% endif %}. You'll confirm first.</span>
+                        {% elif selected_tournament.status == 'active' %}
+                            <span class="badge-status-active">Active</span>
+                            <span>Saving updates the pick; earnings re-resolve when results are finalized.</span>
+                        {% else %}
+                            <span class="badge-status-upcoming">Upcoming</span>
+                            <span>Saving creates or updates the pick normally.</span>
+                        {% endif %}
+                    </div>
+
+                    {% if existing_pick %}
+                    <!-- Mobile-only hoist of what's being overwritten (the sidebar stacks below on phones) -->
+                    <div class="alert alert-greenside d-lg-none py-2 small">
+                        <strong>Currently:</strong>
+                        {{ existing_pick.primary_player.full_name() }} / {{ existing_pick.backup_player.full_name() }}
+                    </div>
+                    {% endif %}
+
                     <!-- Primary Pick -->
                     <div class="mb-4">
                         <label for="primary_player_id" class="form-label">
@@ -150,15 +176,15 @@
 
                     <div class="d-grid gap-2 d-md-flex">
                         {% if field_players %}
-                            <button type="submit" class="btn btn-warning btn-lg">
-                                {% if existing_pick %}Update Override Pick{% else %}Create Override Pick{% endif %}
+                            <button type="submit" class="btn btn-greenside btn-lg">
+                                {% if existing_pick %}Update override pick{% else %}Create override pick{% endif %}
                             </button>
                         {% else %}
-                            <button type="submit" class="btn btn-primary btn-lg" name="load_field" value="1">
-                                Load Tournament Field
+                            <button type="submit" class="btn btn-outline-greenside btn-lg" name="load_field" value="1">
+                                Load tournament field
                             </button>
                         {% endif %}
-                        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-secondary btn-lg">Cancel</a>
+                        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-greenside btn-lg">Cancel</a>
                     </div>
                 </form>
             </div>
@@ -168,16 +194,16 @@
     <div class="col-lg-4">
         <!-- Current Pick Info -->
         {% if existing_pick %}
-        <div class="card border-info mb-3">
+        <div class="card mb-3">
             <div class="card-header card-header-green">
-                <h6 class="mb-0">📋 Existing Pick</h6>
+                <h4 class="h6 mb-0">📋 Existing Pick</h4>
             </div>
             <div class="card-body">
                 <p class="mb-1"><strong>Primary:</strong> {{ existing_pick.primary_player.full_name() }}</p>
                 <p class="mb-1"><strong>Backup:</strong> {{ existing_pick.backup_player.full_name() }}</p>
-                <p class="mb-1"><strong>Created:</strong> {{ existing_pick.created_at.strftime('%b %d, %Y %I:%M %p') }}</p>
+                <p class="mb-1"><strong>Created:</strong> {{ existing_pick.created_at.strftime('%b %d, %Y %I:%M %p') }} CT</p>
                 {% if existing_pick.admin_override %}
-                    <p class="mb-0"><span class="badge bg-warning text-dark">👑 Admin Override</span></p>
+                    <p class="mb-0"><span class="badge-admin">👑 Admin Override</span></p>
                     {% if existing_pick.admin_override_note %}
                         <small class="text-muted">Note: {{ existing_pick.admin_override_note }}</small>
                     {% endif %}
@@ -189,7 +215,7 @@
         <!-- Instructions -->
         <div class="card">
             <div class="card-header card-header-muted">
-                <h6 class="mb-0">📋 Instructions</h6>
+                <h4 class="h6 mb-0">📋 Instructions</h4>
             </div>
             <div class="card-body">
                 <ol class="mb-0 small">
@@ -212,7 +238,7 @@
         {% if recent_overrides %}
         <div class="card mt-3">
             <div class="card-header card-header-gold">
-                <h6 class="mb-0">👑 Recent Overrides</h6>
+                <h4 class="h6 mb-0">👑 Recent Overrides</h4>
             </div>
             <div class="card-body p-0">
                 <ul class="list-group list-group-flush">
