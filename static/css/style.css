@@ -790,17 +790,19 @@ footer.footer-greenside a {
 }
 .schedule-jump:hover { text-decoration: underline; }
 
-/* The tournament name is the row's primary link (settled rows no longer carry a
-   separate View button), so it needs a visible affordance: a faint pine
-   underline at rest that strengthens to full pine on hover. */
-.schedule-link {
+/* A tournament name used as a row link needs a visible affordance (some surfaces
+   carry no separate View button): a faint pine underline at rest that
+   strengthens to full pine on hover. Shared by the schedule and My Picks. */
+.schedule-link,
+.tournament-link {
   color: var(--text-primary);
   text-decoration: underline;
   text-decoration-color: rgba(0, 103, 71, 0.35);
   text-underline-offset: 2px;
   text-decoration-thickness: 1px;
 }
-.schedule-link:hover {
+.schedule-link:hover,
+.tournament-link:hover {
   color: var(--green-700);
   text-decoration-color: var(--green-700);
 }
