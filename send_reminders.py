@@ -57,7 +57,7 @@ def _app_context():
 
 # Import email configuration
 try:
-    from email_config import (
+    from email_config import (  # type: ignore[reportMissingImports]  # gitignored local config; absence is expected and handled below
         EMAIL_ADDRESS,
         EMAIL_PASSWORD,
         SMTP_SERVER,

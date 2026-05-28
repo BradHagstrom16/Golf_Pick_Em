@@ -1,0 +1,23 @@
+{
+  // Baseline config. The Flask-SQLAlchemy models use untyped declarative
+  // (Column(...) without Mapped[...] annotations). pyright therefore can't
+  // model the ORM, and several rules fire purely on that friction rather than
+  // on real defects:
+  //   - reportCallIssue            model __init__ kwargs: User(username=...)
+  //   - reportAttributeAccessIssue column ops: Tournament.status.in_(...)
+  //   - reportOptionalMemberAccess Query.first().attr
+  //   - reportArgumentType         filter(Model.col == x) ("Any|bool")
+  //   - reportAssignmentType       first() result -> declared model type
+  //   - reportGeneralTypeIssues    pytz.timezone(...) stub mismatch
+  // Disable these until a SQLAlchemy 2.0 typed-model (Mapped[...]) pass lets
+  // them be re-enabled. Everything else (including reportMissingImports, which
+  // catches real typos) stays on. Scoped to root modules; tests/migrations use
+  // mocks/autogen that pyright can't usefully check.
+  "include": ["*.py"],
+  "reportCallIssue": false,
+  "reportAttributeAccessIssue": false,
+  "reportOptionalMemberAccess": false,
+  "reportArgumentType": false,
+  "reportAssignmentType": false,
+  "reportGeneralTypeIssues": false
+}

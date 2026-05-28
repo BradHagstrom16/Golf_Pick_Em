@@ -53,6 +53,13 @@ def db(app):
     for table in reversed(_db.metadata.sorted_tables):
         _db.session.execute(table.delete())
     _db.session.commit()
+    # The app fixture holds one session open for the whole run, so the identity
+    # map survives across tests. Wiping rows reuses low SQLite PKs, so the next
+    # test's flush can collide with a stale same-PK object still referenced in
+    # the map (surfaces as an intermittent, GC-timing-dependent "Identity map
+    # already had an identity..." SAWarning). Dispose the scoped session so each
+    # test deterministically starts with a clean identity map.
+    _db.session.remove()
 
 
 @pytest.fixture
