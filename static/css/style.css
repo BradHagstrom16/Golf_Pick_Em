@@ -1077,6 +1077,52 @@ footer.footer-greenside a {
   font-weight: 600;
 }
 
+/* Standings state pills — text-labeled markers so backup-activation and
+   admin-override survive when an emoji renders flat, and don't force a trip to
+   the legend. The emoji rides along as a flourish; the word carries the state.
+   Backup is the institutional pine; override is the admin gold register. */
+.state-pill {
+  display: inline-block;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.1em 0.45em;
+  border-radius: var(--radius-sm);
+  vertical-align: middle;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.state-pill-backup {
+  background-color: var(--green-100);
+  color: var(--green-800);
+  border: 1px solid rgba(0, 103, 71, 0.2);
+}
+.state-pill-override {
+  background-color: var(--gold-100);
+  color: var(--gold-600);
+  border: 1px solid rgba(184, 153, 62, 0.3);
+}
+
+/* Season score is golf score-to-par, not money: under par is good (handled by
+   .text-green), over par is "behind" in a neutral slate — never the danger red,
+   which is role-locked to cuts, DQs, penalties, and errors. The +/- sign and
+   the "to par" column label carry the rest of the meaning. */
+.score-behind {
+  color: var(--text-secondary) !important;
+  font-weight: 700;
+}
+
+/* Standings home: the "X of Y complete" subtitle tucks under the h2, and the
+   season-progress bar wants a touch more height than the Bootstrap default. */
+.standings-subtitle {
+  margin-top: -0.1rem;
+  margin-bottom: 1.25rem;
+}
+.progress-season {
+  height: 25px;
+}
+
 /* ----------------------------------------------------------------------------
    Money figures — "Money-Is-Gold" ledger treatment
    ---------------------------------------------------------------------------- */
