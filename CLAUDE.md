@@ -106,7 +106,12 @@ python import_tournaments.py
 python -m pytest tests/ -v
 ```
 
-No linter is configured.
+No style linter is configured. Type-checking uses pyright against a baseline
+(`pyrightconfig.json`) that disables rules which fire only on untyped
+SQLAlchemy declarative models; real-defect rules like `reportMissingImports`
+stay on. Run `pyright` (or rely on the `pyright-lsp` plugin) after editing
+`.py` files. Re-enable the disabled rules once models adopt SQLAlchemy 2.0
+`Mapped[...]` typing.
 
 ## Database Migrations
 
@@ -192,6 +197,7 @@ flask db stamp head
 - All timestamps use `datetime.now(timezone.utc)` (not deprecated `utcnow()`)
 - League timezone is `America/Chicago` (Central Time), stored as `LEAGUE_TZ` in models.py
 - Pick deadlines stored in CT as naive datetimes in SQLite (timezone stripped after conversion)
+- In templates, localize stored UTC datetimes for display with the `to_ct` Jinja filter (`app.py`), e.g. `{{ (tournament.updated_at|to_ct).strftime('%b %d, %I:%M %p') }} CT` — never inline a raw `.strftime()` on a UTC value (it renders the wrong time)
 - API responses use MongoDB-style number format (`{"$numberInt": "123"}`) — helper `_parse_api_number()` handles this. Route ALL SlashGolf timestamps (tee times AND schedule `date.start`) through `_parse_tee_time_timestamp()` — it handles epoch-ms, EJSON, and ISO 8601. Never write inline date parsing; the API drifts formats silently and a duplicate parser gets missed.
 - `format_score_to_par()` is a module-level function in models.py (also exists as instance method on TournamentResult that delegates to it)
 - Flask-Limiter rate-limits login to 10/min
