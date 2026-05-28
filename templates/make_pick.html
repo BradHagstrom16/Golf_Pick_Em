@@ -35,8 +35,9 @@
                     </div>
                 </div>
 
+                {% if available_players %}
                 <!-- Condensed rules + count (mobile only; full rules card is in the sidebar below) -->
-                <div class="d-lg-none alert alert-info-greenside py-2 small mb-3" style="max-width: 60ch;">
+                <div class="d-lg-none alert alert-info-greenside py-2 small mb-3 measure">
                     <strong>{{ available_players|length }} available.</strong>
                     Backup activates only if your primary WDs before Round 2. Each golfer is usable once per season.
                 </div>
@@ -47,7 +48,7 @@
                     <div class="mb-4">
                         <label for="primary_player_id" class="form-label">
                             <strong>Primary Pick *</strong>
-                            <br><small class="text-muted d-inline-block" style="max-width: 60ch;">Scores points for you unless they withdraw before completing Round 2</small>
+                            <br><small class="text-muted d-inline-block measure">Scores points for you unless they withdraw before completing Round 2</small>
                         </label>
                         <select class="form-select form-select-lg" id="primary_player_id" name="primary_player_id" required>
                             <option value="">-- Select Primary Golfer --</option>
@@ -64,7 +65,7 @@
                     <div class="mb-4">
                         <label for="backup_player_id" class="form-label">
                             <strong>Backup Pick *</strong>
-                            <br><small class="text-muted d-inline-block" style="max-width: 60ch;">Only activates if your primary withdraws before completing Round 2</small>
+                            <br><small class="text-muted d-inline-block measure">Only activates if your primary withdraws before completing Round 2</small>
                         </label>
                         <select class="form-select form-select-lg" id="backup_player_id" name="backup_player_id" required>
                             <option value="">-- Select Backup Golfer --</option>
@@ -77,7 +78,7 @@
                         </select>
                     </div>
 
-                    <p class="text-muted small mb-2" style="max-width: 60ch;">
+                    <p class="text-muted small mb-2 measure">
                         Locks at the deadline: <strong>{{ tournament.get_deadline_display() }}</strong>. You can edit your pick any time until then.
                     </p>
                     <div class="d-grid gap-2 d-md-flex">
@@ -87,6 +88,13 @@
                         <a href="{{ url_for('my_picks') }}" class="btn btn-outline-greenside btn-lg">Cancel</a>
                     </div>
                 </form>
+                {% else %}
+                <div class="text-center py-4">
+                    <p class="font-display h5 text-muted mb-2">No golfers available to pick yet</p>
+                    <p class="text-muted small mb-3 mx-auto measure">The field for this tournament usually publishes closer to the start. You'll be able to pick once it's set.</p>
+                    <a href="{{ url_for('my_picks') }}" class="btn btn-outline-greenside">Back to My Picks</a>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -111,7 +119,7 @@
         <!-- Available Players Count -->
         <div class="card sidebar-card mt-3">
             <div class="card-body text-center">
-                <div class="stat-card-value" style="font-size: 1.5rem;">{{ available_players|length }}</div>
+                <div class="stat-card-value stat-card-value-sm">{{ available_players|length }}</div>
                 <p class="text-muted mb-0 small">Available Golfers</p>
                 {% set used_count = current_user.get_used_player_ids()|length %}
                 {% if used_count %}

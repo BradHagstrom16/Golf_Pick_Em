@@ -899,6 +899,11 @@ footer.footer-greenside a {
 .picks-mobile-list { padding-top: 0.75rem; }
 .col-rank-num { width: 50px; }
 
+/* Readable measure for form help text / inline notes (was inline 60ch) */
+.measure { max-width: 60ch; }
+/* Smaller stat value — the make-pick sidebar available-count */
+.stat-card-value-sm { font-size: 1.5rem; }
+
 /* ----------------------------------------------------------------------------
    Pick Submission Sidebar
    ---------------------------------------------------------------------------- */
