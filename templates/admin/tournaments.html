@@ -148,7 +148,12 @@
 {% block scripts %}
 <script>
     document.querySelectorAll('.process-results-btn').forEach(function (btn) {
-        btn.addEventListener('click', function (e) {
+        var form = btn.closest('form');
+        if (!form || form.dataset.confirmBound) {
+            return;
+        }
+        form.dataset.confirmBound = '1';
+        form.addEventListener('submit', function (e) {
             var name = btn.dataset.tournament;
             if (!window.confirm('Process results for ' + name + '? This finalizes earnings for everyone who picked.')) {
                 e.preventDefault();
