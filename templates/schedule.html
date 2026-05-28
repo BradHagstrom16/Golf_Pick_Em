@@ -21,7 +21,7 @@
 {% endif %}
 
 <!-- ===== MOBILE CARD LIST (hidden on md+) ===== -->
-<div class="mobile-card-list schedule-list" style="margin-top: 1rem;">
+<div class="mobile-card-list schedule-list">
     {% for tournament in tournaments %}
     <div class="card mb-3 pick-card{% if tournament.status == 'active' %} active-tournament{% elif tournament.status == 'complete' %} complete{% endif %}{% if tournament.id == ns.anchor_id %} next-pick{% endif %}"
         {% if tournament.id == ns.anchor_id %}id="current-week"{% endif %}>
@@ -30,7 +30,7 @@
             <div>
                 <span class="text-muted small me-1">#{{ loop.index }}</span>
                 <a href="{{ url_for('tournament_detail', tournament_id=tournament.id) }}"
-                   class="text-decoration-none fw-bold" style="color: var(--text-primary);">
+                   class="schedule-link fw-bold">
                     {{ tournament.name }}
                 </a>
                 {% if tournament.is_major %}
@@ -72,10 +72,12 @@
             </div>
         </div>
 
+        {% if tournament.id == ns.anchor_id and tournament.status == 'upcoming' and not tournament.is_deadline_passed() %}
         <div class="card-footer py-2 bg-transparent">
-            <a href="{{ url_for('tournament_detail', tournament_id=tournament.id) }}"
-               class="btn btn-sm btn-outline-greenside w-100">View</a>
+            <a href="{{ url_for('make_pick', tournament_id=tournament.id) }}"
+               class="btn btn-sm btn-greenside w-100">Make Pick</a>
         </div>
+        {% endif %}
 
     </div>
     {% endfor %}
@@ -83,7 +85,7 @@
 <!-- END MOBILE CARD LIST -->
 
 <!-- ===== DESKTOP TABLE (hidden on mobile) ===== -->
-<div class="table-responsive desktop-table-wrap" style="margin-top: 0.5rem;">
+<div class="table-responsive desktop-table-wrap schedule-table-wrap">
     <table class="table table-greenside desktop-table">
         <thead>
             <tr>
@@ -101,7 +103,7 @@
             <tr class="{% if tournament.status == 'active' %}row-active-tournament{% elif tournament.status == 'complete' %}row-complete{% endif %}{% if tournament.id == ns.anchor_id %} row-next-pick{% endif %}">
                 <td>{{ loop.index }}</td>
                 <td>
-                    <a href="{{ url_for('tournament_detail', tournament_id=tournament.id) }}" class="text-decoration-none" style="color: var(--text-primary);">
+                    <a href="{{ url_for('tournament_detail', tournament_id=tournament.id) }}" class="schedule-link">
                         <strong>{{ tournament.name }}</strong>
                     </a>
                     {% if tournament.is_major %}
@@ -128,10 +130,12 @@
                     {% endif %}
                 </td>
                 <td>
-                    <a href="{{ url_for('tournament_detail', tournament_id=tournament.id) }}"
-                       class="btn btn-sm btn-outline-greenside">
-                        View
+                    {% if tournament.id == ns.anchor_id and tournament.status == 'upcoming' and not tournament.is_deadline_passed() %}
+                    <a href="{{ url_for('make_pick', tournament_id=tournament.id) }}"
+                       class="btn btn-sm btn-greenside">
+                        Make Pick
                     </a>
+                    {% endif %}
                 </td>
             </tr>
             {% endfor %}

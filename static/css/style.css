@@ -790,6 +790,25 @@ footer.footer-greenside a {
 }
 .schedule-jump:hover { text-decoration: underline; }
 
+/* The tournament name is the row's primary link (settled rows no longer carry a
+   separate View button), so it needs a visible affordance: a faint pine
+   underline at rest that strengthens to full pine on hover. */
+.schedule-link {
+  color: var(--text-primary);
+  text-decoration: underline;
+  text-decoration-color: rgba(0, 103, 71, 0.35);
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+}
+.schedule-link:hover {
+  color: var(--green-700);
+  text-decoration-color: var(--green-700);
+}
+
+/* Schedule list/table top spacing (was inline) */
+.schedule-list { margin-top: 1rem; }
+.schedule-table-wrap { margin-top: 0.5rem; }
+
 /* Current user card highlight */
 .card-highlight-user {
   background-color: var(--gold-100) !important;
