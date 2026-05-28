@@ -288,6 +288,32 @@ def index():
             tournament_id=upcoming_tournament.id
         ).count()
 
+    # ----------------------------------------------------------------
+    # Next-pick thread during active play ("two equal front doors").
+    # When a tournament is active it becomes results_tournament and
+    # upcoming_tournament is left None, so the pick CTA is otherwise
+    # suppressed all week. Surface the next upcoming tournament (read-only)
+    # so a member always has a path to lock next week's golfer. Display-only:
+    # no Pick state is derived here (that lives in sync_live_leaderboard).
+    # ----------------------------------------------------------------
+    next_pick_tournament = None
+    next_pick_field_count = 0
+    next_pick_user_pick = None
+    if has_active_tournament:
+        next_pick_tournament = Tournament.query.filter_by(
+            status='upcoming',
+            season_year=app.config['SEASON_YEAR']
+        ).order_by(Tournament.start_date).first()
+        if next_pick_tournament:
+            next_pick_field_count = TournamentField.query.filter_by(
+                tournament_id=next_pick_tournament.id
+            ).count()
+            if current_user.is_authenticated:
+                next_pick_user_pick = Pick.query.filter_by(
+                    user_id=current_user.id,
+                    tournament_id=next_pick_tournament.id
+                ).first()
+
     # Calculate cumulative scores (shown when no active tournament)
     cumulative_scores = {}
     if not has_active_tournament and completed_tournaments > 0:
@@ -317,6 +343,9 @@ def index():
                          has_active_tournament=has_active_tournament,
                          cumulative_scores=cumulative_scores,
                          upcoming_field_count=upcoming_field_count,
+                         next_pick_tournament=next_pick_tournament,
+                         next_pick_field_count=next_pick_field_count,
+                         next_pick_user_pick=next_pick_user_pick,
                          penalty_owed_by_user=penalty_owed_by_user,
                          total_penalty_pot=total_penalty_pot,
                          entry_fee=entry_fee,
