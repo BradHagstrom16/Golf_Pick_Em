@@ -393,15 +393,15 @@
     </div>
 
     <!-- Legend -->
-    <div class="legend-bar mt-3">
-        <strong>Legend:</strong>
-        🏆 Top Earner
-        {% if show_backup %}&middot; <span class="state-pill state-pill-backup">🔄 Backup</span> Backup Activated{% endif %}
-        &middot; <span class="state-pill state-pill-override">👑 Override</span> Admin Override
-        &middot; <span class="badge badge-cut">CUT</span> Missed Cut
-        &middot; <span class="badge badge-wd">WD</span> Withdrew
-        &middot; <span class="badge badge-dq">DQ</span> Disqualified
-        &middot; <span class="badge-penalty" title="Missed Major Cut Penalty">Penalty ${{ penalty_per_incident }}</span> Major CUT/DQ penalty
+    <div class="legend legend--bar">
+        <span class="legend__lead">Legend</span>
+        <span class="legend__item"><span aria-hidden="true">🏆</span> Top earner</span>
+        {% if show_backup %}<span class="legend__item"><span class="state-pill state-pill-backup">🔄 Backup</span> Primary withdrew before round 2</span>{% endif %}
+        <span class="legend__item"><span class="state-pill state-pill-override">👑 Override</span> Commissioner set this pick</span>
+        <span class="legend__item"><span class="badge badge-cut">CUT</span> Missed cut</span>
+        <span class="legend__item"><span class="badge badge-wd">WD</span> Withdrew</span>
+        <span class="legend__item"><span class="badge badge-dq">DQ</span> Disqualified</span>
+        <span class="legend__item"><span class="badge-penalty">Penalty ${{ penalty_per_incident }}</span> Cut or DQ at a major (owed to the pot)</span>
     </div>
 
 {% endif %}

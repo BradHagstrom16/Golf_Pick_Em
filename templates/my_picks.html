@@ -358,17 +358,42 @@
             <div class="card-header card-header-muted">
                 <h4 class="h6 mb-0">Legend</h4>
             </div>
-            <div class="card-body small">
-                <p class="mb-1"><span class="badge-earnings-projected">$ Projected</span> Live money, not yet final</p>
-                <p class="mb-1"><span class="badge-earnings">$ Banked</span> Settled earnings</p>
-                <p class="mb-1"><span class="badge-major">1.5x</span> Major — points multiplied 1.5x</p>
-                <p class="mb-1"><span class="badge-team">Team</span> Team event (full team payout)</p>
-                <p class="mb-1"><span class="state-pill state-pill-override">👑 Override</span> Admin Override (pick made by commissioner)</p>
-                <p class="mb-1"><span class="state-pill state-pill-backup">🔄 Backup</span> Backup Activated (primary withdrew before R2)</p>
-                <p class="mb-1"><span class="badge-used">Used</span> Golfer locked for the season</p>
-                <p class="mb-1"><span class="badge badge-cut">CUT</span> Missed Cut &middot; <span class="badge badge-wd">WD</span> Withdrew &middot; <span class="badge badge-dq">DQ</span> Disqualified</p>
-                <p class="mb-1"><span class="badge-penalty" title="Missed Major Cut Penalty">Penalty ${{ penalty_per_incident }}</span> Major CUT/DQ penalty (owed to the pot)</p>
-                <p class="mb-0"><span class="badge-status-active">In Progress</span> <span class="badge-status-complete">Complete</span> <span class="badge-status-open">Open</span> <span class="badge-status-locked">Locked</span> Tournament status</p>
+            <div class="card-body">
+                <div class="legend-group">
+                    <p class="legend-group__label">Earnings</p>
+                    <div class="legend legend--stack">
+                        <span class="legend__item"><span class="badge-earnings-projected">$ Projected</span> Live earnings, not yet final</span>
+                        <span class="legend__item"><span class="badge-earnings">$ Banked</span> Settled earnings</span>
+                        <span class="legend__item"><span class="badge-major">1.5x</span> Major championship (1.5x points)</span>
+                        <span class="legend__item"><span class="badge-team">Team</span> Team event (full team payout)</span>
+                    </div>
+                </div>
+                <div class="legend-group">
+                    <p class="legend-group__label">Your pick</p>
+                    <div class="legend legend--stack">
+                        <span class="legend__item"><span class="state-pill state-pill-override">👑 Override</span> Commissioner set this pick</span>
+                        <span class="legend__item"><span class="state-pill state-pill-backup">🔄 Backup</span> Backup in play (primary withdrew before round 2)</span>
+                        <span class="legend__item"><span class="badge-used">Used</span> Golfer locked for the season</span>
+                    </div>
+                </div>
+                <div class="legend-group">
+                    <p class="legend-group__label">Result</p>
+                    <div class="legend legend--stack">
+                        <span class="legend__item"><span class="badge badge-cut">CUT</span> Missed cut</span>
+                        <span class="legend__item"><span class="badge badge-wd">WD</span> Withdrew</span>
+                        <span class="legend__item"><span class="badge badge-dq">DQ</span> Disqualified</span>
+                        <span class="legend__item"><span class="badge-penalty">Penalty ${{ penalty_per_incident }}</span> Cut or DQ at a major (owed to the pot)</span>
+                    </div>
+                </div>
+                <div class="legend-group">
+                    <p class="legend-group__label">Status</p>
+                    <div class="legend legend--stack">
+                        <span class="legend__item"><span class="badge-status-active">In Progress</span> Tournament is live</span>
+                        <span class="legend__item"><span class="badge-status-complete">Complete</span> Tournament finished</span>
+                        <span class="legend__item"><span class="badge-status-open">Open</span> Picks are open</span>
+                        <span class="legend__item"><span class="badge-status-locked">Locked</span> Picks are locked</span>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
