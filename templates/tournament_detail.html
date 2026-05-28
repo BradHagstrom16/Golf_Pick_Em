@@ -12,7 +12,7 @@
 
 <!-- Tournament Header -->
 <div class="card tournament-header mb-4">
-    <div class="card-header card-header-green" style="background: linear-gradient(135deg, var(--green-800) 0%, var(--green-700) 100%); border-radius: var(--radius-lg) var(--radius-lg) 0 0 !important;">
+    <div class="card-header card-header-green">
         <div class="d-flex justify-content-between align-items-center">
             <h3 class="mb-0">
                 {{ tournament.name }}
@@ -27,7 +27,7 @@
                 {% if tournament.status == 'complete' %}
                     <span class="badge-status-complete">{{ tournament.status|capitalize }}</span>
                 {% elif tournament.status == 'active' %}
-                    <span class="badge-status-active">{{ tournament.status|capitalize }}</span>
+                    <span class="badge-status-active">In Progress</span>
                 {% else %}
                     <span class="badge-status-upcoming">{{ tournament.status|capitalize }}</span>
                 {% endif %}
@@ -37,15 +37,15 @@
     <div class="card-body">
         <div class="row">
             <div class="col-md-4">
-                <p class="mb-1 text-muted small fw-semibold text-uppercase" style="letter-spacing:0.05em;">Dates</p>
+                <p class="meta-label">Dates</p>
                 <p class="fw-semibold">{{ tournament.start_date.strftime('%B %d') }} - {{ tournament.end_date.strftime('%B %d, %Y') }}</p>
             </div>
             <div class="col-md-4">
-                <p class="mb-1 text-muted small fw-semibold text-uppercase" style="letter-spacing:0.05em;">Purse</p>
+                <p class="meta-label">Purse</p>
                 <p class="fw-semibold">{% if tournament.effective_purse %}${{ "{:,}".format(tournament.effective_purse) }}{% if tournament.purse_is_estimate %} <span class="badge-est" title="Estimate — official purse announced week-of">est.</span>{% endif %}{% else %}TBD{% endif %}</p>
             </div>
             <div class="col-md-4">
-                <p class="mb-1 text-muted small fw-semibold text-uppercase" style="letter-spacing:0.05em;">Pick Deadline</p>
+                <p class="meta-label">Pick Deadline</p>
                 <p class="fw-semibold">{{ tournament.get_deadline_display() }}</p>
             </div>
         </div>
@@ -74,7 +74,7 @@
             </p>
             {% if field_count > 0 %}
                 <p class="mb-0">
-                    <span class="badge-status-upcoming" style="font-size: 0.85rem;">{{ field_count }} players in the field</span>
+                    <span class="badge-status-upcoming field-count-badge">{{ field_count }} players in the field</span>
                 </p>
             {% else %}
                 <p class="text-muted mb-0">
@@ -109,16 +109,26 @@
     {% set show_penalty_card = tournament.is_major and tournament.results_finalized and penalty_count > 0 %}
     {% set stat_col = 'col-md-3' if show_penalty_card else 'col-md-4' %}
     <div class="row mb-4">
+        {# Your Pick — the member's own result reads first. Public viewers get the
+           pick count instead, since "your pick" has no meaning when logged out. #}
         <div class="{{ stat_col }} mb-3">
             <div class="stat-card">
-                <div class="stat-card-label">Picks Submitted</div>
-                <div class="stat-card-value">{{ total_picks }}</div>
-            </div>
-        </div>
-        <div class="{{ stat_col }} mb-3">
-            <div class="stat-card">
-                <div class="stat-card-label">Total Points</div>
-                <div class="stat-card-value">${{ "{:,}".format(total_points) }}</div>
+                {% if current_user.is_authenticated %}
+                    <div class="stat-card-label">Your Pick</div>
+                    {% if current_user_result and current_user_result.has_pick %}
+                        {% set mine = current_user_result %}
+                        <div class="stat-card-value">{% if mine.points > 0 %}${{ "{:,}".format(mine.points) }}{% elif mine.position %}{{ mine.position }}{% else %}&mdash;{% endif %}</div>
+                        <div class="text-muted small">
+                            {% if mine.backup_activated %}{{ mine.backup_name }}{% else %}{{ mine.primary_name }}{% endif %}{% if mine.position and mine.points > 0 %} &middot; {{ mine.position }}{% endif %}
+                        </div>
+                    {% else %}
+                        <div class="stat-card-value text-muted">&mdash;</div>
+                        <div class="text-muted small">No pick this week</div>
+                    {% endif %}
+                {% else %}
+                    <div class="stat-card-label">Picks Submitted</div>
+                    <div class="stat-card-value">{{ total_picks }}</div>
+                {% endif %}
             </div>
         </div>
         <div class="{{ stat_col }} mb-3">
@@ -129,11 +139,17 @@
                 <div class="stat-card-value">${{ "{:,}".format(max_points) }}</div>
             </div>
         </div>
+        <div class="{{ stat_col }} mb-3">
+            <div class="stat-card">
+                <div class="stat-card-label">Total Points</div>
+                <div class="stat-card-value">${{ "{:,}".format(total_points) }}</div>
+            </div>
+        </div>
         {% if show_penalty_card %}
         <div class="col-md-3 mb-3">
             <div class="stat-card">
                 <div class="stat-card-label">Penalties Assessed</div>
-                <div class="stat-card-value" style="color: var(--danger);">${{ "{:,}".format(penalty_total) }}</div>
+                <div class="stat-card-value stat-value-danger">${{ "{:,}".format(penalty_total) }}</div>
                 <div class="text-muted small">{{ penalty_count }} pick{% if penalty_count != 1 %}s{% endif %}</div>
             </div>
         </div>
@@ -165,7 +181,7 @@
         </div>
         <div class="card-body p-0">
             <!-- MOBILE PICKS CARD LIST -->
-            <div class="mobile-card-list px-3 pb-3" style="padding-top: 0.75rem;">
+            <div class="mobile-card-list picks-mobile-list px-3 pb-3">
                 {% set picked_results = pick_results | selectattr('has_pick') | list %}
                 {% set no_pick_results = pick_results | rejectattr('has_pick') | list %}
                 {% for result in picked_results %}
@@ -202,13 +218,17 @@
                             <div class="col-7">
                                 <span class="text-muted">Pick: </span>
                                 {% if result.has_pick %}
+                                    {% set active_result = result.backup_result if result.backup_activated else result.primary_result %}
                                     {% if result.backup_activated %}
-                                        {{ result.backup_name }} <span class="badge-backup ms-1">🔄</span>
+                                        {{ result.backup_name }} <span class="state-pill state-pill-backup">🔄 Backup</span>
                                     {% else %}
                                         {{ result.primary_name }}
                                     {% endif %}
+                                    {% if active_result and active_result.status in ['cut', 'wd', 'dq'] %}
+                                        <span class="badge badge-{{ active_result.status }}">{{ active_result.status|upper }}</span>
+                                    {% endif %}
                                     {% if result.admin_override %}
-                                        <span class="badge-override">👑</span>
+                                        <span class="state-pill state-pill-override">👑 Override</span>
                                     {% endif %}
                                     {% if result.penalty_triggered %}
                                         <span class="badge-penalty" title="Missed Major Cut Penalty">Penalty ${{ penalty_per_incident }}</span>
@@ -247,7 +267,7 @@
                 <table class="table table-greenside mb-0 desktop-table">
                     <thead>
                         <tr>
-                            <th style="width: 50px;">#</th>
+                            <th class="col-rank-num">#</th>
                             <th>Player</th>
                             <th>Primary Pick</th>
                             {% if show_backup %}
@@ -283,7 +303,7 @@
                                 {% if result.has_pick %}
                                     {{ result.primary_name }}
                                     {% if result.admin_override %}
-                                        <span class="badge-override" title="{{ result.admin_override_note or 'Admin override pick' }}">👑</span>
+                                        <span class="state-pill state-pill-override" title="{{ result.admin_override_note or 'Admin override pick' }}">👑 Override</span>
                                     {% endif %}
                                     {% if result.primary_result %}
                                         {% if result.primary_result.status == 'cut' %}
@@ -306,7 +326,7 @@
                                 {% if result.has_pick %}
                                     {{ result.backup_name }}
                                     {% if result.backup_activated %}
-                                        <span class="badge-backup" title="Backup activated - Primary withdrew before completing Round 2">🔄</span>
+                                        <span class="state-pill state-pill-backup" title="Backup activated - Primary withdrew before completing Round 2">🔄 Backup</span>
                                     {% endif %}
                                     {% if result.backup_result %}
                                         {% if result.backup_result.status == 'cut' %}
@@ -376,8 +396,8 @@
     <div class="legend-bar mt-3">
         <strong>Legend:</strong>
         🏆 Top Earner
-        {% if show_backup %}&middot; <span class="badge-backup">🔄</span> Backup Activated{% endif %}
-        &middot; <span class="badge-override">👑</span> Admin Override
+        {% if show_backup %}&middot; <span class="state-pill state-pill-backup">🔄 Backup</span> Backup Activated{% endif %}
+        &middot; <span class="state-pill state-pill-override">👑 Override</span> Admin Override
         &middot; <span class="badge badge-cut">CUT</span> Missed Cut
         &middot; <span class="badge badge-wd">WD</span> Withdrew
         &middot; <span class="badge badge-dq">DQ</span> Disqualified

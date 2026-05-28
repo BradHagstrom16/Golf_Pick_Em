@@ -21,7 +21,7 @@
                 <div class="card-header d-flex justify-content-between align-items-start py-2">
                     <div>
                         <a href="{{ url_for('tournament_detail', tournament_id=tournament.id) }}"
-                           class="text-decoration-none fw-bold" style="color: var(--text-primary);">
+                           class="tournament-link fw-bold">
                             {{ tournament.name }}
                         </a>
                         {% if tournament.is_major %}
@@ -35,7 +35,7 @@
                         {% if tournament.status == 'complete' %}
                             <span class="badge-status-complete">Complete</span>
                         {% elif tournament.status == 'active' %}
-                            <span class="badge-status-active">Active</span>
+                            <span class="badge-status-active">In Progress</span>
                         {% elif tournament.is_deadline_passed() %}
                             <span class="badge-status-locked">Locked</span>
                         {% else %}
@@ -77,7 +77,7 @@
                                 {% if pick %}
                                     {{ pick.primary_player.full_name() }}
                                     {% if pick.admin_override %}
-                                        <span class="badge-override" title="{{ pick.admin_override_note or 'Admin override pick' }}">👑</span>
+                                        <span class="state-pill state-pill-override" title="{{ pick.admin_override_note or 'Admin override pick' }}">👑 Override</span>
                                     {% endif %}
                                     {% if results and results.primary_result %}
                                         {% if results.primary_result.status == 'cut' %}
@@ -105,7 +105,7 @@
                                 {% if pick %}
                                     {{ pick.backup_player.full_name() }}
                                     {% if pick.is_backup_activated() %}
-                                        <span class="badge-backup">🔄</span>
+                                        <span class="state-pill state-pill-backup">🔄 Backup</span>
                                     {% endif %}
                                     {% if results and results.backup_result %}
                                         {% if results.backup_result.status == 'cut' %}
@@ -179,7 +179,7 @@
                     {% set results = pick_results.get(tournament.id) %}
                     <tr class="{% if tournament.status == 'active' %}row-active-tournament{% elif tournament.status == 'complete' %}row-complete{% endif %}">
                         <td>
-                            <a href="{{ url_for('tournament_detail', tournament_id=tournament.id) }}" class="text-decoration-none" style="color: var(--text-primary);">
+                            <a href="{{ url_for('tournament_detail', tournament_id=tournament.id) }}" class="tournament-link">
                                 <strong>{{ tournament.name }}</strong>
                             </a>
                             {% if tournament.is_major %}
@@ -195,7 +195,7 @@
                             {% if tournament.status == 'complete' %}
                                 <span class="badge-status-complete">Complete</span>
                             {% elif tournament.status == 'active' %}
-                                <span class="badge-status-active">Active</span>
+                                <span class="badge-status-active">In Progress</span>
                             {% elif tournament.is_deadline_passed() %}
                                 <span class="badge-status-locked">Locked</span>
                             {% else %}
@@ -206,7 +206,7 @@
                             {% if pick %}
                                 <strong>{{ pick.primary_player.full_name() }}</strong>
                                 {% if pick.admin_override %}
-                                    <span class="badge-override" title="{{ pick.admin_override_note or 'Admin override pick' }}">👑</span>
+                                    <span class="state-pill state-pill-override" title="{{ pick.admin_override_note or 'Admin override pick' }}">👑 Override</span>
                                 {% endif %}
                                 {# Show status badges for primary player #}
                                 {% if results and results.primary_result %}
@@ -233,7 +233,7 @@
                                 {{ pick.backup_player.full_name() }}
                                 {# Show backup activated badge on the backup column #}
                                 {% if pick.is_backup_activated() %}
-                                    <span class="badge-backup" title="Backup activated - Primary withdrew before R2">🔄</span>
+                                    <span class="state-pill state-pill-backup" title="Backup activated - Primary withdrew before R2">🔄 Backup</span>
                                 {% endif %}
                                 {# Show status badges for backup player #}
                                 {% if results and results.backup_result %}
@@ -307,7 +307,7 @@
                 <h3 class="h5 mb-0">Season Summary</h3>
             </div>
             <div class="card-body">
-                <div class="stat-card-value" style="margin-bottom: 0.25rem;">${{ "{:,}".format(current_user.total_points) }}</div>
+                <div class="stat-card-value mb-1">${{ "{:,}".format(current_user.total_points) }}</div>
                 <p class="text-muted small">Total Points Earned</p>
 
                 <hr>
@@ -318,7 +318,7 @@
                 {% set owed = current_user.penalty_owed(season_year) %}
                 {% if owed > 0 %}
                 <hr>
-                <p class="mb-0" style="color: var(--danger);">
+                <p class="mb-0 stat-value-danger">
                     <strong>Penalty Owed:</strong> ${{ owed }}
                     {% set outstanding = current_user.penalty_outstanding(season_year) %}
                     {% if outstanding < owed %}
@@ -363,12 +363,12 @@
                 <p class="mb-1"><span class="badge-earnings">$ Banked</span> Settled earnings</p>
                 <p class="mb-1"><span class="badge-major">1.5x</span> Major — points multiplied 1.5x</p>
                 <p class="mb-1"><span class="badge-team">Team</span> Team event (full team payout)</p>
-                <p class="mb-1"><span class="badge-override">👑</span> Admin Override (pick made by commissioner)</p>
-                <p class="mb-1"><span class="badge-backup">🔄</span> Backup Activated (primary withdrew before R2)</p>
+                <p class="mb-1"><span class="state-pill state-pill-override">👑 Override</span> Admin Override (pick made by commissioner)</p>
+                <p class="mb-1"><span class="state-pill state-pill-backup">🔄 Backup</span> Backup Activated (primary withdrew before R2)</p>
                 <p class="mb-1"><span class="badge-used">Used</span> Golfer locked for the season</p>
                 <p class="mb-1"><span class="badge badge-cut">CUT</span> Missed Cut &middot; <span class="badge badge-wd">WD</span> Withdrew &middot; <span class="badge badge-dq">DQ</span> Disqualified</p>
                 <p class="mb-1"><span class="badge-penalty" title="Missed Major Cut Penalty">Penalty ${{ penalty_per_incident }}</span> Major CUT/DQ penalty (owed to the pot)</p>
-                <p class="mb-0"><span class="badge-status-active">Active</span> <span class="badge-status-complete">Complete</span> <span class="badge-status-open">Open</span> <span class="badge-status-locked">Locked</span> Tournament status</p>
+                <p class="mb-0"><span class="badge-status-active">In Progress</span> <span class="badge-status-complete">Complete</span> <span class="badge-status-open">Open</span> <span class="badge-status-locked">Locked</span> Tournament status</p>
             </div>
         </div>
     </div>
