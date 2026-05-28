@@ -65,8 +65,8 @@
             {% if tournament.status == 'complete' %}
                 <form action="{{ url_for('admin_process_results', tournament_id=tournament.id) }}" method="POST">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <button type="submit" class="btn btn-greenside btn-sm w-100"
-                            onclick="return confirm('Process results for {{ tournament.name }}? This finalizes earnings for everyone who picked.')">
+                    <button type="submit" class="btn btn-greenside btn-sm w-100 process-results-btn"
+                            data-tournament="{{ tournament.name }}">
                         Process Results
                     </button>
                 </form>
@@ -124,8 +124,8 @@
                     {% if tournament.status == 'complete' %}
                         <form action="{{ url_for('admin_process_results', tournament_id=tournament.id) }}" method="POST" style="display: inline;">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="btn btn-greenside btn-sm"
-                                    onclick="return confirm('Process results for {{ tournament.name }}? This finalizes earnings for everyone who picked.')">
+                            <button type="submit" class="btn btn-greenside btn-sm process-results-btn"
+                                    data-tournament="{{ tournament.name }}">
                                 Process Results
                             </button>
                         </form>
@@ -143,4 +143,17 @@
 <!-- END DESKTOP TABLE -->
 
 <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-greenside">Back to Dashboard</a>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.querySelectorAll('.process-results-btn').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+            var name = btn.dataset.tournament;
+            if (!window.confirm('Process results for ' + name + '? This finalizes earnings for everyone who picked.')) {
+                e.preventDefault();
+            }
+        });
+    });
+</script>
 {% endblock %}

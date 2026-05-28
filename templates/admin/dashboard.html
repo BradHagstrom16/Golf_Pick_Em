@@ -33,11 +33,12 @@
                     {{ api_usage.total_calls }} / {{ api_usage.limit }}
                 </div>
                 <p class="text-muted mb-2">API calls this month</p>
+                {% set pct = [[api_usage.percentage, 0]|max, 100]|min %}
                 <div class="progress" style="height: 22px;">
                     <div class="progress-bar" role="progressbar"
-                         style="width: {{ api_usage.percentage }}%"
-                         aria-valuenow="{{ api_usage.percentage }}" aria-valuemin="0" aria-valuemax="100">
-                        {{ api_usage.percentage }}%
+                         style="width: {{ pct }}%"
+                         aria-valuenow="{{ pct }}" aria-valuemin="0" aria-valuemax="100">
+                        {{ pct }}%
                     </div>
                 </div>
             </div>
