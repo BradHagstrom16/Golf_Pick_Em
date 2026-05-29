@@ -53,6 +53,9 @@
                     <li class="nav-item">
                         <a class="nav-link {{ 'active' if ep == 'results' }}" {% if ep == 'results' %}aria-current="page"{% endif %} href="{{ url_for('results') }}">Results</a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ 'active' if ep == 'stats' }}" {% if ep == 'stats' %}aria-current="page"{% endif %} href="{{ url_for('stats') }}">Stats</a>
+                    </li>
                     {% if current_user.is_authenticated %}
                     <li class="nav-item">
                         <a class="nav-link {{ 'active' if ep == 'my_picks' }}" {% if ep == 'my_picks' %}aria-current="page"{% endif %} href="{{ url_for('my_picks') }}">My Picks</a>

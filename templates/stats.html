@@ -1,0 +1,271 @@
+{% extends "base.html" %}
+
+{% block title %}Season Stats — Golf Pick 'Em{% endblock %}
+
+{% block content %}
+<header class="stats-head">
+  <h2>The Record Room</h2>
+  <p class="stats-head__sub">
+    {{ season_year }} season &middot;
+    {% if progress.completed %}{{ progress.completed }} of {{ progress.total }} events in the books{% else %}the season is yet to tee off{% endif %}
+  </p>
+</header>
+
+{# ====================================================================== #}
+{# HERO — The Season Race                                                 #}
+{# ====================================================================== #}
+<section class="stats-section" aria-labelledby="race-heading">
+  <div class="stats-section__head">
+    <h3 id="race-heading">The Season Race</h3>
+    <p class="stats-section__note">Cumulative earnings, week by week.</p>
+  </div>
+
+  {% if race.count == 0 %}
+    <div class="race-empty">
+      <p class="race-empty__line">The race begins after the first event.</p>
+      <p class="text-muted mb-0">Standings will chart here once the season's first results are final.</p>
+    </div>
+  {% else %}
+    {% set leader = race.series[0] %}
+    <figure class="season-race">
+      <svg class="season-race__svg" viewBox="0 0 {{ chart.width }} {{ chart.height }}"
+           preserveAspectRatio="xMidYMid meet" role="img"
+           aria-label="Cumulative earnings across {{ race.count }} completed event{{ '' if race.count == 1 else 's' }}. {{ leader.name }} leads with {{ leader.final|money_compact }}.">
+        <title>The Season Race</title>
+
+        {# horizontal gridlines + y-axis money ticks #}
+        {% for tick in chart.y_ticks %}
+          <line class="race-grid" x1="{{ chart.pad_left }}" x2="{{ chart.width - chart.pad_right }}"
+                y1="{{ '%.1f'|format(tick.y) }}" y2="{{ '%.1f'|format(tick.y) }}"/>
+          <text class="race-axis-label race-axis-label--y" text-anchor="end"
+                x="{{ chart.pad_left - 6 }}" y="{{ '%.1f'|format(tick.y + 3) }}">{{ tick.label }}</text>
+        {% endfor %}
+
+        {# x-axis event labels (months) #}
+        {% for tick in chart.x_ticks %}
+          <text class="race-axis-label race-axis-label--x" text-anchor="middle"
+                x="{{ '%.1f'|format(tick.x) }}" y="{{ chart.height - 12 }}">{{ tick.label }}</text>
+        {% endfor %}
+
+        {# lines: pack underneath, leader, then the member's own on top #}
+        {% for line in chart.lines if line.role == 'pack' %}
+          {% if race.count == 1 %}<circle class="race-dot race-dot--pack" cx="{{ '%.1f'|format(line.end_x) }}" cy="{{ '%.1f'|format(line.end_y) }}" r="3"/>{% endif %}
+          <polyline class="race-line race-line--pack" points="{{ line.points }}"/>
+        {% endfor %}
+        {% for line in chart.lines if line.role == 'leader' %}
+          {% if race.count == 1 %}<circle class="race-dot race-dot--leader" cx="{{ '%.1f'|format(line.end_x) }}" cy="{{ '%.1f'|format(line.end_y) }}" r="4"/>{% endif %}
+          <polyline class="race-line race-line--leader" points="{{ line.points }}"/>
+        {% endfor %}
+        {% for line in chart.lines if line.role == 'you' %}
+          {% if race.count == 1 %}<circle class="race-dot race-dot--you" cx="{{ '%.1f'|format(line.end_x) }}" cy="{{ '%.1f'|format(line.end_y) }}" r="4"/>{% endif %}
+          <polyline class="race-line race-line--you" points="{{ line.points }}"/>
+        {% endfor %}
+
+        {# end-of-line labels for the two lines that matter: leader and you #}
+        {% for line in chart.lines if line.role in ('leader', 'you') %}
+          <text class="race-endlabel race-endlabel--{{ line.role }}"
+                x="{{ '%.1f'|format(line.end_x + 7) }}" y="{{ '%.1f'|format(line.end_y + 3) }}">{{ line.name }}</text>
+        {% endfor %}
+      </svg>
+    </figure>
+
+    {# visible ranked standings — also the at-a-glance race summary #}
+    <ol class="race-standings" aria-label="Race standings by total earnings">
+      {% for s in race.series %}
+        <li class="race-standings__row
+                   {% if s.is_leader %}race-standings__row--leader{% endif %}
+                   {% if s.user_id == current_user_id %}race-standings__row--you{% endif %}">
+          <span class="race-standings__rank">{{ s.rank }}</span>
+          <span class="race-standings__name">{{ s.name }}{% if s.user_id == current_user_id %} <span class="badge-you">You</span>{% endif %}</span>
+          <span class="race-standings__total">${{ "{:,}".format(s.final) }}</span>
+        </li>
+      {% endfor %}
+    </ol>
+
+    {# accessible mirror of the full trajectory (screen readers / no-SVG) #}
+    <table class="visually-hidden">
+      <caption>Cumulative earnings by member after each completed event</caption>
+      <thead>
+        <tr><th scope="col">Member</th>{% for t in race.tournaments %}<th scope="col">{{ t.name }}</th>{% endfor %}</tr>
+      </thead>
+      <tbody>
+        {% for s in race.series %}
+          <tr><th scope="row">{{ s.name }}</th>{% for v in s.cumulative %}<td>${{ "{:,}".format(v) }}</td>{% endfor %}</tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+</section>
+
+{# ====================================================================== #}
+{# YOUR SCORECARD — authenticated only                                    #}
+{# ====================================================================== #}
+{% if scorecard %}
+<section class="stats-section" aria-labelledby="scorecard-heading">
+  <div class="stats-section__head">
+    <h3 id="scorecard-heading">Your Scorecard</h3>
+    <p class="stats-section__note">{{ current_user.get_display_name() }}'s season so far.</p>
+  </div>
+
+  <div class="scorecard">
+    <div class="scorecard__figure">
+      <span class="scorecard__label">Rank</span>
+      <span class="scorecard__value">{{ scorecard.rank }}<span class="scorecard__unit">{{ {1:'st',2:'nd',3:'rd'}.get(scorecard.rank, 'th') }}</span></span>
+    </div>
+    <div class="scorecard__figure">
+      <span class="scorecard__label">Total Won</span>
+      <span class="scorecard__value">${{ "{:,}".format(scorecard.total) }}</span>
+    </div>
+    <div class="scorecard__figure">
+      <span class="scorecard__label">In the Money</span>
+      <span class="scorecard__value">{{ scorecard.cashes }}<span class="scorecard__unit">/ {{ scorecard.events_played }}</span></span>
+    </div>
+    <div class="scorecard__figure">
+      <span class="scorecard__label">Golfers Used</span>
+      <span class="scorecard__value">{{ scorecard.players_used }}</span>
+    </div>
+    {% if scorecard.best_pick %}
+    <div class="scorecard__figure scorecard__figure--wide">
+      <span class="scorecard__label">Your Best Pick</span>
+      <span class="scorecard__value scorecard__value--name">{{ scorecard.best_pick.golfer }}</span>
+      <span class="scorecard__sub">{{ scorecard.best_pick.amount|money_compact }} &middot; {{ scorecard.best_pick.event }}</span>
+    </div>
+    {% endif %}
+    {% if scorecard.cuts_at_majors %}
+    <div class="scorecard__figure">
+      <span class="scorecard__label">Missed Cuts at Majors</span>
+      <span class="scorecard__value scorecard__value--danger">{{ scorecard.cuts_at_majors }}</span>
+      {% if scorecard.penalty_outstanding %}<span class="scorecard__sub">${{ scorecard.penalty_outstanding }} to the pot</span>{% endif %}
+    </div>
+    {% endif %}
+  </div>
+</section>
+{% endif %}
+
+{# ====================================================================== #}
+{# SUPERLATIVES                                                           #}
+{# ====================================================================== #}
+{% set sup = superlatives %}
+{% if sup.pick_of_season %}
+<section class="stats-section" aria-labelledby="superlatives-heading">
+  <div class="stats-section__head">
+    <h3 id="superlatives-heading">Superlatives</h3>
+    <p class="stats-section__note">The season's standout weeks.</p>
+  </div>
+
+  <div class="superlatives">
+    <article class="superlative superlative--feature">
+      <span class="superlative__label">Pick of the Season</span>
+      <span class="superlative__headline">{{ sup.pick_of_season.amount|money_compact }}</span>
+      <span class="superlative__golfer">{{ sup.pick_of_season.golfer }}</span>
+      <span class="superlative__meta">{{ sup.pick_of_season.member }} &middot; {{ sup.pick_of_season.event }}</span>
+    </article>
+
+    <div class="superlatives__cluster">
+      {% if sup.most_cashes %}
+      <article class="superlative">
+        <span class="superlative__label">Most Consistent</span>
+        <span class="superlative__value">{{ sup.most_cashes.member }}</span>
+        <span class="superlative__meta">{{ sup.most_cashes.cashes }} of {{ sup.most_cashes.played }} weeks in the money</span>
+      </article>
+      {% endif %}
+      {% if sup.wd_survivor %}
+      <article class="superlative">
+        <span class="superlative__label">WD Survivor</span>
+        <span class="superlative__value">{{ sup.wd_survivor.member }}</span>
+        <span class="superlative__meta">{{ sup.wd_survivor.count }} backup{{ '' if sup.wd_survivor.count == 1 else 's' }} activated</span>
+      </article>
+      {% endif %}
+      {% if sup.most_cuts %}
+      <article class="superlative">
+        <span class="superlative__label">Most Missed Cuts</span>
+        <span class="superlative__value">{{ sup.most_cuts.member }}</span>
+        <span class="superlative__meta">{{ sup.most_cuts.count }} cut{{ '' if sup.most_cuts.count == 1 else 's' }} on an active pick</span>
+      </article>
+      {% endif %}
+      {% if sup.coldest_pick %}
+      <article class="superlative">
+        <span class="superlative__label">Coldest Pick</span>
+        <span class="superlative__value superlative__value--name">{{ sup.coldest_pick.golfer }}</span>
+        <span class="superlative__meta">{{ sup.coldest_pick.member }} &middot; $0 at {{ sup.coldest_pick.event }}</span>
+      </article>
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% endif %}
+
+{# ====================================================================== #}
+{# THE FIELD — golfer form + pool intel                                   #}
+{# ====================================================================== #}
+{% if field.form_guide %}
+<section class="stats-section" aria-labelledby="field-heading">
+  <div class="stats-section__head">
+    <h3 id="field-heading">The Field</h3>
+    <p class="stats-section__note">How the golfers have actually played, and where the value's gone.</p>
+  </div>
+
+  <div class="field-grid">
+    {# Form guide — actual PGA prize money, full field #}
+    <div class="field-form">
+      <h4 class="field-subhead">Form Guide</h4>
+      <p class="field-subnote">Top earners this season (actual tour prize money).</p>
+      <div class="table-responsive">
+        <table class="table-greenside field-table">
+          <thead>
+            <tr>
+              <th scope="col">Golfer</th>
+              <th scope="col" class="num">Events</th>
+              <th scope="col" class="num">Best</th>
+              <th scope="col" class="num">Cuts</th>
+              <th scope="col" class="num">Prize</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for g in field.form_guide %}
+            <tr>
+              <td>{{ g.golfer }}</td>
+              <td class="num">{{ g.events }}</td>
+              <td class="num">{{ g.best_finish or '—' }}</td>
+              <td class="num">{{ g.cuts }}</td>
+              <td class="num"><span class="badge-earnings">${{ "{:,}".format(g.prize) }}</span></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    {# Pool intel — most-picked + untouched stars #}
+    <div class="field-pool">
+      {% if field.most_picked %}
+      <h4 class="field-subhead">Most Picked</h4>
+      <p class="field-subnote">League favorites and what they returned.</p>
+      <ul class="pool-list">
+        {% for p in field.most_picked %}
+        <li class="pool-list__row">
+          <span class="pool-list__name">{{ p.golfer }}</span>
+          <span class="pool-list__count">&times;{{ p.times_picked }}</span>
+          <span class="pool-list__val">{{ p.total_return|money_compact }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+
+      {% if field.untouched_stars %}
+      <h4 class="field-subhead field-subhead--spaced">Still on the Board</h4>
+      <p class="field-subnote">Top earners no one has picked yet.</p>
+      <ul class="pool-list">
+        {% for p in field.untouched_stars %}
+        <li class="pool-list__row">
+          <span class="pool-list__name">{{ p.golfer }}</span>
+          <span class="pool-list__val pool-list__val--gold">{{ p.prize|money_compact }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% endif %}
+{% endblock %}
