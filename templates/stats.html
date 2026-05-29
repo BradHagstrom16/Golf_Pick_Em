@@ -17,7 +17,7 @@
 <section class="stats-section" aria-labelledby="race-heading">
   <div class="stats-section__head">
     <h3 id="race-heading">The Season Race</h3>
-    <p class="stats-section__note">Cumulative earnings, week by week.</p>
+    <p class="stats-section__note">Cumulative earnings, week by week{% if race.count %} &middot; through {{ race.tournaments[-1].name }}{% endif %}.</p>
   </div>
 
   {% if race.count == 0 %}
@@ -27,7 +27,14 @@
     </div>
   {% else %}
     {% set leader = race.series[0] %}
+    {% set role_set = chart.lines | map(attribute='role') | list %}
     <figure class="season-race">
+      {# key only the line roles actually drawn: no 'You' when logged out, no gold 'Leader' when you lead #}
+      <ul class="race-legend">
+        {% if 'you' in role_set %}<li class="race-legend__item"><span class="race-legend__swatch race-legend__swatch--you"></span>You</li>{% endif %}
+        {% if 'leader' in role_set %}<li class="race-legend__item"><span class="race-legend__swatch race-legend__swatch--leader"></span>Leader</li>{% endif %}
+        {% if 'pack' in role_set %}<li class="race-legend__item"><span class="race-legend__swatch race-legend__swatch--pack"></span>The pack</li>{% endif %}
+      </ul>
       <svg class="season-race__svg" viewBox="0 0 {{ chart.width }} {{ chart.height }}"
            preserveAspectRatio="xMidYMid meet" role="img"
            aria-label="Cumulative earnings across {{ race.count }} completed event{{ '' if race.count == 1 else 's' }}. {{ leader.name }} leads with {{ leader.final|money_compact }}.">
@@ -108,9 +115,9 @@
   </div>
 
   <div class="scorecard">
-    <div class="scorecard__figure">
+    <div class="scorecard__figure scorecard__figure--lead">
       <span class="scorecard__label">Rank</span>
-      <span class="scorecard__value">{{ scorecard.rank }}<span class="scorecard__unit">{{ 'th' if (scorecard.rank % 100) in [11, 12, 13] else {1: 'st', 2: 'nd', 3: 'rd'}.get(scorecard.rank % 10, 'th') }}</span></span>
+      <span class="scorecard__value scorecard__value--lead">{{ scorecard.rank }}<span class="scorecard__unit">{{ 'th' if (scorecard.rank % 100) in [11, 12, 13] else {1: 'st', 2: 'nd', 3: 'rd'}.get(scorecard.rank % 10, 'th') }}</span></span>
     </div>
     <div class="scorecard__figure">
       <span class="scorecard__label">Total Won</span>
@@ -171,7 +178,7 @@
       {% endif %}
       {% if sup.wd_survivor %}
       <article class="superlative">
-        <span class="superlative__label">WD Survivor</span>
+        <span class="superlative__label"><abbr title="Withdrawal">WD</abbr> Survivor</span>
         <span class="superlative__value">{{ sup.wd_survivor.member }}</span>
         <span class="superlative__meta">{{ sup.wd_survivor.count }} backup{{ '' if sup.wd_survivor.count == 1 else 's' }} activated</span>
       </article>
@@ -228,7 +235,7 @@
               <td class="num">{{ g.events }}</td>
               <td class="num">{{ g.best_finish or '—' }}</td>
               <td class="num">{{ g.cuts }}</td>
-              <td class="num"><span class="badge-earnings">${{ "{:,}".format(g.prize) }}</span></td>
+              <td class="num"><span class="badge-earnings">{{ g.prize|money_compact }}</span></td>
             </tr>
             {% endfor %}
           </tbody>

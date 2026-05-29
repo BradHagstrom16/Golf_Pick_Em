@@ -12,6 +12,8 @@ Two money concepts live here and must not be confused:
 - **Golfer prize** = raw ``TournamentResult.earnings`` (actual PGA money, full field).
   Used for the form guide and untouched stars.
 """
+import math
+
 from sqlalchemy import and_, func
 
 from models import (
@@ -40,6 +42,25 @@ def format_money_compact(n):
     if abs(n) >= 1_000:
         return f'${round(n / 1_000)}K'
     return f'${n}'
+
+
+def _nice_axis(value, max_ticks=5):
+    """Round axis ceiling and tick step for a money axis.
+
+    Returns ``(axis_max, step)`` where ``step`` is a 1/2/2.5/5 x 10^n value and
+    ``axis_max`` is the smallest multiple of ``step`` that covers ``value`` in at
+    most ``max_ticks`` intervals. Keeps gridlines on round money ($0, $500K, $1M)
+    instead of raw max/steps fractions ($549K). ``value <= 0`` yields a 0..1 axis.
+    """
+    if value <= 0:
+        return 1, 1
+    magnitude = 10 ** math.floor(math.log10(value))
+    for mult in (0.1, 0.2, 0.25, 0.5, 1, 2, 2.5, 5, 10):
+        step = mult * magnitude
+        intervals = math.ceil(value / step)
+        if intervals <= max_ticks:
+            return int(intervals * step), int(step)
+    return int(value), int(value)
 
 
 def _user_name(user_id):
@@ -149,7 +170,7 @@ def race_chart_geometry(race, current_user_id=None, width=720, height=320,
     ticks, and per-line role ('you' | 'leader' | 'pack') for stroke styling.
     """
     count = race['count']
-    max_value = race['max_value'] or 1
+    axis_max, tick_step = _nice_axis(race['max_value'])
     plot_w = width - pad_left - pad_right
     plot_h = height - pad_top - pad_bottom
     baseline_y = height - pad_bottom
@@ -160,17 +181,22 @@ def race_chart_geometry(race, current_user_id=None, width=720, height=320,
         return pad_left + plot_w * i / (count - 1)
 
     def y_at(v):
-        return baseline_y - plot_h * (v / max_value)
+        return baseline_y - plot_h * (v / axis_max)
 
-    steps = 4
+    n_ticks = int(round(axis_max / tick_step))
     y_ticks = [{
-        'value': max_value * s / steps,
-        'label': format_money_compact(int(round(max_value * s / steps))),
-        'y': y_at(max_value * s / steps),
-    } for s in range(steps + 1)]
+        'value': value,
+        'label': format_money_compact(value),
+        'y': y_at(value),
+    } for value in (i * tick_step for i in range(n_ticks + 1))]
 
-    x_ticks = [{'index': i, 'label': t['short'], 'x': x_at(i)}
-               for i, t in enumerate(race['tournaments'])]
+    # Collapse consecutive duplicate month labels: two events in the same month
+    # render the month once (at the first), not 'Mar Mar'.
+    x_ticks, prev_label = [], None
+    for i, t in enumerate(race['tournaments']):
+        if t['short'] != prev_label:
+            x_ticks.append({'index': i, 'label': t['short'], 'x': x_at(i)})
+            prev_label = t['short']
 
     lines = []
     for s in race['series']:
