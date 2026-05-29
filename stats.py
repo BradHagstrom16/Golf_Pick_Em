@@ -359,7 +359,8 @@ def field_form(season_year):
     chosen = set()
     for primary, backup in (db.session.query(Pick.primary_player_id, Pick.backup_player_id)
                             .join(Tournament, Pick.tournament_id == Tournament.id)
-                            .filter(Tournament.season_year == season_year).all()):
+                            .filter(Tournament.status == 'complete',
+                                    Tournament.season_year == season_year).all()):
         chosen.update((primary, backup))
     untouched_ids = [pid for pid, _t, _e in earn_rows if pid not in chosen][:UNTOUCHED_LIMIT]
     untouched_players = _player_map(untouched_ids)
@@ -410,7 +411,20 @@ def _best_finishes(season_year, player_ids):
 # ---------------------------------------------------------------------------
 def personal_scorecard(user, season_year):
     """The logged-in member's own season at a glance."""
-    higher = User.query.filter(User.total_points > (user.total_points or 0)).count()
+    # Season-scoped points per member, matching the race standings shown above and
+    # the module-wide status='complete' rule. There is no per-season points table;
+    # User.total_points is the app-wide lifetime tally, so rank/total are derived
+    # here from this season's completed picks (identical in a single-season DB,
+    # correct if seasons ever accumulate).
+    points_by_user = dict(
+        db.session.query(Pick.user_id, func.coalesce(func.sum(Pick.points_earned), 0))
+        .join(Tournament, Pick.tournament_id == Tournament.id)
+        .filter(Tournament.status == 'complete',
+                Tournament.season_year == season_year,
+                Pick.points_earned.isnot(None))
+        .group_by(Pick.user_id).all())
+    my_points = int(points_by_user.get(user.id, 0) or 0)
+    higher = sum(1 for pts in points_by_user.values() if int(pts or 0) > my_points)
 
     completed = _completed_pick_query(season_year).filter(Pick.user_id == user.id)
     events_played = completed.count()
@@ -435,7 +449,7 @@ def personal_scorecard(user, season_year):
 
     return {
         'rank': higher + 1,
-        'total': user.total_points or 0,
+        'total': my_points,
         'best_pick': best_pick,
         'events_played': events_played,
         'cashes': cashes,

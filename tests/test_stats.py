@@ -223,6 +223,23 @@ def test_field_form_untouched_stars(seed):
     assert not any(n.endswith('Scheffler') for n in names)
 
 
+def test_field_form_untouched_ignores_upcoming_picks(seed, make_tournament, make_pick):
+    """A golfer pencilled in only for a not-yet-played event stays "on the board".
+
+    untouched-stars is a season retrospective (status='complete'); a pick in an
+    upcoming tournament must not remove a golfer from the list.
+    """
+    aberg = seed['players']['untouched']
+    assert any(r['golfer'].endswith('Aberg') for r in stats.field_form(SEASON)['untouched_stars'])
+
+    upcoming = make_tournament(name='Next Week', status='upcoming',
+                               start_date=datetime(2026, 7, 1))
+    make_pick(seed['users']['alice'], upcoming, aberg, seed['players']['scott'])
+
+    names = [r['golfer'] for r in stats.field_form(SEASON)['untouched_stars']]
+    assert any(n.endswith('Aberg') for n in names)
+
+
 # --------------------------------------------------------------------------
 # personal_scorecard
 # --------------------------------------------------------------------------
@@ -241,6 +258,23 @@ def test_personal_scorecard(seed):
     assert card['cuts_at_majors'] == 1    # penalty_triggered once
     assert card['best_pick']['amount'] == 3_600_000
     assert card['best_pick']['golfer'].endswith('McIlroy')
+
+
+def test_personal_scorecard_rank_is_season_scoped(make_user, make_player,
+                                                  make_tournament, make_pick):
+    """Rank/total reflect THIS season's points, not the app-wide User.total_points."""
+    # A carries a big lifetime tally but a small this-season haul; B is the reverse.
+    vet = make_user(username='vet', display_name='Vet', total_points=50_000_000)
+    rook = make_user(username='rook', display_name='Rook', total_points=100)
+    p1, p2, bk = make_player(), make_player(), make_player()
+    t = make_tournament(name='Opener', start_date=datetime(2026, 1, 8))
+    make_pick(vet, t, p1, bk, active_player_id=p1.id, points_earned=100)
+    make_pick(rook, t, p2, bk, active_player_id=p2.id, points_earned=5_000_000)
+
+    assert stats.personal_scorecard(rook, SEASON)['rank'] == 1
+    vet_card = stats.personal_scorecard(vet, SEASON)
+    assert vet_card['rank'] == 2
+    assert vet_card['total'] == 100   # season points, not the 50M lifetime total
 
 
 # --------------------------------------------------------------------------
@@ -288,7 +322,7 @@ def test_race_chart_geometry_basic(seed):
     geo = stats.race_chart_geometry(race, current_user_id=seed['users']['alice'].id)
     # One line per series, each with a point per completed event.
     assert len(geo['lines']) == len(race['series'])
-    alice_line = next(l for l in geo['lines'] if l['name'] == 'Alice')
+    alice_line = next(line for line in geo['lines'] if line['name'] == 'Alice')
     assert alice_line['role'] in ('you', 'leader')   # Alice is both you and leader here
     assert len(alice_line['points'].split()) == race['count']
     # y ticks exist and are within the drawing area.

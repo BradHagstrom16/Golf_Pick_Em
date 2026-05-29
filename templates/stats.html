@@ -110,7 +110,7 @@
   <div class="scorecard">
     <div class="scorecard__figure">
       <span class="scorecard__label">Rank</span>
-      <span class="scorecard__value">{{ scorecard.rank }}<span class="scorecard__unit">{{ {1:'st',2:'nd',3:'rd'}.get(scorecard.rank, 'th') }}</span></span>
+      <span class="scorecard__value">{{ scorecard.rank }}<span class="scorecard__unit">{{ 'th' if (scorecard.rank % 100) in [11, 12, 13] else {1: 'st', 2: 'nd', 3: 'rd'}.get(scorecard.rank % 10, 'th') }}</span></span>
     </div>
     <div class="scorecard__figure">
       <span class="scorecard__label">Total Won</span>
