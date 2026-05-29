@@ -24,6 +24,7 @@ from flask_migrate import Migrate
 
 from config import config
 from models import db, User, Player, Tournament, TournamentField, TournamentResult, Pick, SeasonPlayerUsage, get_current_time, LEAGUE_TZ, format_score_to_par, PENALTY_PER_INCIDENT
+import stats
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -148,6 +149,12 @@ def inject_globals():
         'season_year': app.config['SEASON_YEAR'],
         'csrf_token': generate_csrf
     }
+
+
+@app.template_filter('money_compact')
+def money_compact(value):
+    """Compact money for stat chips and chart ticks (e.g. $1.2M). Delegates to stats."""
+    return stats.format_money_compact(value)
 
 
 @app.template_filter('to_ct')
@@ -549,6 +556,34 @@ def results():
     flash('No completed tournaments yet. Check back after the first tournament finishes!', 'info')
     return redirect(url_for('schedule'))
 
+
+@app.route('/stats', endpoint='stats')
+def stats_hub():
+    """Season Stats Hub: the race, superlatives, the field, and a personal scorecard.
+
+    Public, like the standings. The personal "Your Scorecard" panel renders only
+    for authenticated members. Named ``stats_hub`` (not ``stats``) so it doesn't
+    shadow the imported ``stats`` module; the endpoint is pinned to ``'stats'``
+    for url_for() and the nav active state.
+    """
+    season_year = app.config['SEASON_YEAR']
+    race = stats.season_race(season_year)
+    current_user_id = current_user.id if current_user.is_authenticated else None
+
+    scorecard = None
+    if current_user.is_authenticated:
+        scorecard = stats.personal_scorecard(current_user, season_year)
+
+    return render_template(
+        'stats.html',
+        progress=stats.season_progress(season_year),
+        race=race,
+        chart=stats.race_chart_geometry(race, current_user_id=current_user_id),
+        superlatives=stats.superlatives(season_year),
+        field=stats.field_form(season_year),
+        scorecard=scorecard,
+        current_user_id=current_user_id,
+    )
 
 
 # ============================================================================

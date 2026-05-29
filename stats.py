@@ -1,0 +1,459 @@
+"""Stats Hub aggregation layer.
+
+Pure, query-only functions that turn the season's accumulated picks and results
+into the data the Stats Hub renders. Kept out of app.py so each piece stays small
+and unit-testable. Every function restricts to ``status='complete'`` so live /
+projected earnings never leak into season stats.
+
+Two money concepts live here and must not be confused:
+
+- **Member points** = ``Pick.points_earned``. Already includes the major x1.5 and
+  Zurich team /2 multipliers. Used for the race, superlatives, and return-when-picked.
+- **Golfer prize** = raw ``TournamentResult.earnings`` (actual PGA money, full field).
+  Used for the form guide and untouched stars.
+"""
+from sqlalchemy import and_, func
+
+from models import (
+    db,
+    User,
+    Player,
+    Tournament,
+    TournamentResult,
+    Pick,
+)
+
+# Display limits for the golfer-focused tables.
+FORM_GUIDE_LIMIT = 10
+MOST_PICKED_LIMIT = 8
+UNTOUCHED_LIMIT = 5
+
+
+# ---------------------------------------------------------------------------
+# Small shared helpers
+# ---------------------------------------------------------------------------
+def format_money_compact(n):
+    """Compact money for axis ticks and chips: $0, $950, $25K, $1.2M."""
+    n = int(n or 0)
+    if abs(n) >= 1_000_000:
+        return f'${n / 1_000_000:.1f}M'
+    if abs(n) >= 1_000:
+        return f'${round(n / 1_000)}K'
+    return f'${n}'
+
+
+def _user_name(user_id):
+    user = db.session.get(User, user_id)
+    return user.get_display_name() if user else f'User {user_id}'
+
+
+def _finish_sort_key(position):
+    """Numeric sort key for a finish string ('1', 'T5'); None for non-numeric (CUT/WD)."""
+    if not position:
+        return None
+    stripped = str(position).strip().upper().lstrip('T')
+    try:
+        return int(stripped)
+    except ValueError:
+        return None
+
+
+def _completed_pick_query(season_year):
+    """Picks in completed tournaments of the season, with resolved points."""
+    return (Pick.query
+            .join(Tournament, Pick.tournament_id == Tournament.id)
+            .filter(Tournament.status == 'complete',
+                    Tournament.season_year == season_year,
+                    Pick.points_earned.isnot(None)))
+
+
+# ---------------------------------------------------------------------------
+# Season progress + the race
+# ---------------------------------------------------------------------------
+def season_progress(season_year):
+    """How far into the season we are: completed vs total events."""
+    completed = Tournament.query.filter_by(status='complete', season_year=season_year).count()
+    total = Tournament.query.filter_by(season_year=season_year).count()
+    return {'completed': completed, 'total': total}
+
+
+def season_race(season_year):
+    """Cumulative-earnings trajectory per member across completed events.
+
+    Returns ordered tournaments, one series per participating member (sorted by
+    final total desc), and the max cumulative value for y-scaling.
+    """
+    tournaments = (Tournament.query
+                   .filter_by(status='complete', season_year=season_year)
+                   .order_by(Tournament.start_date, Tournament.id)
+                   .all())
+    t_list = [{'id': t.id, 'name': t.name, 'short': t.start_date.strftime('%b'),
+               'start_date': t.start_date} for t in tournaments]
+    if not tournaments:
+        return {'tournaments': [], 'series': [], 'max_value': 0, 'count': 0}
+
+    t_index = {t.id: i for i, t in enumerate(tournaments)}
+
+    rows = (db.session.query(
+                Pick.user_id, Pick.tournament_id,
+                func.coalesce(func.sum(Pick.points_earned), 0))
+            .join(Tournament, Pick.tournament_id == Tournament.id)
+            .filter(Tournament.status == 'complete',
+                    Tournament.season_year == season_year,
+                    Pick.points_earned.isnot(None))
+            .group_by(Pick.user_id, Pick.tournament_id)
+            .all())
+
+    per_user = {}
+    for uid, tid, pts in rows:
+        arr = per_user.setdefault(uid, [0] * len(tournaments))
+        arr[t_index[tid]] = int(pts or 0)
+
+    if not per_user:
+        return {'tournaments': t_list, 'series': [], 'max_value': 0, 'count': len(tournaments)}
+
+    users = {u.id: u for u in User.query.filter(User.id.in_(list(per_user.keys()))).all()}
+
+    series = []
+    for uid, arr in per_user.items():
+        cumulative, running = [], 0
+        for value in arr:
+            running += value
+            cumulative.append(running)
+        user = users.get(uid)
+        series.append({
+            'user_id': uid,
+            'name': user.get_display_name() if user else f'User {uid}',
+            'cumulative': cumulative,
+            'final': running,
+        })
+
+    series.sort(key=lambda s: (-s['final'], s['name']))
+    for i, entry in enumerate(series):
+        entry['rank'] = i + 1
+        entry['is_leader'] = (i == 0)
+
+    return {
+        'tournaments': t_list,
+        'series': series,
+        'max_value': max((s['final'] for s in series), default=0),
+        'count': len(tournaments),
+    }
+
+
+def race_chart_geometry(race, current_user_id=None, width=720, height=320,
+                        pad_left=12, pad_right=78, pad_top=18, pad_bottom=34):
+    """Convert a ``season_race`` payload into SVG coordinates (pure math).
+
+    Keeps trig/scaling out of the template. Returns polyline point strings, axis
+    ticks, and per-line role ('you' | 'leader' | 'pack') for stroke styling.
+    """
+    count = race['count']
+    max_value = race['max_value'] or 1
+    plot_w = width - pad_left - pad_right
+    plot_h = height - pad_top - pad_bottom
+    baseline_y = height - pad_bottom
+
+    def x_at(i):
+        if count <= 1:
+            return pad_left
+        return pad_left + plot_w * i / (count - 1)
+
+    def y_at(v):
+        return baseline_y - plot_h * (v / max_value)
+
+    steps = 4
+    y_ticks = [{
+        'value': max_value * s / steps,
+        'label': format_money_compact(int(round(max_value * s / steps))),
+        'y': y_at(max_value * s / steps),
+    } for s in range(steps + 1)]
+
+    x_ticks = [{'index': i, 'label': t['short'], 'x': x_at(i)}
+               for i, t in enumerate(race['tournaments'])]
+
+    lines = []
+    for s in race['series']:
+        points = ' '.join(f'{x_at(i):.1f},{y_at(v):.1f}' for i, v in enumerate(s['cumulative']))
+        if s['user_id'] == current_user_id:
+            role = 'you'
+        elif s['is_leader']:
+            role = 'leader'
+        else:
+            role = 'pack'
+        lines.append({
+            'user_id': s['user_id'],
+            'name': s['name'],
+            'role': role,
+            'points': points,
+            'end_x': x_at(count - 1) if count else pad_left,
+            'end_y': y_at(s['cumulative'][-1]) if s['cumulative'] else baseline_y,
+            'final': s['final'],
+            'final_label': format_money_compact(s['final']),
+        })
+
+    return {
+        'width': width, 'height': height,
+        'pad_left': pad_left, 'pad_right': pad_right,
+        'pad_top': pad_top, 'pad_bottom': pad_bottom,
+        'baseline_y': baseline_y, 'plot_w': plot_w, 'plot_h': plot_h,
+        'lines': lines, 'y_ticks': y_ticks, 'x_ticks': x_ticks,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Superlatives
+# ---------------------------------------------------------------------------
+def superlatives(season_year):
+    """The season's award statements."""
+    return {
+        'pick_of_season': _pick_of_season(season_year),
+        'most_cuts': _most_cuts(season_year),
+        'wd_survivor': _wd_survivor(season_year),
+        'coldest_pick': _coldest_pick(season_year),
+        'most_cashes': _most_cashes(season_year),
+    }
+
+
+def _pick_of_season(season_year):
+    pick = (_completed_pick_query(season_year)
+            .order_by(Pick.points_earned.desc(), Pick.id)
+            .first())
+    if not pick:
+        return None
+    golfer = pick.active_player or pick.primary_player
+    return {
+        'member': pick.user.get_display_name(),
+        'golfer': golfer.full_name() if golfer else '—',
+        'event': pick.tournament.name,
+        'amount': pick.points_earned,
+    }
+
+
+def _most_cuts(season_year):
+    rows = (db.session.query(Pick.user_id, func.count(Pick.id))
+            .join(Tournament, Pick.tournament_id == Tournament.id)
+            .join(TournamentResult, and_(
+                TournamentResult.tournament_id == Pick.tournament_id,
+                TournamentResult.player_id == Pick.active_player_id))
+            .filter(Tournament.status == 'complete',
+                    Tournament.season_year == season_year,
+                    TournamentResult.status.in_(['cut', 'dq']))
+            .group_by(Pick.user_id)
+            .order_by(func.count(Pick.id).desc())
+            .all())
+    if not rows:
+        return None
+    uid, count = rows[0]
+    return {'member': _user_name(uid), 'count': int(count)}
+
+
+def _wd_survivor(season_year):
+    rows = (db.session.query(Pick.user_id, func.count(Pick.id))
+            .join(Tournament, Pick.tournament_id == Tournament.id)
+            .filter(Tournament.status == 'complete',
+                    Tournament.season_year == season_year,
+                    Pick.backup_used.is_(True))
+            .group_by(Pick.user_id)
+            .order_by(func.count(Pick.id).desc())
+            .all())
+    if not rows:
+        return None
+    uid, count = rows[0]
+    return {'member': _user_name(uid), 'count': int(count)}
+
+
+def _coldest_pick(season_year):
+    pick = (Pick.query
+            .join(Tournament, Pick.tournament_id == Tournament.id)
+            .filter(Tournament.status == 'complete',
+                    Tournament.season_year == season_year,
+                    Pick.points_earned == 0)
+            .order_by(Tournament.purse.desc(), Pick.id)
+            .first())
+    if not pick:
+        return None
+    golfer = pick.active_player or pick.primary_player
+    return {
+        'member': pick.user.get_display_name(),
+        'golfer': golfer.full_name() if golfer else '—',
+        'event': pick.tournament.name,
+        'purse': pick.tournament.purse,
+    }
+
+
+def _most_cashes(season_year):
+    base = (db.session.query(Pick.user_id, func.count(Pick.id))
+            .join(Tournament, Pick.tournament_id == Tournament.id)
+            .filter(Tournament.status == 'complete',
+                    Tournament.season_year == season_year,
+                    Pick.points_earned.isnot(None)))
+    played = dict(base.group_by(Pick.user_id).all())
+    # points_earned is non-negative and already filtered isnot(None), so != 0
+    # means "in the money" — avoids ordering-operator typing on a nullable column.
+    cashed = dict(base.filter(Pick.points_earned != 0).group_by(Pick.user_id).all())
+    if not cashed:
+        return None
+    best = sorted(cashed, key=lambda uid: (-cashed[uid], played.get(uid, 0), _user_name(uid)))[0]
+    return {'member': _user_name(best), 'cashes': cashed[best], 'played': played.get(best, 0)}
+
+
+# ---------------------------------------------------------------------------
+# The Field — golfer form + pool intel
+# ---------------------------------------------------------------------------
+def field_form(season_year):
+    """Golfer-centric stats: form guide (raw prize), most-picked, untouched stars."""
+    earn_rows = (db.session.query(
+                    TournamentResult.player_id,
+                    func.coalesce(func.sum(TournamentResult.earnings), 0),
+                    func.count(TournamentResult.id))
+                 .join(Tournament, TournamentResult.tournament_id == Tournament.id)
+                 .filter(Tournament.status == 'complete',
+                         Tournament.season_year == season_year)
+                 .group_by(TournamentResult.player_id)
+                 .order_by(func.coalesce(func.sum(TournamentResult.earnings), 0).desc())
+                 .all())
+    if not earn_rows:
+        return {'form_guide': [], 'most_picked': [], 'untouched_stars': []}
+
+    cut_counts = dict(db.session.query(
+                        TournamentResult.player_id, func.count(TournamentResult.id))
+                      .join(Tournament, TournamentResult.tournament_id == Tournament.id)
+                      .filter(Tournament.status == 'complete',
+                              Tournament.season_year == season_year,
+                              TournamentResult.status.in_(['cut', 'dq']))
+                      .group_by(TournamentResult.player_id).all())
+
+    earn_map = {pid: int(total or 0) for pid, total, _events in earn_rows}
+
+    top_ids = [pid for pid, _total, _events in earn_rows[:FORM_GUIDE_LIMIT]]
+    top_players = _player_map(top_ids)
+    best_finish = _best_finishes(season_year, top_ids)
+    form_guide = [{
+        'golfer': _player_name(top_players, pid),
+        'events': int(events),
+        'prize': int(total or 0),
+        'cuts': int(cut_counts.get(pid, 0)),
+        'best_finish': best_finish.get(pid),
+    } for pid, total, events in earn_rows[:FORM_GUIDE_LIMIT]]
+
+    pick_rows = (db.session.query(
+                    Pick.active_player_id, func.count(Pick.id),
+                    func.coalesce(func.sum(Pick.points_earned), 0))
+                 .join(Tournament, Pick.tournament_id == Tournament.id)
+                 .filter(Tournament.status == 'complete',
+                         Tournament.season_year == season_year,
+                         Pick.active_player_id.isnot(None))
+                 .group_by(Pick.active_player_id)
+                 .order_by(func.count(Pick.id).desc(),
+                           func.coalesce(func.sum(Pick.points_earned), 0).desc())
+                 .limit(MOST_PICKED_LIMIT)
+                 .all())
+    mp_players = _player_map([pid for pid, _c, _r in pick_rows])
+    most_picked = [{
+        'golfer': _player_name(mp_players, pid),
+        'times_picked': int(count),
+        'total_return': int(total or 0),
+    } for pid, count, total in pick_rows]
+
+    chosen = set()
+    for primary, backup in (db.session.query(Pick.primary_player_id, Pick.backup_player_id)
+                            .join(Tournament, Pick.tournament_id == Tournament.id)
+                            .filter(Tournament.status == 'complete',
+                                    Tournament.season_year == season_year).all()):
+        chosen.update((primary, backup))
+    untouched_ids = [pid for pid, _t, _e in earn_rows if pid not in chosen][:UNTOUCHED_LIMIT]
+    untouched_players = _player_map(untouched_ids)
+    untouched_stars = [{
+        'golfer': _player_name(untouched_players, pid),
+        'prize': earn_map.get(pid, 0),
+    } for pid in untouched_ids]
+
+    return {'form_guide': form_guide, 'most_picked': most_picked,
+            'untouched_stars': untouched_stars}
+
+
+def _player_map(player_ids):
+    if not player_ids:
+        return {}
+    return {p.id: p for p in Player.query.filter(Player.id.in_(player_ids)).all()}
+
+
+def _player_name(player_map, player_id):
+    player = player_map.get(player_id)
+    return player.full_name() if player else f'Player {player_id}'
+
+
+def _best_finishes(season_year, player_ids):
+    """Best (lowest) numeric finish per player, as the original position string."""
+    if not player_ids:
+        return {}
+    rows = (db.session.query(TournamentResult.player_id, TournamentResult.final_position)
+            .join(Tournament, TournamentResult.tournament_id == Tournament.id)
+            .filter(Tournament.status == 'complete',
+                    Tournament.season_year == season_year,
+                    TournamentResult.player_id.in_(player_ids),
+                    TournamentResult.status == 'complete')
+            .all())
+    best = {}
+    for pid, position in rows:
+        key = _finish_sort_key(position)
+        if key is None:
+            continue
+        current = best.get(pid)
+        if current is None or key < current[0]:
+            best[pid] = (key, position)
+    return {pid: value[1] for pid, value in best.items()}
+
+
+# ---------------------------------------------------------------------------
+# Personal scorecard
+# ---------------------------------------------------------------------------
+def personal_scorecard(user, season_year):
+    """The logged-in member's own season at a glance."""
+    # Season-scoped points per member, matching the race standings shown above and
+    # the module-wide status='complete' rule. There is no per-season points table;
+    # User.total_points is the app-wide lifetime tally, so rank/total are derived
+    # here from this season's completed picks (identical in a single-season DB,
+    # correct if seasons ever accumulate).
+    points_by_user = dict(
+        db.session.query(Pick.user_id, func.coalesce(func.sum(Pick.points_earned), 0))
+        .join(Tournament, Pick.tournament_id == Tournament.id)
+        .filter(Tournament.status == 'complete',
+                Tournament.season_year == season_year,
+                Pick.points_earned.isnot(None))
+        .group_by(Pick.user_id).all())
+    my_points = int(points_by_user.get(user.id, 0) or 0)
+    higher = sum(1 for pts in points_by_user.values() if int(pts or 0) > my_points)
+
+    completed = _completed_pick_query(season_year).filter(Pick.user_id == user.id)
+    events_played = completed.count()
+    cashes = completed.filter(Pick.points_earned != 0).count()  # in the money (non-negative)
+
+    best = completed.order_by(Pick.points_earned.desc(), Pick.id).first()
+    best_pick = None
+    if best:
+        golfer = best.active_player or best.primary_player
+        best_pick = {
+            'golfer': golfer.full_name() if golfer else '—',
+            'event': best.tournament.name,
+            'amount': best.points_earned,
+        }
+
+    cuts_at_majors = int(db.session.query(func.count(Pick.id))
+                         .join(Tournament, Pick.tournament_id == Tournament.id)
+                         .filter(Pick.user_id == user.id,
+                                 Pick.penalty_triggered.is_(True),
+                                 Tournament.season_year == season_year)
+                         .scalar() or 0)
+
+    return {
+        'rank': higher + 1,
+        'total': my_points,
+        'best_pick': best_pick,
+        'events_played': events_played,
+        'cashes': cashes,
+        'cuts_at_majors': cuts_at_majors,
+        'penalty_outstanding': user.penalty_outstanding(season_year),
+        'players_used': len(user.get_used_player_ids()),
+    }
