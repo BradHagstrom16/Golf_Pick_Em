@@ -183,7 +183,7 @@ def race_chart_geometry(race, current_user_id=None, width=720, height=320,
     def y_at(v):
         return baseline_y - plot_h * (v / axis_max)
 
-    n_ticks = int(round(axis_max / tick_step))
+    n_ticks = axis_max // tick_step
     y_ticks = [{
         'value': value,
         'label': format_money_compact(value),

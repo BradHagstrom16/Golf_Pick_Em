@@ -1369,7 +1369,7 @@ footer.footer-greenside a {
 .race-legend__item { display: inline-flex; align-items: center; gap: 0.45rem; }
 .race-legend__swatch {
   width: 1.25rem;
-  border-top: 3px solid currentColor;
+  border-top: 3px solid currentcolor;
   border-radius: 2px;
 }
 .race-legend__swatch--you    { color: var(--green-700); }
