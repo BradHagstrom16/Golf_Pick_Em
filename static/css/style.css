@@ -1354,6 +1354,28 @@ footer.footer-greenside a {
   height: auto;
   overflow: visible;          /* let end-of-line labels sit in the right gutter */
 }
+
+/* Key for the chart's three line roles; swatches echo the actual strokes. */
+.race-legend {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 1.25rem;
+  margin: 0 0 0.85rem;
+  padding: 0;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+.race-legend__item { display: inline-flex; align-items: center; gap: 0.45rem; }
+.race-legend__swatch {
+  width: 1.25rem;
+  border-top: 3px solid currentcolor;
+  border-radius: 2px;
+}
+.race-legend__swatch--you    { color: var(--green-700); }
+.race-legend__swatch--leader { color: var(--gold-500); }
+.race-legend__swatch--pack   { color: var(--green-400); opacity: 0.6; }
+
 .race-grid { stroke: rgba(0, 67, 46, 0.10); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .race-axis-label {
   font-family: var(--font-body);
@@ -1469,6 +1491,9 @@ footer.footer-greenside a {
 }
 .scorecard__value--name { font-size: 1.25rem; }
 .scorecard__value--danger { color: var(--danger); }
+/* Rank leads the scorecard: "where do I stand" is the one glance that matters. */
+.scorecard__figure--lead { min-width: 7rem; }
+.scorecard__value--lead { font-size: 2.5rem; }
 .scorecard__unit { font-size: 0.95rem; color: var(--text-muted); margin-left: 0.15rem; }
 .scorecard__sub { font-size: 0.82rem; color: var(--text-muted); margin-top: 0.1rem; }
 
@@ -1495,6 +1520,7 @@ footer.footer-greenside a {
   color: var(--text-muted);
   margin-bottom: 0.4rem;
 }
+.superlative__label abbr { text-decoration: none; border: 0; cursor: help; }
 .superlative--feature {
   background-color: var(--gold-100);
   border-color: rgba(146, 114, 42, 0.18);

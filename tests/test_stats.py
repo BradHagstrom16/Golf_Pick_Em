@@ -317,6 +317,53 @@ def test_stats_route_empty_season(db, client):
     assert 'The race begins after the first event' in resp.get_data(as_text=True)
 
 
+@pytest.mark.parametrize('value,axis_max', [
+    (2_195_000, 2_500_000),   # raw step 548,750 -> snaps to a $500K grid
+    (9_800_000, 10_000_000),  # snaps to a $2M grid topping out at $10M
+    (500_000, 500_000),       # already round; top tick equals the data
+    (0, 1),                   # empty season guard: a sane 0..1 axis
+])
+def test_nice_axis_max(value, axis_max):
+    assert stats._nice_axis(value)[0] == axis_max
+
+
+def test_nice_axis_step_divides_axis_evenly():
+    axis_max, step = stats._nice_axis(2_195_000)
+    assert step == 500_000
+    assert axis_max % step == 0
+
+
+def _fake_race(finals, shorts):
+    """Minimal race payload for pure-geometry tests (no DB)."""
+    count = len(shorts)
+    series = [{
+        'user_id': i + 1, 'name': f'U{i}',
+        'cumulative': [finals[i]] * count, 'final': finals[i],
+        'is_leader': i == 0, 'rank': i + 1,
+    } for i in range(len(finals))]
+    return {
+        'tournaments': [{'short': s, 'name': f'Event {j}'} for j, s in enumerate(shorts)],
+        'series': series, 'max_value': max(finals), 'count': count,
+    }
+
+
+def test_race_chart_yticks_are_round_money():
+    geo = stats.race_chart_geometry(_fake_race([2_195_000], ['Jan']))
+    values = [t['value'] for t in geo['y_ticks']]
+    assert values[0] == 0
+    assert values[-1] >= 2_195_000               # top gridline clears the data
+    assert values == [0, 500_000, 1_000_000, 1_500_000, 2_000_000, 2_500_000]
+    # leader's final sits below the top gridline (headroom), not pinned to pad_top
+    leader = geo['lines'][0]
+    assert leader['end_y'] > geo['pad_top']
+
+
+def test_race_chart_xticks_dedupe_consecutive_months():
+    geo = stats.race_chart_geometry(_fake_race([3, 2], ['Mar', 'Mar', 'Apr']))
+    labels = [t['label'] for t in geo['x_ticks']]
+    assert labels == ['Mar', 'Apr']             # the second 'Mar' is collapsed
+
+
 def test_race_chart_geometry_basic(seed):
     race = stats.season_race(SEASON)
     geo = stats.race_chart_geometry(race, current_user_id=seed['users']['alice'].id)
