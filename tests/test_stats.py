@@ -376,3 +376,48 @@ def test_race_chart_geometry_basic(seed):
     assert geo['y_ticks']
     assert all(geo['pad_top'] <= t['y'] <= geo['height'] - geo['pad_bottom'] + 0.01
                for t in geo['y_ticks'])
+
+
+# --------------------------------------------------------------------------
+# race_chart_geometry — replay payload (powers the client-side "Play the season")
+# --------------------------------------------------------------------------
+def test_race_chart_replay_payload(seed):
+    race = stats.season_race(SEASON)
+    geo = stats.race_chart_geometry(race, current_user_id=seed['users']['alice'].id)
+    replay = geo['replay']
+    assert replay is not None
+    assert replay['count'] == 4
+
+    # One event stop per completed event, in chronological order, each x in-bounds.
+    assert [e['name'] for e in replay['events']] == [
+        'Sony Open', 'Genesis', 'The Masters', 'Wells Fargo']
+    assert [e['short'] for e in replay['events']] == ['Jan', 'Feb', 'Apr', 'May']
+    assert replay['events'][0]['x'] == geo['pad_left']
+    assert replay['events'][-1]['x'] == geo['width'] - geo['pad_right']
+
+    # One line per member, with coords + cumulative aligned to the event count.
+    assert len(replay['lines']) == len(race['series'])
+    alice = next(line for line in replay['lines'] if line['name'] == 'Alice')
+    assert len(alice['coords']) == 4
+    assert alice['cumulative'] == [2_000_000, 3_200_000, 9_200_000, 9_800_000]
+    assert alice['role'] in ('you', 'leader')
+
+    # The replay coords must agree exactly with the SVG polyline points string
+    # (single source of truth: the dots ride the same line the browser draws).
+    geo_alice = next(line for line in geo['lines'] if line['name'] == 'Alice')
+    parsed = [[float(x), float(y)]
+              for x, y in (p.split(',') for p in geo_alice['points'].split())]
+    assert parsed == [list(c) for c in alice['coords']]
+
+
+def test_race_chart_replay_keeps_every_event_stop():
+    # x_ticks dedupe consecutive months for the axis, but the replay timeline
+    # must keep a stop for every event (two events in March = two stops).
+    geo = stats.race_chart_geometry(_fake_race([3, 2], ['Mar', 'Mar', 'Apr']))
+    assert [e['short'] for e in geo['replay']['events']] == ['Mar', 'Mar', 'Apr']
+
+
+def test_race_chart_replay_none_for_single_event():
+    # Nothing to scrub through with a single event — controls never appear.
+    geo = stats.race_chart_geometry(_fake_race([500_000], ['Jan']))
+    assert geo['replay'] is None

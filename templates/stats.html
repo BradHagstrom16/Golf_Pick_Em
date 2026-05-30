@@ -28,63 +28,115 @@
   {% else %}
     {% set leader = race.series[0] %}
     {% set role_set = chart.lines | map(attribute='role') | list %}
-    <figure class="season-race">
-      {# key only the line roles actually drawn: no 'You' when logged out, no gold 'Leader' when you lead #}
-      <ul class="race-legend">
-        {% if 'you' in role_set %}<li class="race-legend__item"><span class="race-legend__swatch race-legend__swatch--you"></span>You</li>{% endif %}
-        {% if 'leader' in role_set %}<li class="race-legend__item"><span class="race-legend__swatch race-legend__swatch--leader"></span>Leader</li>{% endif %}
-        {% if 'pack' in role_set %}<li class="race-legend__item"><span class="race-legend__swatch race-legend__swatch--pack"></span>The pack</li>{% endif %}
-      </ul>
-      <svg class="season-race__svg" viewBox="0 0 {{ chart.width }} {{ chart.height }}"
-           preserveAspectRatio="xMidYMid meet" role="img"
-           aria-label="Cumulative earnings across {{ race.count }} completed event{{ '' if race.count == 1 else 's' }}. {{ leader.name }} leads with {{ leader.final|money_compact }}.">
-        <title>The Season Race</title>
+    <figure class="season-race" {% if chart.replay %}data-race-replay{% endif %}>
+      <div class="season-race__top">
+        {# key only the line roles actually drawn: no 'You' when logged out, no gold 'Leader' when you lead #}
+        <ul class="race-legend">
+          {% if 'you' in role_set %}<li class="race-legend__item"><span class="race-legend__swatch race-legend__swatch--you"></span>You</li>{% endif %}
+          {% if 'leader' in role_set %}<li class="race-legend__item"><span class="race-legend__swatch race-legend__swatch--leader"></span>Leader</li>{% endif %}
+          {% if 'pack' in role_set %}<li class="race-legend__item"><span class="race-legend__swatch race-legend__swatch--pack"></span>The pack</li>{% endif %}
+        </ul>
+        {% if chart.replay %}
+        {# revealed by season-replay.js once wired; never shown to no-JS users #}
+        <div class="season-race__controls" data-race-controls hidden>
+          <button type="button" class="season-race__play" data-race-play aria-label="Play the season">
+            <span class="season-race__play-icon" aria-hidden="true"></span>
+            <span class="season-race__play-text">Play the season</span>
+          </button>
+        </div>
+        {% endif %}
+      </div>
 
-        {# horizontal gridlines + y-axis money ticks #}
-        {% for tick in chart.y_ticks %}
-          <line class="race-grid" x1="{{ chart.pad_left }}" x2="{{ chart.width - chart.pad_right }}"
-                y1="{{ '%.1f'|format(tick.y) }}" y2="{{ '%.1f'|format(tick.y) }}"/>
-          <text class="race-axis-label race-axis-label--y" text-anchor="end"
-                x="{{ chart.pad_left - 6 }}" y="{{ '%.1f'|format(tick.y + 3) }}">{{ tick.label }}</text>
-        {% endfor %}
+      <div class="season-race__plot">
+        <svg class="season-race__svg" viewBox="0 0 {{ chart.width }} {{ chart.height }}"
+             preserveAspectRatio="xMidYMid meet" role="img"
+             aria-label="Cumulative earnings across {{ race.count }} completed event{{ '' if race.count == 1 else 's' }}. {{ leader.name }} leads with {{ leader.final|money_compact }}.">
+          <title>The Season Race</title>
 
-        {# x-axis event labels (months) #}
-        {% for tick in chart.x_ticks %}
-          <text class="race-axis-label race-axis-label--x" text-anchor="middle"
-                x="{{ '%.1f'|format(tick.x) }}" y="{{ chart.height - 12 }}">{{ tick.label }}</text>
-        {% endfor %}
+          {% if chart.replay %}
+          {# clip that reveals the lines left-to-right as the playhead sweeps #}
+          <defs>
+            <clipPath id="race-reveal">
+              <rect data-race-clip x="0" y="0" width="{{ chart.width }}" height="{{ chart.height }}"/>
+            </clipPath>
+          </defs>
+          {% endif %}
 
-        {# lines: pack underneath, leader, then the member's own on top #}
-        {% for line in chart.lines if line.role == 'pack' %}
-          {% if race.count == 1 %}<circle class="race-dot race-dot--pack" cx="{{ '%.1f'|format(line.end_x) }}" cy="{{ '%.1f'|format(line.end_y) }}" r="3"/>{% endif %}
-          <polyline class="race-line race-line--pack" points="{{ line.points }}"/>
-        {% endfor %}
-        {% for line in chart.lines if line.role == 'leader' %}
-          {% if race.count == 1 %}<circle class="race-dot race-dot--leader" cx="{{ '%.1f'|format(line.end_x) }}" cy="{{ '%.1f'|format(line.end_y) }}" r="4"/>{% endif %}
-          <polyline class="race-line race-line--leader" points="{{ line.points }}"/>
-        {% endfor %}
-        {% for line in chart.lines if line.role == 'you' %}
-          {% if race.count == 1 %}<circle class="race-dot race-dot--you" cx="{{ '%.1f'|format(line.end_x) }}" cy="{{ '%.1f'|format(line.end_y) }}" r="4"/>{% endif %}
-          <polyline class="race-line race-line--you" points="{{ line.points }}"/>
-        {% endfor %}
+          {# horizontal gridlines + y-axis money ticks (always visible: the ledger grid) #}
+          {% for tick in chart.y_ticks %}
+            <line class="race-grid" x1="{{ chart.pad_left }}" x2="{{ chart.width - chart.pad_right }}"
+                  y1="{{ '%.1f'|format(tick.y) }}" y2="{{ '%.1f'|format(tick.y) }}"/>
+            <text class="race-axis-label race-axis-label--y" text-anchor="end"
+                  x="{{ chart.pad_left - 6 }}" y="{{ '%.1f'|format(tick.y + 3) }}">{{ tick.label }}</text>
+          {% endfor %}
 
-        {# end-of-line labels for the two lines that matter: leader and you #}
-        {% for line in chart.lines if line.role in ('leader', 'you') %}
-          <text class="race-endlabel race-endlabel--{{ line.role }}"
-                x="{{ '%.1f'|format(line.end_x + 7) }}" y="{{ '%.1f'|format(line.end_y + 3) }}">{{ line.name }}</text>
-        {% endfor %}
-      </svg>
+          {# x-axis event labels (months) #}
+          {% for tick in chart.x_ticks %}
+            <text class="race-axis-label race-axis-label--x" text-anchor="middle"
+                  x="{{ '%.1f'|format(tick.x) }}" y="{{ chart.height - 12 }}">{{ tick.label }}</text>
+          {% endfor %}
+
+          {# lines: pack underneath, leader, then the member's own on top #}
+          <g class="race-lines"{% if chart.replay %} clip-path="url(#race-reveal)"{% endif %}>
+            {% for line in chart.lines if line.role == 'pack' %}
+              {% if race.count == 1 %}<circle class="race-dot race-dot--pack" cx="{{ '%.1f'|format(line.end_x) }}" cy="{{ '%.1f'|format(line.end_y) }}" r="3"/>{% endif %}
+              <polyline class="race-line race-line--pack" points="{{ line.points }}"/>
+            {% endfor %}
+            {% for line in chart.lines if line.role == 'leader' %}
+              {% if race.count == 1 %}<circle class="race-dot race-dot--leader" cx="{{ '%.1f'|format(line.end_x) }}" cy="{{ '%.1f'|format(line.end_y) }}" r="4"/>{% endif %}
+              <polyline class="race-line race-line--leader" points="{{ line.points }}"/>
+            {% endfor %}
+            {% for line in chart.lines if line.role == 'you' %}
+              {% if race.count == 1 %}<circle class="race-dot race-dot--you" cx="{{ '%.1f'|format(line.end_x) }}" cy="{{ '%.1f'|format(line.end_y) }}" r="4"/>{% endif %}
+              <polyline class="race-line race-line--you" points="{{ line.points }}"/>
+            {% endfor %}
+          </g>
+
+          {# end-of-line labels for the two lines that matter: leader and you. Hidden mid-replay (the readout speaks for the playhead instead). #}
+          <g class="race-endlabels" data-race-endlabels>
+            {% for line in chart.lines if line.role in ('leader', 'you') %}
+              <text class="race-endlabel race-endlabel--{{ line.role }}"
+                    x="{{ '%.1f'|format(line.end_x + 7) }}" y="{{ '%.1f'|format(line.end_y + 3) }}">{{ line.name }}</text>
+            {% endfor %}
+          </g>
+
+          {% if chart.replay %}
+          {# replay-only overlays — JS positions and reveals them; hidden at the final/idle state #}
+          <line class="race-playhead" data-race-playhead x1="0" x2="0"
+                y1="{{ chart.pad_top }}" y2="{{ chart.baseline_y }}"/>
+          {% if 'leader' in role_set %}<circle class="race-baton race-baton--leader" data-race-baton="leader" r="4.5"/>{% endif %}
+          {% if 'you' in role_set %}<circle class="race-baton race-baton--you" data-race-baton="you" r="4.5"/>{% endif %}
+          {% endif %}
+        </svg>
+
+        {% if chart.replay %}
+        <div class="season-race__readout" data-race-readout hidden aria-hidden="true">
+          <span class="season-race__readout-event" data-race-readout-event></span>
+        </div>
+        {% endif %}
+      </div>
+
+      {% if chart.replay %}
+      <div class="season-race__scrub" data-race-scrub-wrap hidden>
+        <label class="visually-hidden" for="race-scrub">Scrub the season, week by week</label>
+        <input type="range" id="race-scrub" class="race-scrub" data-race-scrub
+               min="0" max="{{ chart.replay.count - 1 }}" step="1"
+               value="{{ chart.replay.count - 1 }}"
+               aria-valuetext="{{ chart.replay.events[-1].name }}">
+      </div>
+      {% endif %}
     </figure>
 
-    {# visible ranked standings — also the at-a-glance race summary #}
-    <ol class="race-standings" aria-label="Race standings by total earnings">
+    {# visible ranked standings — also the at-a-glance race summary; JS re-orders it during replay #}
+    <ol class="race-standings" data-race-standings aria-label="Race standings by total earnings">
       {% for s in race.series %}
         <li class="race-standings__row
                    {% if s.is_leader %}race-standings__row--leader{% endif %}
-                   {% if s.user_id == current_user_id %}race-standings__row--you{% endif %}">
-          <span class="race-standings__rank">{{ s.rank }}</span>
+                   {% if s.user_id == current_user_id %}race-standings__row--you{% endif %}"
+            data-race-row data-user-id="{{ s.user_id }}">
+          <span class="race-standings__rank" data-race-rank>{{ s.rank }}</span>
           <span class="race-standings__name">{{ s.name }}{% if s.user_id == current_user_id %} <span class="badge-you">You</span>{% endif %}</span>
-          <span class="race-standings__total">${{ "{:,}".format(s.final) }}</span>
+          <span class="race-standings__total"><span class="race-standings__move" data-race-move aria-hidden="true"></span><span data-race-value>${{ "{:,}".format(s.final) }}</span></span>
         </li>
       {% endfor %}
     </ol>
@@ -101,6 +153,10 @@
         {% endfor %}
       </tbody>
     </table>
+
+    {% if chart.replay %}
+    <script type="application/json" data-race-replay-data>{{ chart.replay | tojson }}</script>
+    {% endif %}
   {% endif %}
 </section>
 
@@ -275,4 +331,8 @@
   </div>
 </section>
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/season-replay.js') }}" defer></script>
 {% endblock %}

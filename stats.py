@@ -200,7 +200,11 @@ def race_chart_geometry(race, current_user_id=None, width=720, height=320,
 
     lines = []
     for s in race['series']:
-        points = ' '.join(f'{x_at(i):.1f},{y_at(v):.1f}' for i, v in enumerate(s['cumulative']))
+        # coords feed the replay payload; they must parse-equal the polyline
+        # points string below, so derive both from the same %.1f formatting.
+        coords = [[float(f'{x_at(i):.1f}'), float(f'{y_at(v):.1f}')]
+                  for i, v in enumerate(s['cumulative'])]
+        points = ' '.join(f'{x},{y}' for x, y in coords)
         if s['user_id'] == current_user_id:
             role = 'you'
         elif s['is_leader']:
@@ -212,11 +216,32 @@ def race_chart_geometry(race, current_user_id=None, width=720, height=320,
             'name': s['name'],
             'role': role,
             'points': points,
+            'coords': coords,
+            'cumulative': s['cumulative'],
             'end_x': x_at(count - 1) if count else pad_left,
             'end_y': y_at(s['cumulative'][-1]) if s['cumulative'] else baseline_y,
             'final': s['final'],
             'final_label': format_money_compact(s['final']),
         })
+
+    # One stop per event for the client-side "Play the season" scrubber. Unlike
+    # x_ticks, every event keeps its own stop (no month dedupe). None when there's
+    # nothing to scrub (0 or 1 event), so the template can hide the controls.
+    replay = None
+    if count > 1:
+        replay = {
+            'count': count,
+            'width': width, 'height': height,
+            'pad_left': pad_left, 'pad_right': pad_right,
+            'baseline_y': baseline_y,
+            'events': [{'name': t['name'], 'short': t['short'],
+                        'x': float(f'{x_at(i):.1f}')}
+                       for i, t in enumerate(race['tournaments'])],
+            'lines': [{'user_id': line['user_id'], 'name': line['name'],
+                       'role': line['role'], 'coords': line['coords'],
+                       'cumulative': line['cumulative'], 'final': line['final']}
+                      for line in lines],
+        }
 
     return {
         'width': width, 'height': height,
@@ -224,6 +249,7 @@ def race_chart_geometry(race, current_user_id=None, width=720, height=320,
         'pad_top': pad_top, 'pad_bottom': pad_bottom,
         'baseline_y': baseline_y, 'plot_w': plot_w, 'plot_h': plot_h,
         'lines': lines, 'y_ticks': y_ticks, 'x_ticks': x_ticks,
+        'replay': replay,
     }
 
 

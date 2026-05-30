@@ -1416,6 +1416,162 @@ footer.footer-greenside a {
   .race-line { animation: none; stroke-dashoffset: 0; }
 }
 
+/* ---- The Replay: "Play the season" scrubber over the race chart ----
+   All of this is progressive enhancement. season-replay.js reveals the
+   controls and toggles .season-race--scrubbing; with no JS the figure renders
+   the finished chart exactly as before (controls stay [hidden]). */
+.season-race__top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin-bottom: 0.85rem;
+}
+.season-race__top .race-legend { margin-bottom: 0; }
+
+.season-race__controls { display: flex; align-items: center; gap: 0.6rem; }
+.season-race__play {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.85rem;
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--green-700);
+  background: transparent;
+  border: 1.5px solid var(--green-700);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+.season-race__play:hover {
+  background-color: var(--green-700);
+  color: var(--text-on-dark);
+  box-shadow: 0 2px 8px rgba(0, 103, 71, 0.25);
+}
+.season-race__play-icon {
+  width: 0; height: 0;
+  border-style: solid;
+  border-width: 5px 0 5px 8px;
+  border-color: transparent transparent transparent currentcolor;
+}
+.season-race__play.is-playing .season-race__play-icon {
+  width: 8px; height: 11px;
+  border: 0;
+  border-left: 3px solid currentcolor;
+  border-right: 3px solid currentcolor;
+}
+
+/* Plot wrapper: positioning context for the HTML readout that floats over the SVG. */
+.season-race__plot { position: relative; }
+
+/* The vertical playhead + the dots that ride the leader / your line. */
+.race-playhead {
+  stroke: var(--green-800);
+  stroke-width: 1.5;
+  stroke-dasharray: 2 3;
+  vector-effect: non-scaling-stroke;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.race-baton {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.race-baton--leader { fill: var(--gold-500); stroke: var(--white); stroke-width: 1.5; }
+.race-baton--you    { fill: var(--green-700); stroke: var(--white); stroke-width: 1.5; }
+.race-endlabels { transition: opacity 0.2s ease; }
+
+.season-race--scrubbing .race-playhead,
+.season-race--scrubbing .race-baton { opacity: 1; }
+.season-race--scrubbing .race-endlabels { opacity: 0; }
+
+/* Floating readout: names the event under the playhead. Center is clamped so a
+   long event name stays inside the plot near either edge. */
+.season-race__readout {
+  position: absolute;
+  top: 0.15rem;
+  left: clamp(14%, calc(var(--ph, 0) * 100%), 86%);
+  transform: translateX(-50%);
+  max-width: 11rem;
+  padding: 0.2rem 0.55rem;
+  font-family: var(--font-body);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-on-dark);
+  background: var(--green-900);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.season-race--scrubbing .season-race__readout { opacity: 1; }
+
+/* Scrubber: a native range, track aligned to the plot's data area (JS sets the
+   left/right padding from pad_left / pad_right so the thumb lands on events). */
+.season-race__scrub { margin-top: 0.35rem; }
+.race-scrub {
+  width: 100%;
+  height: 1.5rem;
+  margin: 0;
+  background: transparent;
+  cursor: ew-resize;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.race-scrub:focus-visible { outline: none; }
+.race-scrub::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--green-100);
+}
+.race-scrub::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--green-100);
+}
+.race-scrub::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px; height: 18px;
+  margin-top: -7px;
+  border-radius: 50%;
+  background: var(--green-700);
+  border: 2px solid var(--white);
+  box-shadow: var(--shadow-sm);
+  cursor: ew-resize;
+}
+.race-scrub::-moz-range-thumb {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: var(--green-700);
+  border: 2px solid var(--white);
+  box-shadow: var(--shadow-sm);
+  cursor: ew-resize;
+}
+.race-scrub:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px var(--focus-ring); }
+.race-scrub:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--focus-ring); }
+
+/* Standings re-order under the playhead: FLIP via transform (GPU-friendly). */
+.race-standings__row { transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1); }
+.race-standings__move { display: inline-block; width: 0; text-align: center; font-size: 0.7rem; }
+.race-standings__move--up,
+.race-standings__move--down { width: 0.95rem; margin-right: 0.15rem; }
+.race-standings__move--up { color: var(--green-600); }
+.race-standings__move--down { color: var(--text-muted); }
+
+@media (prefers-reduced-motion: reduce) {
+  .race-playhead, .race-baton, .race-endlabels,
+  .season-race__readout, .race-standings__row { transition: none; }
+}
+
 .race-empty {
   padding: 2.5rem 1.5rem;
   text-align: center;
@@ -1592,4 +1748,7 @@ footer.footer-greenside a {
   .scorecard { gap: 0.85rem 1.5rem; padding: 1.1rem 1.15rem; }
   .race-endlabel { font-size: 11px; }
   .race-axis-label--x { font-size: 10px; }
+  /* Roomier tap target for the play control; trim the floating readout. */
+  .season-race__play { min-height: 2.5rem; padding: 0.5rem 0.95rem; }
+  .season-race__readout { font-size: 0.68rem; max-width: 8.5rem; }
 }
