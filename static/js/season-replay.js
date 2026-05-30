@@ -14,6 +14,12 @@
 (function () {
   'use strict';
 
+  // Autoplay cadence: how long the playhead glides between events, and how long
+  // it dwells on each. Tweak these to retune the replay's pace.
+  var GLIDE_MS = 520;
+  var DWELL_MS = 220;
+  var STRIDE_MS = GLIDE_MS + DWELL_MS;
+
   function init() {
     var figure = document.querySelector('[data-race-replay]');
     var dataEl = document.querySelector('[data-race-replay-data]');
@@ -198,19 +204,17 @@
     }
 
     // --- autoplay timeline --------------------------------------------------
-    var SEG = 520, HOLD = 220;                 // glide + dwell per event (ms)
-    var STRIDE = SEG + HOLD;
-    var total = lastIndex * STRIDE + HOLD;
+    var total = lastIndex * STRIDE_MS + DWELL_MS;
     var playing = false;
     var rafId = null;
     var startTime = 0;
 
     function progressAt(t) {
-      var e = Math.floor(t / STRIDE);
+      var e = Math.floor(t / STRIDE_MS);
       if (e >= lastIndex) return lastIndex;
-      var local = t - e * STRIDE;
-      if (local <= HOLD) return e;
-      return e + easeOutQuart((local - HOLD) / SEG);
+      var local = t - e * STRIDE_MS;
+      if (local <= DWELL_MS) return e;
+      return e + easeOutQuart((local - DWELL_MS) / GLIDE_MS);
     }
 
     function frame(now) {
