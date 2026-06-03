@@ -205,15 +205,6 @@ def test_field_form_guide_orders_by_prize(seed):
     assert rory_row['cuts'] == 1
 
 
-def test_field_form_most_picked_and_return(seed):
-    form = stats.field_form(SEASON)
-    mp = {r['golfer']: r for r in form['most_picked']}
-    # Each of scott/rory/xander was the active pick 4 times.
-    scott_row = next(r for g, r in mp.items() if g.endswith('Scheffler'))
-    assert scott_row['times_picked'] == 4
-    assert scott_row['total_return'] == 9_800_000  # Alice's season from scott
-
-
 def test_field_form_untouched_stars(seed):
     form = stats.field_form(SEASON)
     names = [r['golfer'] for r in form['untouched_stars']]

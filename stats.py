@@ -28,7 +28,6 @@ from models import (
 
 # Display limits for the golfer-focused tables.
 FORM_GUIDE_LIMIT = 10
-MOST_PICKED_LIMIT = 8
 UNTOUCHED_LIMIT = 5
 
 
@@ -367,7 +366,7 @@ def field_form(season_year):
                  .order_by(func.coalesce(func.sum(TournamentResult.earnings), 0).desc())
                  .all())
     if not earn_rows:
-        return {'form_guide': [], 'most_picked': [], 'untouched_stars': []}
+        return {'form_guide': [], 'untouched_stars': []}
 
     cut_counts = dict(db.session.query(
                         TournamentResult.player_id, func.count(TournamentResult.id))
@@ -390,25 +389,6 @@ def field_form(season_year):
         'best_finish': best_finish.get(pid),
     } for pid, total, events in earn_rows[:FORM_GUIDE_LIMIT]]
 
-    pick_rows = (db.session.query(
-                    Pick.active_player_id, func.count(Pick.id),
-                    func.coalesce(func.sum(Pick.points_earned), 0))
-                 .join(Tournament, Pick.tournament_id == Tournament.id)
-                 .filter(Tournament.status == 'complete',
-                         Tournament.season_year == season_year,
-                         Pick.active_player_id.isnot(None))
-                 .group_by(Pick.active_player_id)
-                 .order_by(func.count(Pick.id).desc(),
-                           func.coalesce(func.sum(Pick.points_earned), 0).desc())
-                 .limit(MOST_PICKED_LIMIT)
-                 .all())
-    mp_players = _player_map([pid for pid, _c, _r in pick_rows])
-    most_picked = [{
-        'golfer': _player_name(mp_players, pid),
-        'times_picked': int(count),
-        'total_return': int(total or 0),
-    } for pid, count, total in pick_rows]
-
     chosen = set()
     for primary, backup in (db.session.query(Pick.primary_player_id, Pick.backup_player_id)
                             .join(Tournament, Pick.tournament_id == Tournament.id)
@@ -422,8 +402,7 @@ def field_form(season_year):
         'prize': earn_map.get(pid, 0),
     } for pid in untouched_ids]
 
-    return {'form_guide': form_guide, 'most_picked': most_picked,
-            'untouched_stars': untouched_stars}
+    return {'form_guide': form_guide, 'untouched_stars': untouched_stars}
 
 
 # ---------------------------------------------------------------------------
