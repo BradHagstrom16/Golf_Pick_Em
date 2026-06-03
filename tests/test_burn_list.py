@@ -197,3 +197,39 @@ def test_stats_route_burn_empty_state(client, make_user, make_player,
     body = client.get('/stats').get_data(as_text=True)
     assert 'No golfer has been burned yet' in body
     assert 'burn-search' not in body  # no search input in the empty state
+
+
+# --------------------------------------------------------------------------
+# /pick/<id> route — remaining-% map
+# --------------------------------------------------------------------------
+def _field_tournament(make_tournament, players):
+    """Upcoming tournament (no deadline -> route renders) with a synced field."""
+    t = make_tournament(name='Next Event', status='upcoming', pick_deadline=None)
+    for p in players:
+        db.session.add(TournamentField(tournament_id=t.id, player_id=p.id))
+    db.session.flush()
+    return t
+
+
+def test_make_pick_renders_remaining_map(league, login, make_tournament):
+    players = league['players']
+    t = _field_tournament(
+        make_tournament, [players['scott'], players['rory'], players['backup']])
+    client = login(league['users']['dave'])
+    html = client.get(f'/pick/{t.id}').get_data(as_text=True)
+    # Match the JSON map element itself, not the bare attribute name: the Tom
+    # Select wiring quotes '[data-remaining-map]' in its querySelector either way.
+    assert '<script type="application/json" data-remaining-map>' in html
+    assert '% = share of the field that still has this golfer' in html
+
+
+def test_make_pick_suppresses_map_before_first_burn(login, make_user,
+                                                    make_player,
+                                                    make_tournament):
+    user = make_user()
+    p1, p2 = make_player(), make_player()
+    t = _field_tournament(make_tournament, [p1, p2])
+    client = login(user)
+    html = client.get(f'/pick/{t.id}').get_data(as_text=True)
+    assert '<script type="application/json" data-remaining-map>' not in html
+    assert 'share of the field' not in html
