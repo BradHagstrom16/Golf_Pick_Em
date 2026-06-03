@@ -267,8 +267,6 @@ a:hover { color: var(--green-500); }
 /* Zebra rides the mint tint (cream-on-white was invisible); hover steps up one. */
 .table-greenside {
   --bs-table-bg: var(--white);
-  --bs-table-striped-bg: var(--green-50);
-  --bs-table-hover-bg: var(--green-100);
   border-collapse: separate;
   border-spacing: 0;
 }
