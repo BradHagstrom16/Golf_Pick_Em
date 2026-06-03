@@ -20,7 +20,7 @@
     <p class="stats-section__note">Cumulative earnings, week by week{% if race.count %} &middot; through {{ race.tournaments[-1].name }}{% endif %}.</p>
   </div>
 
-  {% if race.count == 0 %}
+  {% if race.count == 0 or not race.series %}
     <div class="race-empty">
       <p class="race-empty__line">The race begins after the first event.</p>
       <p class="text-muted mb-0">Standings will chart here once the season's first results are final.</p>

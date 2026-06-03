@@ -412,3 +412,14 @@ def test_race_chart_replay_none_for_single_event():
     # Nothing to scrub through with a single event — controls never appear.
     geo = stats.race_chart_geometry(_fake_race([500_000], ['Jan']))
     assert geo['replay'] is None
+
+
+def test_stats_renders_with_completed_events_but_no_picks(
+        client, make_user, make_player, make_tournament, make_result):
+    """Completed events + zero resolved picks must not 500 (empty race.series)."""
+    make_user()
+    star = make_player(first_name='Solo', last_name='Star')
+    make_result(make_tournament(name='Opener'), star, earnings=1_000_000)
+    resp = client.get('/stats')
+    assert resp.status_code == 200
+    assert 'The race begins after the first event' in resp.get_data(as_text=True)
