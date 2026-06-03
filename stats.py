@@ -20,6 +20,7 @@ from models import (
     db,
     User,
     Player,
+    SeasonPlayerUsage,
     Tournament,
     TournamentResult,
     Pick,
@@ -423,6 +424,67 @@ def field_form(season_year):
 
     return {'form_guide': form_guide, 'most_picked': most_picked,
             'untouched_stars': untouched_stars}
+
+
+# ---------------------------------------------------------------------------
+# The Burn List — field-usage percentages
+# ---------------------------------------------------------------------------
+def _usage_counts(season_year):
+    """(total registered users, {player_id: burn count}) for the season.
+
+    Sourced from SeasonPlayerUsage — the table that gates pick availability —
+    so counts move only at finalization, never on in-flight picks.
+    """
+    total_users = db.session.query(func.count(User.id)).scalar() or 0
+    counts = dict(db.session.query(
+                      SeasonPlayerUsage.player_id,
+                      func.count(SeasonPlayerUsage.id))
+                  .filter(SeasonPlayerUsage.season_year == season_year)
+                  .group_by(SeasonPlayerUsage.player_id)
+                  .all())
+    return total_users, counts
+
+
+def _pct(count, total):
+    """Whole-number share of the field, safe when the league is empty."""
+    return round(100 * count / total) if total else 0
+
+
+def burn_list(season_year):
+    """Every golfer the league has burned, most-burned first.
+
+    Each row: golfer, times_used, pct_burned (share of ALL registered users,
+    matching the standings denominator), and total_return (member points,
+    multipliers included; 0 when usage exists without a matching completed
+    pick, e.g. an admin override). Order: pct desc, return desc, last name.
+    """
+    total_users, counts = _usage_counts(season_year)
+    if not counts:
+        return []
+    returns = dict(db.session.query(
+                       Pick.active_player_id,
+                       func.coalesce(func.sum(Pick.points_earned), 0))
+                   .join(Tournament, Pick.tournament_id == Tournament.id)
+                   .filter(Tournament.status == 'complete',
+                           Tournament.season_year == season_year,
+                           Pick.active_player_id.isnot(None))
+                   .group_by(Pick.active_player_id)
+                   .all())
+    players = _player_map(list(counts))
+    rows = []
+    for pid, count in counts.items():
+        player = players.get(pid)
+        rows.append({
+            'golfer': _player_name(players, pid),
+            'times_used': int(count),
+            'pct_burned': _pct(count, total_users),
+            'total_return': int(returns.get(pid, 0) or 0),
+            '_last': player.last_name if player else '',
+        })
+    rows.sort(key=lambda r: (-r['pct_burned'], -r['total_return'], r['_last']))
+    for row in rows:
+        del row['_last']
+    return rows
 
 
 def _player_map(player_ids):
