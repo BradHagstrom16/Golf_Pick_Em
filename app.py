@@ -581,6 +581,7 @@ def stats_hub():
         chart=stats.race_chart_geometry(race, current_user_id=current_user_id),
         superlatives=stats.superlatives(season_year),
         field=stats.field_form(season_year),
+        burn=stats.burn_list(season_year),
         scorecard=scorecard,
         current_user_id=current_user_id,
     )
@@ -833,6 +834,9 @@ def make_pick(tournament_id):
         query = query.filter(~Player.id.in_(used_player_ids))
     available_players = query.order_by(Player.last_name).all()
 
+    remaining_pct = stats.remaining_pct_map(
+        app.config['SEASON_YEAR'], [p.id for p in available_players])
+
     if request.method == 'POST':
         primary_id = request.form.get('primary_player_id', type=int)
         backup_id = request.form.get('backup_player_id', type=int)
@@ -889,7 +893,8 @@ def make_pick(tournament_id):
     return render_template('make_pick.html',
                          tournament=tournament,
                          available_players=available_players,
-                         existing_pick=existing_pick)
+                         existing_pick=existing_pick,
+                         remaining_pct=remaining_pct)
 
 
 # ============================================================================

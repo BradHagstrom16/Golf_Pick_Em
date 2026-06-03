@@ -20,7 +20,7 @@
     <p class="stats-section__note">Cumulative earnings, week by week{% if race.count %} &middot; through {{ race.tournaments[-1].name }}{% endif %}.</p>
   </div>
 
-  {% if race.count == 0 %}
+  {% if race.count == 0 or not race.series %}
     <div class="race-empty">
       <p class="race-empty__line">The race begins after the first event.</p>
       <p class="text-muted mb-0">Standings will chart here once the season's first results are final.</p>
@@ -299,20 +299,43 @@
       </div>
     </div>
 
-    {# Pool intel — most-picked + untouched stars #}
+    {# Pool intel — the burn list + untouched stars #}
     <div class="field-pool">
-      {% if field.most_picked %}
-      <h4 class="field-subhead">Most Picked</h4>
-      <p class="field-subnote">League favorites and what they returned.</p>
-      <ul class="pool-list">
-        {% for p in field.most_picked %}
-        <li class="pool-list__row">
-          <span class="pool-list__name">{{ p.golfer }}</span>
-          <span class="pool-list__count">&times;{{ p.times_picked }}</span>
-          <span class="pool-list__val">{{ p.total_return|money_compact }}</span>
-        </li>
-        {% endfor %}
-      </ul>
+      <h4 class="field-subhead">The Burn List</h4>
+      <p class="field-subnote">Who the league has spent: the share of the field that has burned each golfer. Updates when results go final.</p>
+      {% if burn %}
+      <label class="visually-hidden" for="burn-search">Search burned golfers</label>
+      <input type="search" id="burn-search" class="form-control burn-search"
+             placeholder="Search a golfer…" autocomplete="off">
+      <p class="burn-count" data-burn-count aria-live="polite">{{ burn|length }} golfer{{ 's' if burn|length != 1 }} burned</p>
+      <div class="table-responsive">
+        <table class="table-greenside field-table burn-table" data-burn-table>
+          <thead>
+            <tr>
+              <th scope="col">Golfer</th>
+              <th scope="col" class="num">Used</th>
+              <th scope="col" class="num">% of Field</th>
+              <th scope="col" class="num">Return</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for b in burn %}
+            <tr>
+              <td>{{ b.golfer }}</td>
+              <td class="num">&times;{{ b.times_used }}</td>
+              <td class="num">
+                <span class="burn-bar" aria-hidden="true"><span style="width: {{ b.pct_burned }}%"></span></span>
+                <span class="burn-pct">{{ b.pct_burned }}%</span>
+              </td>
+              <td class="num">{{ b.total_return|money_compact }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <p class="burn-miss" data-burn-miss hidden>Not on the list: no one has burned them yet.</p>
+      {% else %}
+      <p class="burn-empty">No golfer has been burned yet. The ledger opens when the first tournament pays out.</p>
       {% endif %}
 
       {% if field.untouched_stars %}
@@ -335,4 +358,5 @@
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/season-replay.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/burn-list.js') }}" defer></script>
 {% endblock %}

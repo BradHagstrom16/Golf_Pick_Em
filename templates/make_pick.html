@@ -42,6 +42,11 @@
                     Backup activates only if your primary WDs before Round 2. Each golfer is usable once per season.
                 </div>
 
+                {% if remaining_pct %}
+                <p class="text-muted small mb-3 burn-legend">% = share of the field that still has this golfer.</p>
+                <script type="application/json" data-remaining-map>{{ remaining_pct | tojson }}</script>
+                {% endif %}
+
                 <form method="POST">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <!-- Primary Pick -->
@@ -153,18 +158,46 @@ function makeScoreFactory() {
     };
 }
 
+// Field-usage map: {player_id: % of field that still has this golfer}.
+// Absent until the season's first burn — indicators are suppressed then.
+var remainingEl = document.querySelector('[data-remaining-map]');
+var remainingMap = remainingEl ? JSON.parse(remainingEl.textContent) : null;
+
+function renderOptionWithRemaining(data, escape) {
+    var pct = remainingMap ? remainingMap[data.value] : undefined;
+    if (pct === undefined || pct === null) {
+        return '<div>' + escape(data.text) + '</div>';
+    }
+    return '<div class="ts-burn">' +
+        '<span class="ts-burn__name">' + escape(data.text) + '</span>' +
+        '<span class="ts-burn__bar" aria-hidden="true"><span style="width:' + pct + '%"></span></span>' +
+        '<span class="ts-burn__pct">' + pct + '%</span>' +
+        '</div>';
+}
+
+function renderItemWithRemaining(data, escape) {
+    var pct = remainingMap ? remainingMap[data.value] : undefined;
+    if (pct === undefined || pct === null) {
+        return '<div>' + escape(data.text) + '</div>';
+    }
+    return '<div>' + escape(data.text) +
+        '<span class="ts-burn__pill">' + pct + '%</span></div>';
+}
+
 // Initialize searchable dropdowns
 var primarySelect = new TomSelect('#primary_player_id', {
     placeholder: 'Search for a player...',
     sortField: { field: 'text', direction: 'asc' },
     maxOptions: null,
-    score: makeScoreFactory()
+    score: makeScoreFactory(),
+    render: { option: renderOptionWithRemaining, item: renderItemWithRemaining }
 });
 var backupSelect = new TomSelect('#backup_player_id', {
     placeholder: 'Search for a player...',
     sortField: { field: 'text', direction: 'asc' },
     maxOptions: null,
-    score: makeScoreFactory()
+    score: makeScoreFactory(),
+    render: { option: renderOptionWithRemaining, item: renderItemWithRemaining }
 });
 
 // Fix 1.5: Build the full player list from the initialized options so we can

@@ -20,6 +20,7 @@ from models import (
     db,
     User,
     Player,
+    SeasonPlayerUsage,
     Tournament,
     TournamentResult,
     Pick,
@@ -27,7 +28,6 @@ from models import (
 
 # Display limits for the golfer-focused tables.
 FORM_GUIDE_LIMIT = 10
-MOST_PICKED_LIMIT = 8
 UNTOUCHED_LIMIT = 5
 
 
@@ -366,7 +366,7 @@ def field_form(season_year):
                  .order_by(func.coalesce(func.sum(TournamentResult.earnings), 0).desc())
                  .all())
     if not earn_rows:
-        return {'form_guide': [], 'most_picked': [], 'untouched_stars': []}
+        return {'form_guide': [], 'untouched_stars': []}
 
     cut_counts = dict(db.session.query(
                         TournamentResult.player_id, func.count(TournamentResult.id))
@@ -389,25 +389,6 @@ def field_form(season_year):
         'best_finish': best_finish.get(pid),
     } for pid, total, events in earn_rows[:FORM_GUIDE_LIMIT]]
 
-    pick_rows = (db.session.query(
-                    Pick.active_player_id, func.count(Pick.id),
-                    func.coalesce(func.sum(Pick.points_earned), 0))
-                 .join(Tournament, Pick.tournament_id == Tournament.id)
-                 .filter(Tournament.status == 'complete',
-                         Tournament.season_year == season_year,
-                         Pick.active_player_id.isnot(None))
-                 .group_by(Pick.active_player_id)
-                 .order_by(func.count(Pick.id).desc(),
-                           func.coalesce(func.sum(Pick.points_earned), 0).desc())
-                 .limit(MOST_PICKED_LIMIT)
-                 .all())
-    mp_players = _player_map([pid for pid, _c, _r in pick_rows])
-    most_picked = [{
-        'golfer': _player_name(mp_players, pid),
-        'times_picked': int(count),
-        'total_return': int(total or 0),
-    } for pid, count, total in pick_rows]
-
     chosen = set()
     for primary, backup in (db.session.query(Pick.primary_player_id, Pick.backup_player_id)
                             .join(Tournament, Pick.tournament_id == Tournament.id)
@@ -421,8 +402,85 @@ def field_form(season_year):
         'prize': earn_map.get(pid, 0),
     } for pid in untouched_ids]
 
-    return {'form_guide': form_guide, 'most_picked': most_picked,
-            'untouched_stars': untouched_stars}
+    return {'form_guide': form_guide, 'untouched_stars': untouched_stars}
+
+
+# ---------------------------------------------------------------------------
+# The Burn List — field-usage percentages
+# ---------------------------------------------------------------------------
+def _usage_counts(season_year):
+    """(total registered users, {player_id: burn count}) for the season.
+
+    Sourced from SeasonPlayerUsage — the table that gates pick availability —
+    so counts move only at finalization, never on in-flight picks.
+    """
+    total_users = db.session.query(func.count(User.id)).scalar() or 0
+    counts = dict(db.session.query(
+                      SeasonPlayerUsage.player_id,
+                      func.count(SeasonPlayerUsage.id))
+                  .filter(SeasonPlayerUsage.season_year == season_year)
+                  .group_by(SeasonPlayerUsage.player_id)
+                  .all())
+    return total_users, counts
+
+
+def _pct(count, total):
+    """Whole-number share of the field, safe when the league is empty."""
+    return round(100 * count / total) if total else 0
+
+
+def burn_list(season_year):
+    """Every golfer the league has burned, most-burned first.
+
+    Each row: golfer, times_used, pct_burned (share of ALL registered users,
+    matching the standings denominator), and total_return (member points,
+    multipliers included; 0 when usage exists without a matching completed
+    pick, e.g. a manually inserted usage row). Order: pct desc, return desc,
+    last name, then full name so equal rows never depend on query order.
+    """
+    total_users, counts = _usage_counts(season_year)
+    if not counts:
+        return []
+    returns = dict(db.session.query(
+                       Pick.active_player_id,
+                       func.coalesce(func.sum(Pick.points_earned), 0))
+                   .join(Tournament, Pick.tournament_id == Tournament.id)
+                   .filter(Tournament.status == 'complete',
+                           Tournament.season_year == season_year,
+                           Pick.active_player_id.isnot(None))
+                   .group_by(Pick.active_player_id)
+                   .all())
+    players = _player_map(list(counts))
+    rows = []
+    for pid, count in counts.items():
+        player = players.get(pid)
+        rows.append({
+            'golfer': _player_name(players, pid),
+            'times_used': int(count),
+            'pct_burned': _pct(count, total_users),
+            'total_return': int(returns.get(pid, 0) or 0),
+            '_last': player.last_name if player else '',
+        })
+    rows.sort(key=lambda r: (-r['pct_burned'], -r['total_return'],
+                             r['_last'], r['golfer']))
+    for row in rows:
+        del row['_last']
+    return rows
+
+
+def remaining_pct_map(season_year, player_ids):
+    """{player_id: % of the field that still has them}; None before any burn.
+
+    The value is the complement of the rounded burn % (100 - pct_burned) so
+    the pick page and the Burn List always sum to exactly 100. Returns None
+    (rather than an all-100 map) while the season has no usage rows, so the
+    pick page can suppress the indicators entirely when there is no signal.
+    """
+    total_users, counts = _usage_counts(season_year)
+    if not counts:
+        return None
+    return {pid: 100 - _pct(counts.get(pid, 0), total_users)
+            for pid in player_ids}
 
 
 def _player_map(player_ids):
