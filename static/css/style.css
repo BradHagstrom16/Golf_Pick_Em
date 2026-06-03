@@ -871,9 +871,10 @@ footer.footer-greenside a {
   border: none;
   overflow: hidden;
 }
-.tournament-header h3 {
+.tournament-header :is(h2, h3) {
   color: var(--text-on-dark);
   font-family: var(--font-display);
+  text-wrap: balance;
 }
 .tournament-header .card-body {
   background-color: var(--white);
@@ -903,6 +904,73 @@ footer.footer-greenside a {
 .measure { max-width: 60ch; }
 /* Smaller stat value — the make-pick sidebar available-count */
 .stat-card-value-sm { font-size: 1.5rem; }
+
+/* ----------------------------------------------------------------------------
+   Make-Pick Masthead — the act of the week, in the tournament-header register
+   ---------------------------------------------------------------------------- */
+.pick-masthead .card-header {
+  padding: 1rem 1.25rem;
+}
+/* Ledger figures under meta-labels: serif gravity, money in green, rest in ink */
+.masthead-value {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+.masthead-value--money { color: var(--green-700); }
+.masthead-value__sub {
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* Major stakes band — the 1.5x / $15 decision inputs, visible at pick time */
+.major-stakes {
+  background-color: var(--gold-100);
+  color: var(--gold-600);
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 0.5rem 1.25rem;
+  border-bottom: 1px solid rgba(184, 153, 62, 0.2);
+}
+
+/* ----------------------------------------------------------------------------
+   Field Label Register — the site's uppercase label voice on form controls
+   ---------------------------------------------------------------------------- */
+.field-label {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin-bottom: 0.15rem;
+}
+.field-required { color: var(--danger); font-weight: 700; }
+.field-help {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin: 0 0 0.5rem;
+}
+/* Primary/Backup are a real ordered sequence; the numbers carry that order */
+.pick-step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background-color: var(--green-100);
+  color: var(--green-700);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  flex-shrink: 0;
+}
 
 /* ----------------------------------------------------------------------------
    Pick Submission Sidebar
