@@ -77,3 +77,18 @@ def test_logged_in_top_scorer_keeps_identity_gold_not_leader_mint(
     # self-identity wins: the leader's own row is gold, never double-classed mint
     assert 'row-leader' not in html
     assert 'Lead Dog' in _row_slice(html, 'row-current-user')
+
+
+def test_viewer_tied_at_max_goes_gold_while_co_leader_stays_mint(
+        db, client, make_user, make_player, make_tournament, make_pick, login):
+    """Every max_points row is a leader row; the elif only reroutes the viewer's own."""
+    t, leader, chaser = _seed_complete_tournament(
+        db, make_user, make_player, make_tournament, make_pick)
+    # lift the chaser into a tie at the top
+    chaser.picks[0].points_earned = 2_000_000
+    db.session.commit()
+    login(chaser)
+    html = client.get(f'/tournament/{t.id}').get_data(as_text=True)
+    assert html.count('row-leader') == 1  # pre-elif, the viewer's row double-classed
+    assert 'Lead Dog' in _row_slice(html, 'row-leader')
+    assert 'Chaser' in _row_slice(html, 'row-current-user')

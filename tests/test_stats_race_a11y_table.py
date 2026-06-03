@@ -4,9 +4,10 @@ Test: the Season Race's screen-reader mirror table must not stretch the page.
 Bootstrap's .visually-hidden clamps elements to 1x1px, but tables treat
 ``width`` as a *minimum* (CSS table layout), so a ``<table>`` carrying the
 class still lays out at min-content width — on /stats that stretched
-``document.scrollWidth`` to ~965px at a 375px viewport (a phantom horizontal
-page scroll on phones). The class belongs on a wrapper <div>, which clamps
-fine; the table inside it is hidden with the wrapper.
+``document.scrollWidth`` well past the viewport (~965px at 375px when first
+observed; the exact figure grows with the season), a phantom horizontal page
+scroll on phones. The class belongs on a wrapper <div>, which clamps fine;
+the table inside it is hidden with the wrapper.
 """
 
 

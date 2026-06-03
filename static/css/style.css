@@ -1864,7 +1864,8 @@ footer.footer-greenside a {
 }
 .burn-bar > span { display: block; height: 100%; background: var(--green-700); }
 .burn-pct { font-weight: 600; color: var(--green-700); font-variant-numeric: tabular-nums; }
-/* Return is settled money — same green register as .pool-list__val. */
+/* Return is settled money — same green register as .pool-list__val
+   (tabular-nums comes from the .num cell). */
 .burn-return { font-weight: 600; color: var(--green-700); }
 .burn-miss, .burn-empty { font-size: 0.85rem; color: var(--text-muted); }
 @media (max-width: 575.98px) {
