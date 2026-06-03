@@ -329,7 +329,7 @@
                 <span class="burn-bar" aria-hidden="true"><span style="width: {{ b.pct_burned }}%"></span></span>
                 <span class="burn-pct">{{ b.pct_burned }}%</span>
               </td>
-              <td class="num">{{ b.total_return|money_compact }}</td>
+              <td class="num burn-return">{{ b.total_return|money_compact }}</td>
             </tr>
             {% endfor %}
           </tbody>
