@@ -143,8 +143,12 @@
       {% endfor %}
     </ol>
 
-    {# accessible mirror of the full trajectory (screen readers / no-SVG) #}
-    <table class="visually-hidden">
+    {# accessible mirror of the full trajectory (screen readers / no-SVG).
+       The clamp lives on a wrapper div: tables treat width as a minimum, so
+       .visually-hidden on the <table> itself still lays out at min-content
+       width and stretches the page sideways on phones. #}
+    <div class="visually-hidden">
+    <table>
       <caption>Cumulative earnings by member after each completed event</caption>
       <thead>
         <tr><th scope="col">Member</th>{% for t in race.tournaments %}<th scope="col">{{ t.name }}</th>{% endfor %}</tr>
@@ -155,6 +159,7 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
 
     {% if chart.replay %}
     <script type="application/json" data-race-replay-data>{{ chart.replay | tojson }}</script>
