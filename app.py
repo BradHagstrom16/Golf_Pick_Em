@@ -581,6 +581,7 @@ def stats_hub():
         chart=stats.race_chart_geometry(race, current_user_id=current_user_id),
         superlatives=stats.superlatives(season_year),
         field=stats.field_form(season_year),
+        burn=stats.burn_list(season_year),
         scorecard=scorecard,
         current_user_id=current_user_id,
     )

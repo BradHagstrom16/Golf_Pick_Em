@@ -167,3 +167,33 @@ def test_remaining_always_sums_to_100_with_burned(league, make_user):
     pmap = stats.remaining_pct_map(SEASON, [scott.id])
     assert burned['pct_burned'] == 29
     assert burned['pct_burned'] + pmap[scott.id] == 100
+
+
+# --------------------------------------------------------------------------
+# /stats route — The Burn List panel
+# --------------------------------------------------------------------------
+def test_stats_route_renders_burn_list(league, client):
+    body = client.get('/stats').get_data(as_text=True)
+    assert 'The Burn List' in body
+    assert 'Most Picked' not in body
+    assert 'Scottie Scheffler' in body
+    assert '50%' in body
+    assert 'Updates when results go final' in body
+
+
+def test_stats_route_burn_empty_state(client, make_user, make_player,
+                                      make_tournament, make_result, make_pick):
+    """Results exist (Field section shows) but nothing is burned yet."""
+    user = make_user()
+    star = make_player(first_name='Solo', last_name='Star')
+    backup = make_player(first_name='Backup', last_name='Guy')
+    t = make_tournament(name='Opener')
+    make_result(t, star, earnings=1_000_000)
+    # A resolved pick so the Season Race renders (stats.html reads
+    # race.series[0] whenever completed tournaments exist). No usage row is
+    # written, so the Burn List still shows its empty state.
+    make_pick(user, t, star, backup, active_player_id=star.id,
+              points_earned=1_000_000)
+    body = client.get('/stats').get_data(as_text=True)
+    assert 'No golfer has been burned yet' in body
+    assert 'burn-search' not in body  # no search input in the empty state
