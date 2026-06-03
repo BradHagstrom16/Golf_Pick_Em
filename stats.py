@@ -436,7 +436,7 @@ def burn_list(season_year):
     matching the standings denominator), and total_return (member points,
     multipliers included; 0 when usage exists without a matching completed
     pick, e.g. a manually inserted usage row). Order: pct desc, return desc,
-    last name.
+    last name, then full name so equal rows never depend on query order.
     """
     total_users, counts = _usage_counts(season_year)
     if not counts:
@@ -461,7 +461,8 @@ def burn_list(season_year):
             'total_return': int(returns.get(pid, 0) or 0),
             '_last': player.last_name if player else '',
         })
-    rows.sort(key=lambda r: (-r['pct_burned'], -r['total_return'], r['_last']))
+    rows.sort(key=lambda r: (-r['pct_burned'], -r['total_return'],
+                             r['_last'], r['golfer']))
     for row in rows:
         del row['_last']
     return rows

@@ -122,6 +122,30 @@ def test_burn_list_tertiary_tie_breaks_by_last_name(league, make_pick,
         'Scottie Scheffler', 'Aaron Alpha', 'Zed Zeta', 'Rory McIlroy']
 
 
+def test_burn_list_full_tie_breaks_by_full_name(league, make_pick,
+                                                make_player):
+    """Same last name, equal pct AND return: full display name settles it.
+
+    Same reverse-alphabetical creation trick as the tertiary test, so query
+    order alone cannot pass.
+    """
+    zed = make_player(first_name='Zed', last_name='Smith')
+    aaron = make_player(first_name='Aaron', last_name='Smith')
+    t1, t2 = league['tournaments']
+    backup = league['players']['backup']
+    make_pick(league['users']['dave'], t1, zed, backup,
+              active_player_id=zed.id, points_earned=500_000)
+    make_pick(league['users']['alice'], t2, aaron, backup,
+              active_player_id=aaron.id, points_earned=500_000)
+    for user, player in (('dave', zed), ('alice', aaron)):
+        db.session.add(SeasonPlayerUsage(user_id=league['users'][user].id,
+                                         player_id=player.id,
+                                         season_year=SEASON))
+    db.session.flush()
+    assert [r['golfer'] for r in stats.burn_list(SEASON)] == [
+        'Scottie Scheffler', 'Aaron Smith', 'Zed Smith', 'Rory McIlroy']
+
+
 def test_burn_list_denominator_is_all_registered_users(league, make_user):
     """A pick-less account still dilutes the field: 2/4 = 50% -> 2/5 = 40%."""
     make_user(username='lurker')
