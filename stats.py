@@ -179,9 +179,10 @@ def race_chart_geometry(race, current_user_id=None, width=720, height=320,
     count = race['count']
     axis_max, tick_step = _nice_axis(race['max_value'])
 
-    # Size the right gutter to the names it must label (you + leader) so a long
-    # display name never hangs off the card; capped so one extreme name can't
-    # crush the plot. Pack lines carry no labels and reserve nothing.
+    # Size the right gutter to the names it must label (you + leader; just the
+    # leader for a signed-out viewer) so a long display name never hangs off the
+    # card; capped so one extreme name can't crush the plot. Pack lines carry no
+    # labels and reserve nothing.
     labeled_names = [s['name'] for s in race['series']
                      if s['user_id'] == current_user_id or s['is_leader']]
     if labeled_names:
@@ -241,13 +242,13 @@ def race_chart_geometry(race, current_user_id=None, width=720, height=320,
             'cumulative': s['cumulative'],
             'end_x': x_at(count - 1) if count else pad_left,
             'end_y': end_y,
-            'label_y': end_y + 3,   # +3: optical centering on the line end
+            'label_y': end_y + 3,   # +3: nudge the CSS-centered label down off the line tip
             'final': s['final'],
             'final_label': format_money_compact(s['final']),
         })
 
     # Neck-and-neck guard: when the member's and the leader's lines finish within
-    # a label's height of each other, spread the two name labels around their
+    # LABEL_MIN_SEP of each other, spread the two name labels around their
     # midpoint, then shift the pair (never each alone) back inside the plot.
     labeled = [line for line in lines if line['role'] in ('leader', 'you')]
     if len(labeled) == 2:

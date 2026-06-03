@@ -79,8 +79,9 @@
                         <label for="primary_player_id" class="form-label field-label">
                             <span class="pick-step-num" aria-hidden="true">1</span>Primary Pick<span class="field-required" aria-hidden="true">*</span>
                         </label>
-                        <p class="field-help measure">Scores points for you unless they withdraw before completing Round 2.</p>
-                        <select class="form-select form-select-lg" id="primary_player_id" name="primary_player_id" required>
+                        <p class="field-help measure" id="primary-pick-help">Scores points for you unless they withdraw before completing Round 2.</p>
+                        <select class="form-select form-select-lg" id="primary_player_id" name="primary_player_id"
+                                aria-describedby="primary-pick-help" required>
                             <option value="">-- Select Primary Golfer --</option>
                             {% for player in available_players %}
                                 <option value="{{ player.id }}"
@@ -96,8 +97,9 @@
                         <label for="backup_player_id" class="form-label field-label">
                             <span class="pick-step-num" aria-hidden="true">2</span>Backup Pick<span class="field-required" aria-hidden="true">*</span>
                         </label>
-                        <p class="field-help measure">Only activates if your primary withdraws before completing Round 2.</p>
-                        <select class="form-select form-select-lg" id="backup_player_id" name="backup_player_id" required>
+                        <p class="field-help measure" id="backup-pick-help">Only activates if your primary withdraws before completing Round 2.</p>
+                        <select class="form-select form-select-lg" id="backup_player_id" name="backup_player_id"
+                                aria-describedby="backup-pick-help" required>
                             <option value="">-- Select Backup Golfer --</option>
                             {% for player in available_players %}
                                 <option value="{{ player.id }}"

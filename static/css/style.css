@@ -1327,6 +1327,7 @@ footer.footer-greenside a {
    ---------------------------------------------------------------------------- */
 .text-green { color: var(--green-700) !important; }
 .text-gold { color: var(--gold-600) !important; }  /* gold-600 (AA); gold-500 is a fill, not text */
+.text-azalea { color: var(--azalea-600) !important; }  /* azalea-600 (AA+); major references, never gold */
 .bg-cream { background-color: var(--cream) !important; }
 .font-display { font-family: var(--font-display) !important; }
 

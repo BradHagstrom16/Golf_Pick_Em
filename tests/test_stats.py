@@ -405,11 +405,63 @@ def test_race_pad_right_grows_for_long_names():
 
 
 def test_race_pad_right_ignores_pack_names():
-    # Only labeled lines (you/leader) reserve gutter space; pack lines have no labels.
-    geo = stats.race_chart_geometry(
+    # Only labeled lines (you/leader) reserve gutter space; pack lines have no
+    # labels, so a long pack name must not widen the gutter vs short names.
+    short = stats.race_chart_geometry(
+        _fake_race([5, 3, 1], ['Jan', 'Feb'], names=['Bo', 'Al', 'Cy']),
+        current_user_id=2)
+    long_pack = stats.race_chart_geometry(
         _fake_race([5, 3, 1], ['Jan', 'Feb'], names=['Bo', 'Al', 'A Very Long Pack Name']),
         current_user_id=2)
-    assert geo['pad_right'] == 78
+    assert long_pack['pad_right'] == short['pad_right']
+
+
+def test_race_pad_right_caps_for_extreme_names():
+    # The gutter grows for long names but stops at 150 so one extreme display
+    # name can't crush the plot to a sliver.
+    geo = stats.race_chart_geometry(
+        _fake_race([5, 3], ['Jan', 'Feb'], names=['A' * 30, 'Bo']),
+        current_user_id=2)
+    assert geo['pad_right'] == 150
+
+
+def test_race_endlabel_no_nudge_for_single_labeled_line_logged_out():
+    # Anonymous viewer: only the leader carries a label — the collision guard
+    # has no pair to separate and must leave label_y at the plain offset.
+    geo = stats.race_chart_geometry(_fake_race([10_000_000, 9_950_000], ['Jan', 'Feb']))
+    roles = [line['role'] for line in geo['lines']]
+    assert roles.count('leader') == 1 and 'you' not in roles
+    for line in geo['lines']:
+        assert line['label_y'] == pytest.approx(line['end_y'] + 3)
+
+
+def test_race_endlabel_no_nudge_when_you_are_the_leader():
+    # The leader's own view: their line is 'you' and no separate 'leader' line
+    # exists, so there is exactly one labeled line and no nudge fires.
+    geo = stats.race_chart_geometry(
+        _fake_race([10_000_000, 9_950_000], ['Jan', 'Feb']), current_user_id=1)
+    roles = [line['role'] for line in geo['lines']]
+    assert roles.count('you') == 1 and 'leader' not in roles
+    for line in geo['lines']:
+        assert line['label_y'] == pytest.approx(line['end_y'] + 3)
+
+
+def test_race_endlabels_shift_up_when_tied_at_the_baseline():
+    # Dead heat at $0: spreading pushes the lower label below the plot floor,
+    # so the pair shifts up together (the symmetric branch to the axis-top clamp).
+    geo = stats.race_chart_geometry(_fake_race([0, 0], ['Jan', 'Feb']), current_user_id=2)
+    ys = sorted(line['label_y'] for line in geo['lines']
+                if line['role'] in ('leader', 'you'))
+    assert ys[1] - ys[0] >= stats.LABEL_MIN_SEP - 0.01
+    assert ys[1] <= geo['baseline_y'] - 4 + 0.01
+
+
+def test_race_single_event_x_geometry():
+    # Week 1 of the season: a single completed event collapses all x-coords to
+    # the left edge of the plot.
+    geo = stats.race_chart_geometry(_fake_race([500_000], ['Jan']))
+    assert geo['lines'][0]['end_x'] == geo['pad_left']
+    assert geo['x_ticks'][0]['x'] == geo['pad_left']
 
 
 def test_race_chart_geometry_basic(seed):
