@@ -62,12 +62,14 @@
           </defs>
           {% endif %}
 
-          {# horizontal gridlines + y-axis money ticks (always visible: the ledger grid) #}
+          {# horizontal gridlines + money figures printed just above each rule, inside the plot #}
           {% for tick in chart.y_ticks %}
             <line class="race-grid" x1="{{ chart.pad_left }}" x2="{{ chart.width - chart.pad_right }}"
                   y1="{{ '%.1f'|format(tick.y) }}" y2="{{ '%.1f'|format(tick.y) }}"/>
-            <text class="race-axis-label race-axis-label--y" text-anchor="end"
-                  x="{{ chart.pad_left - 6 }}" y="{{ '%.1f'|format(tick.y + 3) }}">{{ tick.label }}</text>
+            {% if tick.label %}
+            <text class="race-axis-label race-axis-label--y" text-anchor="start"
+                  x="{{ chart.pad_left + 2 }}" y="{{ '%.1f'|format(tick.y - 5) }}">{{ tick.label }}</text>
+            {% endif %}
           {% endfor %}
 
           {# x-axis event labels (months) #}
@@ -96,7 +98,7 @@
           <g class="race-endlabels" data-race-endlabels>
             {% for line in chart.lines if line.role in ('leader', 'you') %}
               <text class="race-endlabel race-endlabel--{{ line.role }}"
-                    x="{{ '%.1f'|format(line.end_x + 7) }}" y="{{ '%.1f'|format(line.end_y + 3) }}">{{ line.name }}</text>
+                    x="{{ '%.1f'|format(line.end_x + 7) }}" y="{{ '%.1f'|format(line.label_y) }}">{{ line.name }}</text>
             {% endfor %}
           </g>
 

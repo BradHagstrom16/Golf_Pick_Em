@@ -1382,6 +1382,14 @@ footer.footer-greenside a {
   font-size: 11px;
   fill: var(--text-muted);
 }
+/* Money figures sit inside the plot, above their gridline; a white halo keeps
+   them legible where a rising line passes underneath. */
+.race-axis-label--y {
+  paint-order: stroke;
+  stroke: var(--white);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
 .race-line {
   fill: none;
   stroke-linejoin: round;
@@ -1399,6 +1407,11 @@ footer.footer-greenside a {
   font-size: 12px;
   font-weight: 700;
   dominant-baseline: middle;
+  /* halo: a collision-nudged label may sit across the other line's stroke */
+  paint-order: stroke;
+  stroke: var(--white);
+  stroke-width: 3px;
+  stroke-linejoin: round;
 }
 .race-endlabel--leader { fill: var(--gold-600); }
 .race-endlabel--you    { fill: var(--green-700); }

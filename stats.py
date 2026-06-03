@@ -30,6 +30,13 @@ from models import (
 FORM_GUIDE_LIMIT = 10
 UNTOUCHED_LIMIT = 5
 
+# Race-chart end labels are 12px text in SVG user units; keep at least this much
+# vertical separation so neck-and-neck names never print on top of each other.
+LABEL_MIN_SEP = 15
+# Estimated width of one end-label character (12px bold Plus Jakarta Sans), used
+# to size the right gutter to the names it must hold.
+LABEL_CHAR_W = 7
+
 
 # ---------------------------------------------------------------------------
 # Small shared helpers
@@ -171,6 +178,16 @@ def race_chart_geometry(race, current_user_id=None, width=720, height=320,
     """
     count = race['count']
     axis_max, tick_step = _nice_axis(race['max_value'])
+
+    # Size the right gutter to the names it must label (you + leader) so a long
+    # display name never hangs off the card; capped so one extreme name can't
+    # crush the plot. Pack lines carry no labels and reserve nothing.
+    labeled_names = [s['name'] for s in race['series']
+                     if s['user_id'] == current_user_id or s['is_leader']]
+    if labeled_names:
+        longest = max(len(name) for name in labeled_names)
+        pad_right = max(pad_right, min(150, 11 + LABEL_CHAR_W * longest))
+
     plot_w = width - pad_left - pad_right
     plot_h = height - pad_top - pad_bottom
     baseline_y = height - pad_bottom
@@ -183,10 +200,13 @@ def race_chart_geometry(race, current_user_id=None, width=720, height=320,
     def y_at(v):
         return baseline_y - plot_h * (v / axis_max)
 
+    # Tick labels print inside the plot, just above each gridline (ledger style).
+    # $0 keeps its gridline but loses its text: the baseline + month row already
+    # read as the floor, and an inside label would collide with the line starts.
     n_ticks = axis_max // tick_step
     y_ticks = [{
         'value': value,
-        'label': format_money_compact(value),
+        'label': format_money_compact(value) if value else '',
         'y': y_at(value),
     } for value in (i * tick_step for i in range(n_ticks + 1))]
 
@@ -211,6 +231,7 @@ def race_chart_geometry(race, current_user_id=None, width=720, height=320,
             role = 'leader'
         else:
             role = 'pack'
+        end_y = y_at(s['cumulative'][-1]) if s['cumulative'] else baseline_y
         lines.append({
             'user_id': s['user_id'],
             'name': s['name'],
@@ -219,10 +240,31 @@ def race_chart_geometry(race, current_user_id=None, width=720, height=320,
             'coords': coords,
             'cumulative': s['cumulative'],
             'end_x': x_at(count - 1) if count else pad_left,
-            'end_y': y_at(s['cumulative'][-1]) if s['cumulative'] else baseline_y,
+            'end_y': end_y,
+            'label_y': end_y + 3,   # +3: optical centering on the line end
             'final': s['final'],
             'final_label': format_money_compact(s['final']),
         })
+
+    # Neck-and-neck guard: when the member's and the leader's lines finish within
+    # a label's height of each other, spread the two name labels around their
+    # midpoint, then shift the pair (never each alone) back inside the plot.
+    labeled = [line for line in lines if line['role'] in ('leader', 'you')]
+    if len(labeled) == 2:
+        upper, lower = sorted(labeled, key=lambda line: line['label_y'])
+        if lower['label_y'] - upper['label_y'] < LABEL_MIN_SEP:
+            mid = (upper['label_y'] + lower['label_y']) / 2
+            upper['label_y'] = mid - LABEL_MIN_SEP / 2
+            lower['label_y'] = mid + LABEL_MIN_SEP / 2
+            lo, hi = pad_top + 6, baseline_y - 4
+            if upper['label_y'] < lo:
+                shift = lo - upper['label_y']
+            elif lower['label_y'] > hi:
+                shift = hi - lower['label_y']
+            else:
+                shift = 0
+            upper['label_y'] += shift
+            lower['label_y'] += shift
 
     # One stop per event for the client-side "Play the season" scrubber. Unlike
     # x_ticks, every event keeps its own stop (no month dedupe). None when there's

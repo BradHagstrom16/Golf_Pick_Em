@@ -324,11 +324,11 @@ def test_nice_axis_step_divides_axis_evenly():
     assert axis_max % step == 0
 
 
-def _fake_race(finals, shorts):
+def _fake_race(finals, shorts, names=None):
     """Minimal race payload for pure-geometry tests (no DB)."""
     count = len(shorts)
     series = [{
-        'user_id': i + 1, 'name': f'U{i}',
+        'user_id': i + 1, 'name': names[i] if names else f'U{i}',
         'cumulative': [finals[i]] * count, 'final': finals[i],
         'is_leader': i == 0, 'rank': i + 1,
     } for i in range(len(finals))]
@@ -353,6 +353,63 @@ def test_race_chart_xticks_dedupe_consecutive_months():
     geo = stats.race_chart_geometry(_fake_race([3, 2], ['Mar', 'Mar', 'Apr']))
     labels = [t['label'] for t in geo['x_ticks']]
     assert labels == ['Mar', 'Apr']             # the second 'Mar' is collapsed
+
+
+def test_race_endlabels_separate_when_neck_and_neck():
+    # You trail the leader by a sliver: the two name labels must not overlap.
+    geo = stats.race_chart_geometry(
+        _fake_race([10_000_000, 9_950_000], ['Jan', 'Feb']), current_user_id=2)
+    leader = next(line for line in geo['lines'] if line['role'] == 'leader')
+    you = next(line for line in geo['lines'] if line['role'] == 'you')
+    assert you['label_y'] - leader['label_y'] >= stats.LABEL_MIN_SEP - 0.01
+    for line in (leader, you):
+        assert geo['pad_top'] <= line['label_y'] <= geo['baseline_y']
+
+
+def test_race_endlabels_untouched_when_far_apart():
+    # No collision, no nudge: labels keep the plain end-of-line offset.
+    geo = stats.race_chart_geometry(
+        _fake_race([10_000_000, 2_000_000], ['Jan', 'Feb']), current_user_id=2)
+    for line in geo['lines']:
+        assert line['label_y'] == pytest.approx(line['end_y'] + 3)
+
+
+def test_race_endlabels_separated_even_when_tied_at_axis_top():
+    # Dead heat at the axis ceiling: spreading would push the upper label above
+    # the plot, so the pair shifts down together instead of re-overlapping.
+    geo = stats.race_chart_geometry(
+        _fake_race([10_000_000, 10_000_000], ['Jan', 'Feb']), current_user_id=2)
+    ys = sorted(line['label_y'] for line in geo['lines']
+                if line['role'] in ('leader', 'you'))
+    assert ys[1] - ys[0] >= stats.LABEL_MIN_SEP - 0.01
+    assert ys[0] >= geo['pad_top']
+
+
+def test_race_yticks_zero_has_no_label():
+    # $0 stays as a gridline but loses its text: the baseline + month row
+    # already read as the floor, and an inside label would collide with lines.
+    geo = stats.race_chart_geometry(_fake_race([2_195_000], ['Jan']))
+    assert geo['y_ticks'][0]['value'] == 0
+    assert geo['y_ticks'][0]['label'] == ''
+    assert all(t['label'] for t in geo['y_ticks'][1:])
+
+
+def test_race_pad_right_grows_for_long_names():
+    # A long labeled name widens the right gutter so it can't hang off the card.
+    geo = stats.race_chart_geometry(
+        _fake_race([5, 3], ['Jan', 'Feb'], names=['Sux Day Regrets', 'Bo']),
+        current_user_id=2)
+    assert geo['pad_right'] > 78
+    # the last event stop still lands exactly at the plot's right edge
+    assert geo['replay']['events'][-1]['x'] == geo['width'] - geo['pad_right']
+
+
+def test_race_pad_right_ignores_pack_names():
+    # Only labeled lines (you/leader) reserve gutter space; pack lines have no labels.
+    geo = stats.race_chart_geometry(
+        _fake_race([5, 3, 1], ['Jan', 'Feb'], names=['Bo', 'Al', 'A Very Long Pack Name']),
+        current_user_id=2)
+    assert geo['pad_right'] == 78
 
 
 def test_race_chart_geometry_basic(seed):
