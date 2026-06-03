@@ -1749,6 +1749,7 @@ footer.footer-greenside a {
   font-variant-numeric: tabular-nums;
 }
 .burn-table td { vertical-align: middle; }
+.burn-table td.num { white-space: nowrap; }  /* keep bar + numeral on one line */
 .burn-bar {
   display: inline-block;
   width: 64px;
