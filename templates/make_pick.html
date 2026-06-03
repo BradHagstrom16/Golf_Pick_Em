@@ -15,30 +15,55 @@
     </ol>
 </nav>
 
+<!-- Masthead — the act of the week gets the tournament-header treatment -->
+<div class="card tournament-header pick-masthead mb-4">
+    <div class="card-header card-header-green">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <h2 class="mb-0 pick-masthead__title">{{ tournament.name }}</h2>
+            <div class="text-end">
+                {% if tournament.is_major %}<span class="badge-major">1.5x Major</span>{% endif %}
+                {% if tournament.is_team_event %}<span class="badge-team{% if tournament.is_major %} ms-2{% endif %}">Team Event</span>{% endif %}
+            </div>
+        </div>
+    </div>
+    {% if tournament.is_major %}
+    <div class="major-stakes">Majors pay 1.5&times;. A missed cut owes $15 to the pot.</div>
+    {% endif %}
+    <div class="card-body">
+        <div class="row gy-3">
+            <div class="col-6 col-md-3">
+                <p class="meta-label">Picks Lock</p>
+                <p class="masthead-value tnum mb-0">{{ tournament.get_deadline_display() }}</p>
+            </div>
+            <div class="col-6 col-md-3">
+                <p class="meta-label">Dates</p>
+                <p class="masthead-value mb-0">{{ tournament.start_date.strftime('%b %d') }} &ndash; {{ tournament.end_date.strftime('%b %d, %Y') }}</p>
+            </div>
+            <div class="col-6 col-md-3">
+                <p class="meta-label">Purse</p>
+                <p class="masthead-value masthead-value--money tnum mb-0">{% if tournament.effective_purse %}${{ "{:,}".format(tournament.effective_purse) }}{% if tournament.purse_is_estimate %} <span class="badge-est" title="Estimate — official purse announced week-of">est.</span>{% endif %}{% else %}TBD{% endif %}</p>
+            </div>
+            <div class="col-6 col-md-3">
+                <p class="meta-label">The Field</p>
+                <p class="masthead-value mb-0">
+                    {%- if available_players -%}
+                        {{ available_players|length }} available
+                        {%- set used_count = current_user.get_used_player_ids()|length -%}
+                        {%- if used_count %} <span class="masthead-value__sub">&middot; {{ used_count }} used</span>{% endif -%}
+                    {%- else -%}Publishing soon{%- endif -%}
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="row">
     <div class="col-lg-8">
         <div class="card">
-            <div class="card-header card-header-green">
-                <h4 class="mb-0">{{ tournament.name }}</h4>
-            </div>
             <div class="card-body">
-                <div class="row mb-4">
-                    <div class="col-sm-6">
-                        <p class="mb-1"><strong>Dates:</strong> {{ tournament.start_date.strftime('%b %d') }} - {{ tournament.end_date.strftime('%b %d, %Y') }}</p>
-                        <p class="mb-1"><strong>Purse:</strong> {% if tournament.effective_purse %}${{ "{:,}".format(tournament.effective_purse) }}{% if tournament.purse_is_estimate %} <span class="badge-est" title="Estimate — official purse announced week-of">est.</span>{% endif %}{% else %}TBD{% endif %}</p>
-                    </div>
-                    <div class="col-sm-6">
-                        <p class="mb-1"><strong>Deadline:</strong> {{ tournament.get_deadline_display() }}</p>
-                        {% if tournament.is_team_event %}
-                            <p class="mb-1"><span class="badge-team">Team Event</span></p>
-                        {% endif %}
-                    </div>
-                </div>
-
                 {% if available_players %}
-                <!-- Condensed rules + count (mobile only; full rules card is in the sidebar below) -->
+                <!-- Condensed rules (mobile only; the count lives in the masthead, full rules card in the sidebar below) -->
                 <div class="d-lg-none alert alert-info-greenside py-2 small mb-3 measure">
-                    <strong>{{ available_players|length }} available.</strong>
                     Backup activates only if your primary WDs before Round 2. Each golfer is usable once per season.
                 </div>
 
@@ -51,11 +76,12 @@
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <!-- Primary Pick -->
                     <div class="mb-4">
-                        <label for="primary_player_id" class="form-label">
-                            <strong>Primary Pick *</strong>
-                            <br><small class="text-muted d-inline-block measure">Scores points for you unless they withdraw before completing Round 2</small>
+                        <label for="primary_player_id" class="form-label field-label">
+                            <span class="pick-step-num" aria-hidden="true">1</span>Primary Pick<span class="field-required" aria-hidden="true">*</span>
                         </label>
-                        <select class="form-select form-select-lg" id="primary_player_id" name="primary_player_id" required>
+                        <p class="field-help measure" id="primary-pick-help">Scores points for you unless they withdraw before completing Round 2.</p>
+                        <select class="form-select form-select-lg" id="primary_player_id" name="primary_player_id"
+                                aria-describedby="primary-pick-help" required>
                             <option value="">-- Select Primary Golfer --</option>
                             {% for player in available_players %}
                                 <option value="{{ player.id }}"
@@ -68,11 +94,12 @@
 
                     <!-- Backup Pick -->
                     <div class="mb-4">
-                        <label for="backup_player_id" class="form-label">
-                            <strong>Backup Pick *</strong>
-                            <br><small class="text-muted d-inline-block measure">Only activates if your primary withdraws before completing Round 2</small>
+                        <label for="backup_player_id" class="form-label field-label">
+                            <span class="pick-step-num" aria-hidden="true">2</span>Backup Pick<span class="field-required" aria-hidden="true">*</span>
                         </label>
-                        <select class="form-select form-select-lg" id="backup_player_id" name="backup_player_id" required>
+                        <p class="field-help measure" id="backup-pick-help">Only activates if your primary withdraws before completing Round 2.</p>
+                        <select class="form-select form-select-lg" id="backup_player_id" name="backup_player_id"
+                                aria-describedby="backup-pick-help" required>
                             <option value="">-- Select Backup Golfer --</option>
                             {% for player in available_players %}
                                 <option value="{{ player.id }}"
@@ -84,7 +111,7 @@
                     </div>
 
                     <p class="text-muted small mb-2 measure">
-                        Locks at the deadline: <strong>{{ tournament.get_deadline_display() }}</strong>. You can edit your pick any time until then.
+                        You can edit your pick any time before it locks (see Picks Lock above).
                     </p>
                     <div class="d-grid gap-2 d-md-flex">
                         <button type="submit" class="btn btn-greenside btn-lg">
@@ -121,17 +148,6 @@
             </div>
         </div>
 
-        <!-- Available Players Count -->
-        <div class="card sidebar-card mt-3">
-            <div class="card-body text-center">
-                <div class="stat-card-value stat-card-value-sm">{{ available_players|length }}</div>
-                <p class="text-muted mb-0 small">Available Golfers</p>
-                {% set used_count = current_user.get_used_player_ids()|length %}
-                {% if used_count %}
-                <p class="text-muted mb-0 small mt-1">{{ used_count }} already used this season</p>
-                {% endif %}
-            </div>
-        </div>
     </div>
 </div>
 

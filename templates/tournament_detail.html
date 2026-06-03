@@ -34,6 +34,9 @@
             </div>
         </div>
     </div>
+    {% if tournament.is_major %}
+    <div class="major-stakes">Majors pay 1.5&times;. A missed cut owes $15 to the pot.</div>
+    {% endif %}
     <div class="card-body">
         <div class="row">
             <div class="col-md-4">
@@ -50,11 +53,7 @@
             </div>
         </div>
 
-        {% if tournament.is_major %}
-        <div class="alert alert-tournament-warning mb-0 mt-2">
-            <small><strong>Major Championship:</strong> All points earned in this tournament are multiplied by 1.5x!</small>
-        </div>
-        {% endif %}
+        {# major 1.5x + penalty live in the azalea stakes band above the body #}
         {% if tournament.is_team_event %}
         <div class="alert alert-info-greenside mb-0 mt-2">
             <small><strong>Team Event:</strong> Both partners earn the full team payout.</small>
