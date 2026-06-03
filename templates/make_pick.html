@@ -48,7 +48,6 @@
                 <p class="masthead-value mb-0">
                     {%- if available_players -%}
                         {{ available_players|length }} available
-                        {%- set used_count = current_user.get_used_player_ids()|length -%}
                         {%- if used_count %} <span class="masthead-value__sub">&middot; {{ used_count }} used</span>{% endif -%}
                     {%- else -%}Publishing soon{%- endif -%}
                 </p>
