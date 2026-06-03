@@ -269,7 +269,7 @@
             </thead>
             <tbody>
                 {% for user in users %}
-                <tr class="{% if current_user.is_authenticated and user.id == current_user.id %}row-current-user{% endif %}">
+                <tr class="{% if current_user.is_authenticated and user.id == current_user.id %}row-current-user{% elif loop.first %}row-leader{% endif %}">
                     {# --- Season cells --- #}
                     <td>
                         <strong>{{ loop.index }}</strong>

@@ -16,12 +16,19 @@
   --green-100: #e8f5ef;
   --green-50:  #f0faf5;
 
-  /* Gold — warm accents */
+  /* Gold — warm accents. Role-locked: money & rank only (see Azalea below). */
   --gold-600: #826419;  /* gold-deep text: ~5:1 on gold-wash / ~5.5:1 on white (AA; was #92722a @ 4.0:1) */
   --gold-500: #b8993e;  /* gold fills only — fails AA as text (2.7:1); .text-gold uses --gold-600 */
   --gold-400: #c4a747;
   --gold-300: #d4be6a;
   --gold-100: #faf3e0;
+
+  /* Azalea — the majors' color (Augusta rose). Role-locked: major championships
+     only. Splits "major" out of gold so gold reads as money/rank exclusively. */
+  --azalea-600: #9d3558;  /* text: 6.8:1 on white, 6.0:1 on azalea-100 (AA+) */
+  --azalea-500: #b34a6b;  /* fills; white text on it = 5.1:1 */
+  --azalea-100: #fbeef2;  /* badge wash */
+  --azalea-50:  #fdf5f8;  /* band tint */
 
   /* Surfaces */
   --cream:    #faf8f4;
@@ -257,10 +264,11 @@ a:hover { color: var(--green-500); }
 /* ----------------------------------------------------------------------------
    Tables — Leaderboard Styling
    ---------------------------------------------------------------------------- */
+/* Zebra rides the mint tint (cream-on-white was invisible); hover steps up one. */
 .table-greenside {
   --bs-table-bg: var(--white);
-  --bs-table-striped-bg: var(--cream);
-  --bs-table-hover-bg: var(--green-50);
+  --bs-table-striped-bg: var(--green-50);
+  --bs-table-hover-bg: var(--green-100);
   border-collapse: separate;
   border-spacing: 0;
 }
@@ -285,11 +293,11 @@ a:hover { color: var(--green-500); }
 }
 
 .table-greenside > tbody > tr:nth-child(even) > td {
-  background-color: var(--cream);
+  background-color: var(--green-50);
 }
 
 .table-greenside > tbody > tr:hover > td {
-  background-color: var(--green-50);
+  background-color: var(--green-100);
 }
 
 /* Current user row highlighting — warm gold fill + heavier text, no side stripe */
@@ -298,9 +306,9 @@ a:hover { color: var(--green-500); }
   font-weight: 600;
 }
 
-/* Leader row */
+/* Leader row — a deeper mint than zebra/hover so the front-runner reads at a glance */
 .table-greenside .row-leader > td {
-  background-color: var(--green-50) !important;
+  background-color: rgba(26, 138, 106, 0.14) !important;
 }
 
 /* Column divider — 1px hairline per DESIGN.md (no colored side-stripe >1px). */
@@ -314,9 +322,9 @@ a:hover { color: var(--green-500); }
   border-left: 1px solid rgba(0, 103, 71, 0.4) !important;
 }
 
-/* Active tournament row highlight */
+/* Active tournament row highlight — live blue allowed to breathe on live weeks */
 .table-greenside tr.row-active-tournament > td {
-  background-color: rgba(37, 99, 235, 0.04) !important;
+  background-color: rgba(37, 99, 235, 0.09) !important;
 }
 
 /* Complete tournament row */
@@ -325,9 +333,9 @@ a:hover { color: var(--green-500); }
 }
 
 /* Next-pick row (the schedule's "current week" anchor when nothing is live) —
-   a mint-tint lift so the live edge reads first across 32 settled rows. */
+   the same deep mint as the leader row: "the row that matters" register. */
 .table-greenside tr.row-next-pick > td {
-  background-color: var(--green-100) !important;
+  background-color: rgba(26, 138, 106, 0.14) !important;
 }
 
 /* ----------------------------------------------------------------------------
@@ -393,18 +401,20 @@ a:hover { color: var(--green-500); }
   border: 1px solid rgba(0, 103, 71, 0.2);
 }
 
+/* Majors live in the azalea register (Azalea-Is-Majors), not gold — gold is
+   reserved for money & rank so the two stakes never blur together. */
 .badge-major {
-  background-color: var(--gold-100);
-  color: var(--gold-600);
+  background-color: var(--azalea-100);
+  color: var(--azalea-600);
   font-weight: 700;
   font-size: 0.7rem;
   padding: 0.3em 0.6em;
   border-radius: var(--radius-sm);
-  border: 1px solid rgba(184, 153, 62, 0.3);
+  border: 1px solid rgba(179, 74, 107, 0.3);
 }
 
 /* "You" self-marker — identity, not value. Sits in the pine register so it never
-   collides with the gold money/major register (Money-Is-Gold reserves gold). */
+   collides with the gold money register (Money-Is-Gold reserves gold). */
 .badge-you {
   background-color: var(--green-100);
   color: var(--green-800);
@@ -926,14 +936,15 @@ footer.footer-greenside a {
 }
 .tnum { font-variant-numeric: tabular-nums; }
 
-/* Major stakes band — the 1.5x / $15 decision inputs, visible at pick time */
+/* Major stakes band — the 1.5x / $15 decision inputs, visible at pick time.
+   Azalea register: majors' color, never gold (Azalea-Is-Majors). */
 .major-stakes {
-  background-color: var(--gold-100);
-  color: var(--gold-600);
+  background-color: var(--azalea-50);
+  color: var(--azalea-600);
   font-weight: 600;
   font-size: 0.9rem;
   padding: 0.5rem 1.25rem;
-  border-bottom: 1px solid rgba(184, 153, 62, 0.2);
+  border-bottom: 1px solid rgba(179, 74, 107, 0.2);
 }
 
 /* ----------------------------------------------------------------------------
@@ -1043,8 +1054,13 @@ footer.footer-greenside a {
 /* ----------------------------------------------------------------------------
    Sidebar Cards
    ---------------------------------------------------------------------------- */
+/* Sidebars sit on the second neutral layer (mint tint), one step off the white
+   content surface, so reference panels read as supporting rather than primary. */
 .sidebar-card {
   border: 1px solid rgba(0, 67, 46, 0.08);
+}
+.sidebar-card .card-body {
+  background-color: var(--green-50);
 }
 
 /* Pick status CTA card */
@@ -1728,6 +1744,8 @@ footer.footer-greenside a {
 }
 .scorecard__value--name { font-size: 1.25rem; }
 .scorecard__value--danger { color: var(--danger); }
+/* Rank 1 is the crown: gold (rank register), not the everyday money green */
+.scorecard__value--gold { color: var(--gold-600); }
 /* Rank leads the scorecard: "where do I stand" is the one glance that matters. */
 .scorecard__figure--lead { min-width: 7rem; }
 .scorecard__value--lead { font-size: 2.5rem; }

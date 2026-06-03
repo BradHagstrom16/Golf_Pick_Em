@@ -15,6 +15,10 @@ colors:
   gold-light: "#c4a747"
   gold-soft: "#d4be6a"
   gold-wash: "#faf3e0"
+  azalea-deep: "#9d3558"
+  azalea: "#b34a6b"
+  azalea-wash: "#fbeef2"
+  azalea-tint: "#fdf5f8"
   cream: "#faf8f4"
   white: "#ffffff"
   ink: "#1a1f25"
@@ -94,8 +98,8 @@ components:
     textColor: "{colors.pine-deep}"
     rounded: "{rounded.sm}"
   badge-major:
-    backgroundColor: "{colors.gold-wash}"
-    textColor: "{colors.gold-deep}"
+    backgroundColor: "{colors.azalea-wash}"
+    textColor: "{colors.azalea-deep}"
     rounded: "{rounded.sm}"
   stat-card:
     backgroundColor: "{colors.white}"
@@ -108,9 +112,9 @@ components:
 
 **Creative North Star: "The Greenside Ledger"**
 
-This is a heritage-golf clubhouse rendered as software. Deep Augusta-adjacent greens carry the structure (nav, table headers, primary actions), warm gold marks the things worth celebrating (money, majors, the current leader), and everything sits on a soft cream paper. The serif display face gives section headings the weight of a printed scorecard, while a humanist sans keeps the dense earnings data legible at a glance on a phone. The defining tension: this is a money game, and the numbers are real dollars, so the system treats every earnings figure with the gravity of a financial ledger rather than the flash of a betting slate.
+This is a heritage-golf clubhouse rendered as software. Deep Augusta-adjacent greens carry the structure (nav, table headers, primary actions), warm gold marks the money and the rank (earnings, the leader, the points total), Augusta azalea marks the four majors, and everything sits on a soft cream paper. The serif display face gives section headings the weight of a printed scorecard, while a humanist sans keeps the dense earnings data legible at a glance on a phone. The defining tension: this is a money game, and the numbers are real dollars, so the system treats every earnings figure with the gravity of a financial ledger rather than the flash of a betting slate.
 
-The mood is confident and a little ceremonial, never loud. Surfaces rest nearly flat, lifting only in response to a hover or a state change. Color is deployed by role, not for decoration: green is the institution, gold is the reward, and the blues and grays are reserved strictly for live and completed status. Restraint is the point. The data is the hero; the chrome stays out of its way.
+The mood is confident and a little ceremonial, never loud. Surfaces rest nearly flat, lifting only in response to a hover or a state change. Color is deployed by role, not for decoration: green is the institution, gold is the reward, azalea is the majors, and the blues and grays are reserved strictly for live and completed status. Restraint is the point. The data is the hero; the chrome stays out of its way.
 
 This system explicitly rejects the **generic SaaS dashboard** (cream-and-blue startup template, hero-metric tiles, identical icon-and-heading card grids, anything that reads as "an AI made this") and the **corporate enterprise tool** (cold, dense, gray admin-panel feel with no warmth). Even admin surfaces keep the clubhouse character. Sportsbook loudness (neon odds, flashing promos, gamble-y urgency) is kept out by reflex.
 
@@ -118,7 +122,7 @@ This system explicitly rejects the **generic SaaS dashboard** (cream-and-blue st
 - Augusta-inspired green structure, warm gold reward accents, cream paper ground
 - Serif display headings (DM Serif Display) over humanist sans body (Plus Jakarta Sans)
 - Flat at rest, soft green-tinted lift on hover
-- Money and majors always read in the gold register; status reads in blue/gray
+- Money and rank read in the gold register; majors read in azalea; status reads in blue/gray
 - Glanceable on a phone, in sunlight, mid-banter
 
 ## 2. Colors
@@ -131,14 +135,19 @@ A warm, course-derived palette: institutional greens, celebratory golds, and a c
 - **Pine Deep** (#00432e): The darkest green. Footer ground, navbar gradient origin, and text laid on gold surfaces. Anchors the bottom of every shadow tint.
 - **Fairway Green** (#007a54) and **Meadow Green** (#1a8a6a): Mid-greens for primary-button hover and brighter interactive states.
 - **Sage** (#4da88a): The lightest functional green, used for input focus borders.
-- **Mint Wash** (#e8f5ef) and **Mint Tint** (#f0faf5): Pale green fills for rank badges, open-status pills, table row hover, and zebra striping.
+- **Mint Wash** (#e8f5ef) and **Mint Tint** (#f0faf5): Pale green fills for rank badges, open-status pills, zebra striping (Tint), table row hover (Wash), and sidebar panel grounds — the second neutral layer.
 
 ### Secondary
 - **Clubhouse Gold** (#b8993e): The reward accent. Admin badge, gold buttons, the gold-button family. Reserved for things of value.
-- **Gold Deep** (#92722a): Gold text on pale gold surfaces (major badges, withdrawal badges, locked status), and the locked-status marker.
+- **Gold Deep** (#92722a): Gold text on pale gold surfaces (withdrawal badges, locked status), and the locked-status marker.
 - **Gold Light** (#c4a747): Projected (not-yet-final) earnings badges. The signal for "live money, not settled."
 - **Gold Soft** (#d4be6a): The points figure in the navbar and footer links on dark green.
-- **Gold Wash** (#faf3e0): Pale gold fill behind major badges, the current-user row highlight, and locked-status pills.
+- **Gold Wash** (#faf3e0): Pale gold fill behind the current-user row highlight, the Pick of the Season feature, and locked-status pills.
+
+### Azalea (the majors)
+- **Azalea Deep** (#9d3558): Azalea text on the wash and on white (6.8:1 / 6.0:1, AA+). Major badges and the major stakes line.
+- **Azalea** (#b34a6b): The fill grade; carries white text at 5.1:1 when a solid azalea surface is needed.
+- **Azalea Wash** (#fbeef2) and **Azalea Tint** (#fdf5f8): Pale rose fills behind major badges and the masthead stakes band on major weeks.
 
 ### Neutral
 - **Cream** (#faf8f4): The page ground. Every screen sits on this warm off-white, never pure white.
@@ -155,7 +164,9 @@ A warm, course-derived palette: institutional greens, celebratory golds, and a c
 - **Warning Amber** (#d97706): Reserved warning semantic.
 
 ### Named Rules
-**The Money-Is-Gold Rule.** Gold is reserved for value: the leader, majors, the user's own points total, projected and final earnings. It never appears as generic decoration. When you see gold, money or status of rank is involved.
+**The Money-Is-Gold Rule.** Gold is reserved for money and rank: the leader, the user's own points total, projected and final earnings. It never appears as generic decoration. When you see gold, money or standing is involved.
+
+**The Azalea-Is-Majors Rule.** Azalea (Augusta rose) belongs exclusively to the four major championships: major badges, the 1.5x/penalty stakes band, and major-week accents. It never marks anything else, and majors never borrow gold; the two stakes (money vs. the majors' multiplier-and-penalty week) stay visually distinct.
 
 **The Status-Is-Cool Rule.** Blue and gray exist only to signal tournament state (live, complete). They are forbidden as accent or decoration. The warm green/gold palette owns everything else.
 
@@ -215,15 +226,15 @@ The component feel is **refined and restrained**: quiet, precise, ledger-like. C
 
 ### Tables (Leaderboard, signature surface)
 - **Header row:** Pine Shadow (#005c3f) fill, Paper-on-Dark text, uppercase Label type (0.8rem, 0.05em tracking), 2px Pine Deep bottom border.
-- **Body rows:** White with Cream (#faf8f4) zebra striping; Mint Tint (#f0faf5) on hover.
+- **Body rows:** White with Mint Tint (#f0faf5) zebra striping; Mint Wash (#e8f5ef) on hover.
 - **Current-user row:** Gold Wash (#faf3e0) fill, marked with a gold rule.
-- **Leader row:** Mint Tint fill.
-- **State rows:** Active-tournament rows take a faint blue wash (rgba(37, 99, 235, 0.04)); complete rows drop to 85% opacity.
+- **Leader row:** Deep mint fill (rgba(26, 138, 106, 0.14)), one step past zebra/hover so the front-runner reads at a glance.
+- **State rows:** Active-tournament rows take a visible blue wash (rgba(37, 99, 235, 0.09)); complete rows drop to 85% opacity.
 
 ### Badges (the earnings and status vocabulary)
 - **Earnings (final):** Pinehurst Pine fill, white text. Settled money.
 - **Earnings (projected):** Gold Light (#c4a747) fill, Pine Deep text. Live, not-yet-final money. The gold says "still moving."
-- **Major:** Pale Gold Wash fill, Gold Deep text, weight 700. Marks a major championship (1.5x multiplier).
+- **Major:** Azalea Wash fill, Azalea Deep text, weight 700. Marks a major championship (1.5x multiplier). Major mastheads also carry an azalea stakes band ("Majors pay 1.5x. A missed cut owes $15 to the pot.").
 - **Status pills:** Active (Live Blue), Complete (Complete Gray), Upcoming (Pinehurst Pine), Locked (gold wash), Open (mint wash). Cut/DQ in Danger Red, WD in gold wash, Penalty in pale red with weight 700.
 - **Rank badge:** A 26px circle, Mint Wash fill with green text; the leader's badge flips to gold wash with gold text.
 
@@ -245,7 +256,7 @@ The component feel is **refined and restrained**: quiet, precise, ledger-like. C
 
 ### Do:
 - **Do** ground every screen on Cream (#faf8f4); lift cards and tables to White (#ffffff).
-- **Do** reserve gold for value: the leader, majors, the user's points, and earnings (projected gold, final green).
+- **Do** reserve gold for money and rank: the leader, the user's points, and earnings (projected gold, final green). Mark majors in azalea, never gold.
 - **Do** set headings and standalone hero numbers in DM Serif Display; keep tables and body in Plus Jakarta Sans.
 - **Do** tint every shadow with brand green (rgba(0, 67, 46, ...)) and keep surfaces flat until hover.
 - **Do** keep status colors (Live Blue #2563eb, Complete Gray #6b7280) strictly for tournament state.
