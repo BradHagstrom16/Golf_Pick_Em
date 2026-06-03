@@ -282,8 +282,8 @@
                         {% set picked_results = pick_results | selectattr('has_pick') | list %}
                         {% set no_pick_results = pick_results | rejectattr('has_pick') | list %}
                         {% for result in picked_results %}
-                        <tr class="{% if current_user.is_authenticated and result.user.id == current_user.id %}row-current-user{% endif %}
-                                   {% if result.points == max_points and result.points > 0 %}row-leader{% endif %}">
+                        {# Self-identity gold outranks the leader mint (matches index.html's elif precedence). #}
+                        <tr class="{% if current_user.is_authenticated and result.user.id == current_user.id %}row-current-user{% elif result.points == max_points and result.points > 0 %}row-leader{% endif %}">
                             <td>
                                 {% if show_picks and result.has_pick %}
                                     <strong>{{ result.rank }}</strong>

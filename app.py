@@ -894,7 +894,10 @@ def make_pick(tournament_id):
                          tournament=tournament,
                          available_players=available_players,
                          existing_pick=existing_pick,
-                         remaining_pct=remaining_pct)
+                         remaining_pct=remaining_pct,
+                         # Post-adjustment count: golfers re-offered by the pick
+                         # being edited are counted as available, not used.
+                         used_count=len(used_player_ids))
 
 
 # ============================================================================
