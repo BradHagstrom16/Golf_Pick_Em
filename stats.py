@@ -487,6 +487,21 @@ def burn_list(season_year):
     return rows
 
 
+def remaining_pct_map(season_year, player_ids):
+    """{player_id: % of the field that still has them}; None before any burn.
+
+    The value is the complement of the rounded burn % (100 - pct_burned) so
+    the pick page and the Burn List always sum to exactly 100. Returns None
+    (rather than an all-100 map) while the season has no usage rows, so the
+    pick page can suppress the indicators entirely when there is no signal.
+    """
+    total_users, counts = _usage_counts(season_year)
+    if not counts:
+        return None
+    return {pid: 100 - _pct(counts.get(pid, 0), total_users)
+            for pid in player_ids}
+
+
 def _player_map(player_ids):
     if not player_ids:
         return {}

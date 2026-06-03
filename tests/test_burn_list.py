@@ -136,3 +136,34 @@ def test_burn_list_usage_without_pick_returns_zero(league, make_player):
                      if r['golfer'] == 'Ghost Entry')
     assert ghost_row['total_return'] == 0
     assert ghost_row['pct_burned'] == 25
+
+
+# --------------------------------------------------------------------------
+# remaining_pct_map
+# --------------------------------------------------------------------------
+def test_remaining_pct_is_complement_of_burned(league):
+    players = league['players']
+    pmap = stats.remaining_pct_map(
+        SEASON, [players['scott'].id, players['rory'].id, players['backup'].id])
+    assert pmap[players['scott'].id] == 50    # 100 - 50
+    assert pmap[players['rory'].id] == 75     # 100 - 25
+    assert pmap[players['backup'].id] == 100  # unburned
+
+
+def test_remaining_pct_none_before_first_burn(db, make_user, make_player):
+    """None (not an all-100 map) so the pick page suppresses the indicators."""
+    make_user()
+    p = make_player()
+    assert stats.remaining_pct_map(SEASON, [p.id]) is None
+
+
+def test_remaining_always_sums_to_100_with_burned(league, make_user):
+    """Complement of the ROUNDED burn %, so the two pages never disagree."""
+    for _ in range(3):
+        make_user()  # 7 users: scott burned by 2 -> 29% / 71%
+    scott = league['players']['scott']
+    burned = next(r for r in stats.burn_list(SEASON)
+                  if r['golfer'] == 'Scottie Scheffler')
+    pmap = stats.remaining_pct_map(SEASON, [scott.id])
+    assert burned['pct_burned'] == 29
+    assert burned['pct_burned'] + pmap[scott.id] == 100
