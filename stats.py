@@ -435,7 +435,8 @@ def burn_list(season_year):
     Each row: golfer, times_used, pct_burned (share of ALL registered users,
     matching the standings denominator), and total_return (member points,
     multipliers included; 0 when usage exists without a matching completed
-    pick, e.g. an admin override). Order: pct desc, return desc, last name.
+    pick, e.g. a manually inserted usage row). Order: pct desc, return desc,
+    last name.
     """
     total_users, counts = _usage_counts(season_year)
     if not counts:

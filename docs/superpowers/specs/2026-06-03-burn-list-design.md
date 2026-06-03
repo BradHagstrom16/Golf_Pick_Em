@@ -40,6 +40,7 @@ The feature surfaces each golfer's **burn rate**: the share of the league that h
 ## 4. Backend Changes
 
 ### `stats.py`
+
 - New `burn_list(season_year)` → list of dicts, one per golfer with ≥1 usage row:
   - `golfer` (display name), `times_used` (count of usage rows), `pct_burned`, `total_return` (coalesced sum of `Pick.points_earned` for completed-tournament picks where `active_player_id` is the golfer; 0 if none).
   - Counts come from `SeasonPlayerUsage` (authoritative), returns from the `Pick` join — if an admin override ever creates usage without a matching pick, the row still appears with $0 return.
@@ -47,6 +48,7 @@ The feature surfaces each golfer's **burn rate**: the share of the league that h
 - `field_form(season_year)`: **remove `most_picked`** (queries, dict key). `form_guide` and `untouched_stars` unchanged.
 
 ### `app.py`
+
 - `stats_hub`: pass `burn=stats.burn_list(season_year)` (and field dict no longer carries `most_picked`).
 - `make_pick`: build `remaining_pct = {player.id: pct_remaining}` for the available players. **Suppression rule:** if the season has zero `SeasonPlayerUsage` rows, pass `remaining_pct=None` — the template renders plain dropdowns (all-100% is noise, not signal).
 
