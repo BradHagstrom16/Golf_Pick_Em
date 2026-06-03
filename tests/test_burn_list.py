@@ -10,7 +10,7 @@ from datetime import datetime
 import pytest
 
 import stats
-from models import db, SeasonPlayerUsage, TournamentField
+from models import db, SeasonPlayerUsage, TournamentField, User
 
 SEASON = 2026
 
@@ -35,7 +35,7 @@ def league(make_user, make_player, make_tournament, make_result, make_pick):
     t1 = make_tournament(name='Sony Open', start_date=datetime(2026, 1, 8))
     t2 = make_tournament(name='Genesis', start_date=datetime(2026, 2, 12))
 
-    # Full-field results so field_form()['form_guide'] is non-empty (the
+    # Enough results that field_form()['form_guide'] is non-empty (the
     # stats.html Field section is gated on it).
     make_result(t1, scott, earnings=2_000_000)
     make_result(t1, rory, final_position='T5', earnings=400_000)
@@ -96,6 +96,32 @@ def test_burn_list_tie_breaks_by_return(league, make_player):
         'Scottie Scheffler', 'Justin Thomas', 'Rory McIlroy']
 
 
+def test_burn_list_tertiary_tie_breaks_by_last_name(league, make_pick,
+                                                    make_player):
+    """Equal burn % AND equal return fall back to last name asc.
+
+    The two golfers are created in reverse-alphabetical order so that raw
+    insertion order (what a sort key missing the last-name tail degrades to)
+    cannot pass by accident.
+    """
+    zeta = make_player(first_name='Zed', last_name='Zeta')
+    alpha = make_player(first_name='Aaron', last_name='Alpha')
+    t1, t2 = league['tournaments']
+    backup = league['players']['backup']
+    make_pick(league['users']['dave'], t1, zeta, backup,
+              active_player_id=zeta.id, points_earned=500_000)
+    make_pick(league['users']['alice'], t2, alpha, backup,
+              active_player_id=alpha.id, points_earned=500_000)
+    for user, player in (('dave', zeta), ('alice', alpha)):
+        db.session.add(SeasonPlayerUsage(user_id=league['users'][user].id,
+                                         player_id=player.id,
+                                         season_year=SEASON))
+    db.session.flush()
+    # 25% tier: alpha/zeta (equal $500k) by name, then rory ($400k).
+    assert [r['golfer'] for r in stats.burn_list(SEASON)] == [
+        'Scottie Scheffler', 'Aaron Alpha', 'Zed Zeta', 'Rory McIlroy']
+
+
 def test_burn_list_denominator_is_all_registered_users(league, make_user):
     """A pick-less account still dilutes the field: 2/4 = 50% -> 2/5 = 40%."""
     make_user(username='lurker')
@@ -109,6 +135,72 @@ def test_burn_list_pct_rounds_to_nearest_int(league, make_user):
         make_user()
     rows = stats.burn_list(SEASON)
     assert rows[0]['pct_burned'] == 29
+
+
+def test_burn_list_rounds_half_to_even(db, make_user, make_player):
+    """Python 3 banker's rounding at the .5 boundary: 1/8 -> 12, 3/8 -> 38.
+
+    Locks round-half-to-even against an int(x + 0.5) refactor, which would
+    turn 12.5 into 13.
+    """
+    users = [make_user() for _ in range(8)]
+    low = make_player(first_name='Lone', last_name='Burn')
+    high = make_player(first_name='Trio', last_name='Burn')
+    db.session.add(SeasonPlayerUsage(user_id=users[0].id, player_id=low.id,
+                                     season_year=SEASON))
+    for user in users[1:4]:
+        db.session.add(SeasonPlayerUsage(user_id=user.id, player_id=high.id,
+                                         season_year=SEASON))
+    db.session.flush()
+    by_name = {r['golfer']: r for r in stats.burn_list(SEASON)}
+    assert by_name['Lone Burn']['pct_burned'] == 12   # round(12.5) -> even
+    assert by_name['Trio Burn']['pct_burned'] == 38   # round(37.5) -> even
+
+
+def test_burn_list_burned_by_all(db, make_user, make_player):
+    """Every registered user burned the same golfer: 100% burned, 0% remain."""
+    users = [make_user() for _ in range(3)]
+    chalk = make_player(first_name='Chalk', last_name='Pick')
+    for user in users:
+        db.session.add(SeasonPlayerUsage(user_id=user.id, player_id=chalk.id,
+                                         season_year=SEASON))
+    db.session.flush()
+    rows = stats.burn_list(SEASON)
+    assert rows[0]['pct_burned'] == 100
+    assert stats.remaining_pct_map(SEASON, [chalk.id])[chalk.id] == 0
+
+
+def test_burn_list_sub_half_percent_burn_still_listed(db, make_user,
+                                                      make_player):
+    """1 burn among 201 users rounds to 0% but the row still appears.
+
+    Filler accounts are bulk-inserted plain rows — make_user's real password
+    hashing is too slow for 200 users that exist only to dilute the
+    denominator.
+    """
+    db.session.add_all([
+        User(username=f'filler{n}', email=f'filler{n}@example.test',
+             password_hash='x')
+        for n in range(200)])
+    picker = make_user()
+    deep_cut = make_player(first_name='Deep', last_name='Cut')
+    db.session.add(SeasonPlayerUsage(user_id=picker.id,
+                                     player_id=deep_cut.id,
+                                     season_year=SEASON))
+    db.session.flush()
+    rows = stats.burn_list(SEASON)
+    assert len(rows) == 1
+    assert rows[0]['times_used'] == 1
+    assert rows[0]['pct_burned'] == 0   # round(100 * 1/201) = 0, not hidden
+
+
+def test_burn_list_excludes_other_seasons(league, make_player):
+    """A 2025 usage row for an otherwise-unburned golfer stays off 2026's list."""
+    veteran = make_player(first_name='Last', last_name='Year')
+    db.session.add(SeasonPlayerUsage(user_id=league['users']['dave'].id,
+                                     player_id=veteran.id, season_year=2025))
+    db.session.flush()
+    assert not any(r['golfer'] == 'Last Year' for r in stats.burn_list(SEASON))
 
 
 def test_burn_list_empty_season(db):
@@ -127,7 +219,7 @@ def test_burn_list_ignores_in_flight_picks(league, make_tournament, make_pick):
 
 
 def test_burn_list_usage_without_pick_returns_zero(league, make_player):
-    """Admin-created usage with no matching completed pick still lists, $0."""
+    """Manually inserted usage with no matching completed pick still lists, $0."""
     ghost = make_player(first_name='Ghost', last_name='Entry')
     db.session.add(SeasonPlayerUsage(user_id=league['users']['dave'].id,
                                      player_id=ghost.id, season_year=SEASON))
@@ -203,7 +295,12 @@ def test_stats_route_burn_empty_state(client, make_user, make_player,
 # /pick/<id> route — remaining-% map
 # --------------------------------------------------------------------------
 def _field_tournament(make_tournament, players):
-    """Upcoming tournament (no deadline -> route renders) with a synced field."""
+    """Tournament with a synced field and pick_deadline=None.
+
+    A None deadline is the load-bearing condition: the route renders the form
+    whatever the status (the before-request hook advances the default
+    past-dated tournament to active either way).
+    """
     t = make_tournament(name='Next Event', status='upcoming', pick_deadline=None)
     for p in players:
         db.session.add(TournamentField(tournament_id=t.id, player_id=p.id))
