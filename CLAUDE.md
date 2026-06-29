@@ -103,7 +103,9 @@ python import_tournaments.py
 
 ```bash
 # Run tests
-python -m pytest tests/ -v
+# pytest lives in the pyenv env, NOT the project venv — run it directly.
+# `venv/bin/python -m pytest` fails with "No module named pytest".
+pytest tests/ -q
 ```
 
 No style linter is configured. Type-checking uses pyright against a baseline
@@ -155,7 +157,7 @@ flask db stamp head
 - `config.py` — Environment-based config classes. `FLASK_ENV` selects config; key settings: `SEASON_YEAR`, `SYNC_MODE` (free/standard), `ENTRY_FEE`.
 
 **Supporting files:**
-- `send_reminders.py` — Email notifications (picks open, deadline reminders, admin alerts). Called from `sync_api.py` after field sync and also runs standalone via scheduled task.
+- `send_reminders.py` — Email notifications (picks open, deadline reminders, results recap, admin alerts). Called from `sync_api.py` after field sync and also runs standalone via scheduled task. The three member-facing HTML emails are built from shared Gmail-safe inline-style components (`_html_wrapper`/`_html_masthead`/`_html_ledger_panel`/`_html_button`) and follow `DESIGN.md` (serif-display masthead + one hero figure, no side-stripes, AA contrast). Always escape dynamic text (member names, API strings) with `_esc` before interpolating it into email markup.
 - `email_config.py` — SMTP credentials (gitignored, never committed).
 - `import_tournaments.py` — One-time bootstrap script with hardcoded 2026 schedule.
 - `force_schedule_sync.py` — Forces `sync_schedule()` any day of the week, bypassing the Monday gate. Use when a major announces its purse mid-week.
