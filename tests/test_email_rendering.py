@@ -128,6 +128,7 @@ def test_dynamic_text_is_html_escaped():
     _s, _p, rhtml = sr.build_reminder_email(
         xss, 0, 0, xss, 1, 1000, 2026, _deadline(), sr.REMINDER_WINDOWS[0])
     assert "<script>alert(1)</script>" not in rhtml
+    assert "&lt;script&gt;" in rhtml  # member + tournament text is escaped, not dropped
 
     top3 = [{'user_id': 9, 'user_name': xss, 'golfer_name': xss, 'earnings': 100,
              'position': 'T2', 'score_to_par': '-3', 'backup_activated': False}]
@@ -135,3 +136,12 @@ def test_dynamic_text_is_html_escaped():
         "Pat", xss, xss, "T2", "-3", 100, False, "2 of 3", 100, top3, 1, 2026)
     assert "<script>alert(1)</script>" not in chtml
     assert "&lt;script&gt;" in chtml
+
+
+def test_recap_handles_null_position():
+    """A result row with a null final_position must not crash escaping."""
+    html = sr._build_recap_html(
+        "Pat", "Memorial", "Scottie Scheffler", None, None,
+        0, False, "5 of 60", 100, TOP3, 99, 2026)
+    assert "Scottie Scheffler" in html
+    assert "—" in html  # em-dash fallback for the missing finish

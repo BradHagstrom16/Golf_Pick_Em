@@ -910,7 +910,9 @@ def _build_recap_html(display_name, tournament_name, golfer_name, position,
                 f'padding: 2px 8px; border-radius: 4px; letter-spacing: 0.04em; '
                 f'vertical-align: middle;">BACKUP</span>'
             )
-        finish_label = "Win" if position in ('1', 'T1') else _esc(position)
+        # position can be None (result row exists but final_position is null);
+        # fall back to an em dash rather than escaping None.
+        finish_label = "Win" if position in ('1', 'T1') else (_esc(position) if position else "—")
         score_text = f' ({_esc(score)})' if score else ""
         pick_line = (
             f'<p style="margin: 0 0 28px 0; font-size: 15px; line-height: 1.5; color: {_TEXT_SECONDARY};">'
