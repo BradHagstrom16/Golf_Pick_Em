@@ -114,3 +114,24 @@ def test_recap_no_pick_is_graceful():
         0, False, "58 of 60", 0, TOP3, 58, 2026)
     assert "didn" in html and "submit a pick" in html
     assert "$0" in html
+
+
+def test_dynamic_text_is_html_escaped():
+    """Member names and upstream API strings must render as text, not markup."""
+    xss = '<script>alert(1)</script> & "x"'
+
+    html = sr._build_picks_open_html(
+        xss, xss, 1000, "deadline", "https://x/pick/1", 2026)
+    assert "<script>alert(1)</script>" not in html
+    assert "&lt;script&gt;" in html
+
+    _s, _p, rhtml = sr.build_reminder_email(
+        xss, 0, 0, xss, 1, 1000, 2026, _deadline(), sr.REMINDER_WINDOWS[0])
+    assert "<script>alert(1)</script>" not in rhtml
+
+    top3 = [{'user_id': 9, 'user_name': xss, 'golfer_name': xss, 'earnings': 100,
+             'position': 'T2', 'score_to_par': '-3', 'backup_activated': False}]
+    chtml = sr._build_recap_html(
+        "Pat", xss, xss, "T2", "-3", 100, False, "2 of 3", 100, top3, 1, 2026)
+    assert "<script>alert(1)</script>" not in chtml
+    assert "&lt;script&gt;" in chtml

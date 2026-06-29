@@ -31,6 +31,7 @@ from contextlib import contextmanager
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timedelta
+from html import escape as _esc  # escape dynamic text before it enters email markup
 import pytz
 
 # Add project path for PythonAnywhere
@@ -196,6 +197,12 @@ def _html_masthead(eyebrow, title, eyebrow_color=None,
     title_size = 24 if has_hero else 33
     title_mb = 12 if has_hero else 2
 
+    # Escape all dynamic text — tournament names and member names are untrusted.
+    title = _esc(title)
+    eyebrow = _esc(eyebrow) if eyebrow else eyebrow
+    hero_label = _esc(hero_label) if hero_label else hero_label
+    hero_value = _esc(str(hero_value)) if has_hero else hero_value
+
     eyebrow_html = ""
     if eyebrow:
         eyebrow_html = (
@@ -238,6 +245,8 @@ def _html_ledger_panel(cells, bg=None):
     width = f"{round(100 / n)}%" if n else "100%"
     tds = ""
     for i, (label, value) in enumerate(cells):
+        label = _esc(str(label))
+        value = _esc(str(value))
         divider = "" if i == n - 1 else f"border-right: 1px solid {_BORDER};"
         tds += (
             f'<td width="{width}" valign="top" style="padding: 16px 22px; {divider}">'
@@ -418,7 +427,7 @@ def _build_picks_open_html(display_name, tournament_name, purse,
                            deadline_str, pick_url, season_year):
     """Build the HTML body for the 'Picks Are Open' email."""
     content = f'''{_html_masthead("The field is set", tournament_name)}
-<p style="margin: 0 0 24px 0; font-size: 15px; line-height: 1.5; color: {_TEXT_SECONDARY};">The full field is in, {display_name} — your one pick for the week is open.</p>
+<p style="margin: 0 0 24px 0; font-size: 15px; line-height: 1.5; color: {_TEXT_SECONDARY};">The full field is in, {_esc(display_name)} — your one pick for the week is open.</p>
 
 {_html_ledger_panel([("Purse", f"${purse:,}"), ("Pick deadline", deadline_str)])}
 {_html_button(pick_url, "Make Your Pick")}
@@ -570,25 +579,26 @@ Golf Pick 'Em {tournament_season_year}
 
     # --- HTML body ---
     # The countdown is the hero; the tier reads through color, never a siren.
+    safe_name = _esc(user_display_name)
     if window['type'] == 'final':
         accent_color = _DANGER
         hero_value = "1 hour"
         support_msg = (
-            f"This is the last reminder, {user_display_name} — make your pick "
+            f"This is the last reminder, {safe_name} — make your pick "
             f"before the gate closes."
         )
     elif window['type'] == 'reminder':
         accent_color = _GOLD_700
         hero_value = "12 hours"
         support_msg = (
-            f"About 12 hours left to make your pick, {user_display_name}. "
+            f"About 12 hours left to make your pick, {safe_name}. "
             f"One more reminder goes out at 1 hour."
         )
     else:
         accent_color = _GREEN_700
         hero_value = "24 hours"
         support_msg = (
-            f"You haven&#8217;t made your pick yet, {user_display_name}. "
+            f"You haven&#8217;t made your pick yet, {safe_name}. "
             f"Reminders also go out at 12 and 1 hour."
         )
 
@@ -900,11 +910,11 @@ def _build_recap_html(display_name, tournament_name, golfer_name, position,
                 f'padding: 2px 8px; border-radius: 4px; letter-spacing: 0.04em; '
                 f'vertical-align: middle;">BACKUP</span>'
             )
-        finish_label = "Win" if position in ('1', 'T1') else position
-        score_text = f' ({score})' if score else ""
+        finish_label = "Win" if position in ('1', 'T1') else _esc(position)
+        score_text = f' ({_esc(score)})' if score else ""
         pick_line = (
             f'<p style="margin: 0 0 28px 0; font-size: 15px; line-height: 1.5; color: {_TEXT_SECONDARY};">'
-            f'Your pick: <strong style="color: {_TEXT_PRIMARY};">{golfer_name}</strong>'
+            f'Your pick: <strong style="color: {_TEXT_PRIMARY};">{_esc(golfer_name)}</strong>'
             f'{backup_badge} &middot; {finish_label}{score_text}</p>'
         )
         hero_color = _GREEN_700 if earnings > 0 else _TEXT_SECONDARY
@@ -962,7 +972,7 @@ def _build_recap_html(display_name, tournament_name, golfer_name, position,
 
         bold = "font-weight: 700;" if is_self else ""
         self_marker = f' <span style="color: {_GOLD_700}; font-size: 11px; font-weight: 700;">★</span>' if is_self else ""
-        score_part = f' <span style="color: {_TEXT_SECONDARY}; font-size: 12px;">({entry["score_to_par"]})</span>' if entry['score_to_par'] else ""
+        score_part = f' <span style="color: {_TEXT_SECONDARY}; font-size: 12px;">({_esc(entry["score_to_par"])})</span>' if entry['score_to_par'] else ""
 
         # Position badge — winner gets the trophy + a pine-deep "WIN" label.
         # Pine Deep on the gold-wash row is the documented gold-surface text
@@ -977,14 +987,14 @@ def _build_recap_html(display_name, tournament_name, golfer_name, position,
         elif pos in ('CUT', 'WD'):
             pos_badge = (
                 f'<span style="color: {_TEXT_SECONDARY}; font-size: 11px; '
-                f'font-style: italic; vertical-align: middle;">{pos}</span> '
+                f'font-style: italic; vertical-align: middle;">{_esc(pos)}</span> '
             )
         elif pos:
             pos_badge = (
                 f'<span style="display: inline-block; background-color: {_GREEN_100}; '
                 f'color: {_GREEN_700}; font-size: 11px; font-weight: 600; '
                 f'padding: 1px 7px; border-radius: 10px; '
-                f'vertical-align: middle;">{pos}</span> '
+                f'vertical-align: middle;">{_esc(pos)}</span> '
             )
         else:
             pos_badge = ''
@@ -996,8 +1006,8 @@ def _build_recap_html(display_name, tournament_name, golfer_name, position,
 
         top3_rows += f'''<tr>
 <td style="padding: 10px 12px; border-bottom: 1px solid rgba(0,67,46,0.06); background-color: {row_bg}; {bold} font-size: 14px; color: {rank_color}; text-align: center; width: 36px; font-weight: 700;">{i + 1}</td>
-<td style="padding: 10px 12px; border-bottom: 1px solid rgba(0,67,46,0.06); background-color: {row_bg}; {bold} font-size: 14px; color: {_TEXT_PRIMARY};">{entry['user_name']}{self_marker}</td>
-<td style="padding: 10px 12px; border-bottom: 1px solid rgba(0,67,46,0.06); background-color: {row_bg}; font-size: 14px; color: {_TEXT_SECONDARY};">{pos_badge}{entry['golfer_name']}{score_part}</td>
+<td style="padding: 10px 12px; border-bottom: 1px solid rgba(0,67,46,0.06); background-color: {row_bg}; {bold} font-size: 14px; color: {_TEXT_PRIMARY};">{_esc(entry['user_name'])}{self_marker}</td>
+<td style="padding: 10px 12px; border-bottom: 1px solid rgba(0,67,46,0.06); background-color: {row_bg}; font-size: 14px; color: {_TEXT_SECONDARY};">{pos_badge}{_esc(entry['golfer_name'])}{score_part}</td>
 <td style="padding: 10px 12px; border-bottom: 1px solid rgba(0,67,46,0.06); background-color: {row_bg}; {bold} font-size: 14px; color: {earn_color}; text-align: right;">${entry['earnings']:,}</td>
 </tr>'''
 
