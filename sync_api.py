@@ -135,6 +135,37 @@ def parse_score_to_par(total_str) -> Optional[int]:
         return None
 
 
+def normalize_position(raw) -> str:
+    """
+    Normalize the API 'position' field to a clean string — never None.
+
+    The SlashGolf leaderboard/earnings rows spell "no finishing position"
+    several ways (absent key, null, "") and the format drifts (positions can
+    arrive as MongoDB-style number objects). Centralizing the coercion here
+    keeps one invariant for every TournamentResult write site:
+    final_position is always a string ("" when there is no position), never
+    None. Display code can rely on that instead of guarding None at each call
+    site — the gap that crashed the results-recap email.
+
+    Returns:
+        Cleaned position string (e.g. "1", "T5", "CUT"), or "" when absent.
+    """
+    if raw is None:
+        return ""
+
+    # MongoDB-style number format (e.g. {"$numberInt": "5"})
+    if isinstance(raw, dict):
+        for key in ("$numberInt", "$numberLong"):
+            if key in raw:
+                return str(raw[key]).strip()
+        return ""
+
+    if isinstance(raw, (int, float)):
+        return str(int(raw))
+
+    return str(raw).strip()
+
+
 def calculate_projected_earnings(position_str: str, purse: int, all_positions: List[str], is_major: bool = False) -> int:
     """
     Calculate projected earnings for a player based on position.
@@ -830,7 +861,7 @@ class TournamentSync:
 
                 result.status = status
                 result.rounds_completed = rounds_completed
-                result.final_position = lb_info.get("position", "")
+                result.final_position = normalize_position(lb_info.get("position"))
 
                 # Parse score to par from leaderboard "total" field
                 result.score_to_par = parse_score_to_par(lb_info.get("total"))
@@ -950,7 +981,7 @@ class TournamentSync:
 
                 result.status = "wd"
                 result.rounds_completed = rounds_completed
-                result.final_position = player_data.get("position", "")
+                result.final_position = normalize_position(player_data.get("position"))
                 result.score_to_par = parse_score_to_par(player_data.get("total"))
 
                 withdrawals.append({
@@ -1025,7 +1056,12 @@ class TournamentSync:
 
                 result.status = player_data.get("status", result.status or "active")
                 result.rounds_completed = len(player_data.get("rounds", []))
-                result.final_position = player_data.get("position", result.final_position)
+                # Keep the last-known position if this row omits one; never store None.
+                result.final_position = (
+                    normalize_position(player_data.get("position"))
+                    or result.final_position
+                    or ""
+                )
 
                 # Parse score to par from "total" field
                 result.score_to_par = parse_score_to_par(player_data.get("total"))
