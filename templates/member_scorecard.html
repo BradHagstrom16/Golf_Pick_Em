@@ -382,7 +382,7 @@
                 <h3 class="h6 mb-0">Used Golfers</h3>
             </div>
             <div class="card-body">
-                {% if used_player_ids %}
+                {% if has_used_golfers %}
                     <p class="small text-muted mb-2">These golfers cannot be picked again:</p>
                     <ul class="list-unstyled mb-0">
                         {% for pick in member_picks.values() %}

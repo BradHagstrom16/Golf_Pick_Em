@@ -373,10 +373,30 @@ def test_used_golfers_card_on_self_view_only(
     login(cox)
     html = client.get(f'/member/{cox.id}').get_data(as_text=True)
     assert 'Used Golfers' in html
+    # The gate and the list body must share one source of truth (the picks'
+    # used flags), so a used pick always renders as a list item.
+    assert 'No golfers used yet.' not in html
+    assert 'cannot be picked again' in html
 
     login(rival)
     html = client.get(f'/member/{cox.id}').get_data(as_text=True)
     assert 'Used Golfers' not in html
+
+
+def test_used_golfers_card_empty_state_before_any_resolution(
+        db, client, make_user, make_player, make_tournament, make_pick, login):
+    cox = make_user(username='cox')
+    scott = make_player(first_name='Scottie', last_name='Scheffler')
+    caddie = make_player(first_name='Carl', last_name='Spackler')
+    t = make_tournament(
+        name='Travelers Championship', status='upcoming',
+        start_date=datetime.now() + timedelta(days=32),
+        pick_deadline=_future_deadline())
+    make_pick(cox, t, scott, caddie)
+
+    login(cox)
+    html = client.get(f'/member/{cox.id}').get_data(as_text=True)
+    assert 'No golfers used yet.' in html
 
 
 # ---------------------------------------------------------------------------
