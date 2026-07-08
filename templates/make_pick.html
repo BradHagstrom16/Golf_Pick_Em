@@ -10,7 +10,7 @@
 {% block content %}
 <nav aria-label="breadcrumb">
     <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="{{ url_for('my_picks') }}">My Picks</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('member_scorecard', user_id=current_user.id) }}">My Scorecard</a></li>
         <li class="breadcrumb-item active">{{ tournament.name }}</li>
     </ol>
 </nav>
@@ -116,14 +116,14 @@
                         <button type="submit" class="btn btn-greenside btn-lg">
                             {{ 'Update Pick' if existing_pick else 'Submit Pick' }}
                         </button>
-                        <a href="{{ url_for('my_picks') }}" class="btn btn-outline-greenside btn-lg">Cancel</a>
+                        <a href="{{ url_for('member_scorecard', user_id=current_user.id) }}" class="btn btn-outline-greenside btn-lg">Cancel</a>
                     </div>
                 </form>
                 {% else %}
                 <div class="text-center py-4">
                     <p class="font-display h5 text-muted mb-2">No golfers available to pick yet</p>
                     <p class="text-muted small mb-3 mx-auto measure">The field for this tournament usually publishes closer to the start. You'll be able to pick once it's set.</p>
-                    <a href="{{ url_for('my_picks') }}" class="btn btn-outline-greenside">Back to My Picks</a>
+                    <a href="{{ url_for('member_scorecard', user_id=current_user.id) }}" class="btn btn-outline-greenside">Back to My Scorecard</a>
                 </div>
                 {% endif %}
             </div>

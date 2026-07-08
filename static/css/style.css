@@ -1290,6 +1290,14 @@ footer.footer-greenside a {
   border: 1px solid rgba(184, 153, 62, 0.3);
 }
 
+/* On resolved weeks the golfer who didn't count (unused backup, or a WD'd
+   primary once the backup played) drops to the muted register so the golfer
+   who earned the money reads at a glance. Demoted, never hidden — the row
+   stays auditable. */
+.pick-name-idle {
+  color: var(--text-muted);
+}
+
 /* Season score is golf score-to-par, not money: under par is good (handled by
    .text-green), over par is "behind" in a neutral slate — never the danger red,
    which is role-locked to cuts, DQs, penalties, and errors. The +/- sign and

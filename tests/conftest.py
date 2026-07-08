@@ -194,6 +194,11 @@ def login(client):
     """Factory returning a function that logs the given user into the test client."""
     def _login(user):
         """Inject the user's id into the session and return the authenticated client."""
+        # The session-scoped app context shares ``g`` across requests (see
+        # _isolate_login), so a previous identity cached by flask-login within
+        # this same test would otherwise shadow the new one.
+        from flask import g
+        g.pop('_login_user', None)
         with client.session_transaction() as sess:
             sess['_user_id'] = str(user.id)
         return client

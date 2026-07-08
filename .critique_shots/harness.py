@@ -41,7 +41,7 @@ ADMIN_USER_ID = "1"  # Sun Day Regrets (is_admin)
 # load_field POST, which renders Stage 2 without committing.
 PAGES = [
     ("u3_make_pick", "GET", "/pick/20", None, True),
-    ("u5_my_picks", "GET", "/my-picks", None, True),
+    ("u5_member_scorecard", "GET", f"/member/{ADMIN_USER_ID}", None, True),
     ("u7_login", "GET", "/login", None, False),
     ("u7_register", "GET", "/register", None, False),
     ("u7_change_password", "GET", "/change-password", None, True),

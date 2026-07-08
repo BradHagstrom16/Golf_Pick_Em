@@ -12,7 +12,7 @@ disclosed early.
 from datetime import datetime, timedelta
 
 import stats
-from models import PENALTY_PER_INCIDENT
+from models import PENALTY_PER_INCIDENT, TournamentField
 
 
 SEASON = 2026
@@ -283,6 +283,193 @@ def test_override_tally_helper_groups_sorts_and_scopes(
 
 
 # ---------------------------------------------------------------------------
+# Self-view pick management (merged in from My Picks)
+# ---------------------------------------------------------------------------
+
+def _add_to_field(db, tournament, *players):
+    for p in players:
+        db.session.add(TournamentField(tournament_id=tournament.id, player_id=p.id))
+    db.session.flush()
+
+
+def test_self_view_open_week_without_pick_offers_pick_button(
+        db, client, make_user, make_player, make_tournament, login):
+    cox = make_user(username='cox')
+    scott = make_player(first_name='Scottie', last_name='Scheffler')
+    t = make_tournament(
+        name='Travelers Championship', status='upcoming',
+        start_date=datetime.now() + timedelta(days=32),
+        pick_deadline=_future_deadline())
+    _add_to_field(db, t, scott)
+
+    login(cox)
+    html = client.get(f'/member/{cox.id}').get_data(as_text=True)
+    assert f'/pick/{t.id}' in html
+    assert '<th>Action</th>' in html
+
+
+def test_self_view_open_week_with_pick_offers_edit_button(
+        db, client, make_user, make_player, make_tournament, make_pick, login):
+    cox = make_user(username='cox')
+    scott = make_player(first_name='Scottie', last_name='Scheffler')
+    caddie = make_player(first_name='Carl', last_name='Spackler')
+    t = make_tournament(
+        name='Travelers Championship', status='upcoming',
+        start_date=datetime.now() + timedelta(days=32),
+        pick_deadline=_future_deadline())
+    _add_to_field(db, t, scott, caddie)
+    make_pick(cox, t, scott, caddie)
+
+    login(cox)
+    html = client.get(f'/member/{cox.id}').get_data(as_text=True)
+    assert f'/pick/{t.id}' in html
+    assert 'btn-gold' in html  # Edit renders in the gold register
+
+
+def test_self_view_open_week_without_field_offers_view_not_pick(
+        db, client, make_user, make_tournament, login):
+    """No field synced yet → nothing to pick from; offer the detail page."""
+    cox = make_user(username='cox')
+    t = make_tournament(
+        name='Travelers Championship', status='upcoming',
+        start_date=datetime.now() + timedelta(days=32),
+        pick_deadline=_future_deadline())
+
+    login(cox)
+    html = client.get(f'/member/{cox.id}').get_data(as_text=True)
+    assert f'/pick/{t.id}' not in html
+    assert f'/tournament/{t.id}' in html
+
+
+def test_pick_buttons_never_render_for_rivals_or_anonymous(
+        db, client, make_user, make_player, make_tournament, login):
+    cox = make_user(username='cox')
+    rival = make_user(username='rival')
+    scott = make_player(first_name='Scottie', last_name='Scheffler')
+    t = make_tournament(
+        name='Travelers Championship', status='upcoming',
+        start_date=datetime.now() + timedelta(days=32),
+        pick_deadline=_future_deadline())
+    _add_to_field(db, t, scott)
+
+    html = client.get(f'/member/{cox.id}').get_data(as_text=True)
+    assert '/pick/' not in html
+
+    login(rival)
+    html = client.get(f'/member/{cox.id}').get_data(as_text=True)
+    assert '/pick/' not in html
+
+
+def test_used_golfers_card_on_self_view_only(
+        db, client, make_user, make_player, make_tournament, make_pick, login):
+    cox = make_user(username='cox')
+    rival = make_user(username='rival')
+    scott = make_player(first_name='Scottie', last_name='Scheffler')
+    caddie = make_player(first_name='Carl', last_name='Spackler')
+    t = make_tournament(name='Sony Open')
+    make_pick(cox, t, scott, caddie,
+              active_player_id=scott.id, points_earned=500_000, primary_used=True)
+
+    login(cox)
+    html = client.get(f'/member/{cox.id}').get_data(as_text=True)
+    assert 'Used Golfers' in html
+    # The gate and the list body must share one source of truth (the picks'
+    # used flags), so a used pick always renders as a list item.
+    assert 'No golfers used yet.' not in html
+    assert 'cannot be picked again' in html
+
+    login(rival)
+    html = client.get(f'/member/{cox.id}').get_data(as_text=True)
+    assert 'Used Golfers' not in html
+
+
+def test_used_golfers_card_empty_state_before_any_resolution(
+        db, client, make_user, make_player, make_tournament, make_pick, login):
+    cox = make_user(username='cox')
+    scott = make_player(first_name='Scottie', last_name='Scheffler')
+    caddie = make_player(first_name='Carl', last_name='Spackler')
+    t = make_tournament(
+        name='Travelers Championship', status='upcoming',
+        start_date=datetime.now() + timedelta(days=32),
+        pick_deadline=_future_deadline())
+    make_pick(cox, t, scott, caddie)
+
+    login(cox)
+    html = client.get(f'/member/{cox.id}').get_data(as_text=True)
+    assert 'No golfers used yet.' in html
+
+
+# ---------------------------------------------------------------------------
+# Resolved weeks de-emphasize the golfer who didn't count
+# ---------------------------------------------------------------------------
+
+def test_resolved_week_mutes_unused_backup(
+        db, client, make_user, make_player, make_tournament, make_pick):
+    cox = make_user(username='cox')
+    scott = make_player(first_name='Scottie', last_name='Scheffler')
+    caddie = make_player(first_name='Carl', last_name='Spackler')
+    t = make_tournament(name='Sony Open')  # status defaults to complete
+    make_pick(cox, t, scott, caddie,
+              active_player_id=scott.id, points_earned=500_000, primary_used=True)
+
+    html = client.get(f'/member/{cox.id}').get_data(as_text=True)
+    assert 'pick-name-idle">Carl Spackler' in html
+    assert 'pick-name-idle">Scottie Scheffler' not in html
+
+
+def test_resolved_week_mutes_withdrawn_primary_when_backup_counted(
+        db, client, make_user, make_player, make_tournament, make_pick):
+    cox = make_user(username='cox')
+    scott = make_player(first_name='Scottie', last_name='Scheffler')
+    caddie = make_player(first_name='Carl', last_name='Spackler')
+    t = make_tournament(name='Sony Open')
+    make_pick(cox, t, scott, caddie,
+              active_player_id=caddie.id, points_earned=250_000, backup_used=True)
+
+    html = client.get(f'/member/{cox.id}').get_data(as_text=True)
+    assert 'pick-name-idle">Scottie Scheffler' in html
+    assert 'pick-name-idle">Carl Spackler' not in html
+
+
+def test_open_week_does_not_mute_either_golfer(
+        db, client, make_user, make_player, make_tournament, make_pick, login):
+    """State can still flip until resolution — no muting before complete."""
+    cox = make_user(username='cox')
+    scott = make_player(first_name='Scottie', last_name='Scheffler')
+    caddie = make_player(first_name='Carl', last_name='Spackler')
+    t = make_tournament(
+        name='Travelers Championship', status='upcoming',
+        start_date=datetime.now() + timedelta(days=32),
+        pick_deadline=_future_deadline())
+    make_pick(cox, t, scott, caddie)
+
+    login(cox)
+    html = client.get(f'/member/{cox.id}').get_data(as_text=True)
+    assert 'pick-name-idle">Scottie Scheffler' not in html
+    assert 'pick-name-idle">Carl Spackler' not in html
+
+
+# ---------------------------------------------------------------------------
+# Penalty tile: settled state
+# ---------------------------------------------------------------------------
+
+def test_penalty_tile_shows_settled_when_paid_in_full(
+        db, client, make_user, make_player, make_tournament, make_result, make_pick):
+    cox = make_user(username='cox', penalty_paid=PENALTY_PER_INCIDENT)
+    scott = make_player(first_name='Scottie', last_name='Scheffler')
+    caddie = make_player(first_name='Carl', last_name='Spackler')
+    masters = make_tournament(name='The Masters', is_major=True)
+    make_result(masters, scott, status='cut', final_position='CUT', earnings=0)
+    make_pick(cox, masters, scott, caddie,
+              active_player_id=scott.id, points_earned=0, penalty_triggered=True)
+
+    html = client.get(f'/member/{cox.id}').get_data(as_text=True)
+    assert 'Settled' in html
+    assert f'${PENALTY_PER_INCIDENT} paid' in html
+    assert f'${PENALTY_PER_INCIDENT} to the pot' not in html
+
+
+# ---------------------------------------------------------------------------
 # Entry links + regression
 # ---------------------------------------------------------------------------
 
@@ -305,9 +492,23 @@ def test_tournament_detail_member_names_link_to_scorecard(
     assert f'/member/{cox.id}' in html
 
 
-def test_my_picks_still_renders_for_current_user(
+def test_my_picks_redirects_to_own_scorecard(db, client, make_user, login):
+    cox = make_user(username='cox')
+    login(cox)
+    resp = client.get('/my-picks')
+    assert resp.status_code == 302
+    assert resp.headers['Location'].endswith(f'/member/{cox.id}')
+
+
+def test_my_picks_requires_login(db, client):
+    resp = client.get('/my-picks')
+    assert resp.status_code == 302
+    assert '/login' in resp.headers['Location']
+
+
+def test_my_picks_alias_lands_on_scorecard(
         db, client, make_user, make_player, make_tournament, make_pick, login):
-    """Regression smoke for the shared-helper extraction from my_picks."""
+    """Bookmarked /my-picks URLs must land on the member's own scorecard."""
     cox = make_user(username='cox')
     scott = make_player(first_name='Scottie', last_name='Scheffler')
     caddie = make_player(first_name='Carl', last_name='Spackler')
@@ -316,8 +517,28 @@ def test_my_picks_still_renders_for_current_user(
     make_pick(cox, t, scott, caddie, active_player_id=scott.id, points_earned=500_000)
 
     login(cox)
-    resp = client.get('/my-picks')
+    resp = client.get('/my-picks', follow_redirects=True)
     assert resp.status_code == 200
     html = resp.get_data(as_text=True)
     assert 'Sony Open' in html
     assert 'Scottie Scheffler' in html
+
+
+def test_pick_submit_redirects_to_scorecard(
+        db, client, make_user, make_player, make_tournament, login):
+    cox = make_user(username='cox')
+    scott = make_player(first_name='Scottie', last_name='Scheffler')
+    caddie = make_player(first_name='Carl', last_name='Spackler')
+    t = make_tournament(
+        name='Travelers Championship', status='upcoming',
+        start_date=datetime.now() + timedelta(days=32),
+        pick_deadline=_future_deadline())
+    _add_to_field(db, t, scott, caddie)
+
+    login(cox)
+    resp = client.post(f'/pick/{t.id}', data={
+        'primary_player_id': scott.id,
+        'backup_player_id': caddie.id,
+    })
+    assert resp.status_code == 302
+    assert resp.headers['Location'].endswith(f'/member/{cox.id}')

@@ -28,7 +28,7 @@ def test_empty_field_shows_empty_state_not_form(login, make_user,
 
     # Empty state is shown, with context + a way back.
     assert 'No golfers available to pick yet' in html
-    assert 'Back to My Picks' in html
+    assert 'Back to My Scorecard' in html
     assert t.name in html  # tournament header preserved for context
 
     # The form must be suppressed: no player selects, no submit button.

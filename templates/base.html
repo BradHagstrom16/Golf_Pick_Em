@@ -58,7 +58,7 @@
                     </li>
                     {% if current_user.is_authenticated %}
                     <li class="nav-item">
-                        <a class="nav-link {{ 'active' if ep == 'my_picks' }}" {% if ep == 'my_picks' %}aria-current="page"{% endif %} href="{{ url_for('my_picks') }}">My Picks</a>
+                        <a class="nav-link {{ 'active' if ep == 'member_scorecard' }}" {% if ep == 'member_scorecard' %}aria-current="page"{% endif %} href="{{ url_for('member_scorecard') }}">My Scorecard</a>
                     </li>
                     {% endif %}
                 </ul>

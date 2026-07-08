@@ -629,6 +629,22 @@ def member_scorecard(user_id=None):
         member_picks = {tid: p for tid, p in member_picks.items() if tid in locked_ids}
         pick_results = {tid: r for tid, r in pick_results.items() if tid in locked_ids}
 
+    # Pick management (make/edit buttons, Used Golfers card) is self-view only,
+    # so the public path pays no extra queries and has nothing to leak. The
+    # Used Golfers card derives entirely from the picks' used flags — the same
+    # source its list body renders from.
+    field_counts = {}
+    has_used_golfers = False
+    if viewer_is_member:
+        field_counts = dict(db.session.query(
+            TournamentField.tournament_id,
+            func.count(TournamentField.id)
+        ).filter(
+            TournamentField.tournament_id.in_([t.id for t in tournaments])
+        ).group_by(TournamentField.tournament_id).all())
+        has_used_golfers = any(
+            p.primary_used or p.backup_used for p in member_picks.values())
+
     tally = stats.override_tally(season_year, list(locked_ids))
     member_override_count = next(
         (row['count'] for row in tally if row['user_id'] == member.id), 0)
@@ -641,6 +657,8 @@ def member_scorecard(user_id=None):
                            locked_ids=locked_ids,
                            member_picks=member_picks,
                            pick_results=pick_results,
+                           field_counts=field_counts,
+                           has_used_golfers=has_used_golfers,
                            scorecard=stats.personal_scorecard(member, season_year),
                            override_tally=tally,
                            member_override_count=member_override_count,
@@ -813,9 +831,8 @@ def admin_reset_password(user_id):
 def build_member_season_picks(member, season_year):
     """Season tournaments plus one member's picks and batched results.
 
-    Shared by /my-picks and the member scorecard. Returns
-    ``(tournaments, picks_by_tournament, pick_results)`` where the latter two
-    are keyed by tournament id.
+    Returns ``(tournaments, picks_by_tournament, pick_results)`` where the
+    latter two are keyed by tournament id.
     """
     tournaments = Tournament.query.filter_by(
         season_year=season_year
@@ -851,30 +868,8 @@ def build_member_season_picks(member, season_year):
 @app.route('/my-picks')
 @login_required
 def my_picks():
-    """View user's picks for the season."""
-    tournaments, user_picks, pick_results = build_member_season_picks(
-        current_user, app.config['SEASON_YEAR'])
-
-    # Get used player IDs
-    used_player_ids = current_user.get_used_player_ids()
-
-    # Batch load field counts for all tournaments
-    field_counts_query = db.session.query(
-        TournamentField.tournament_id,
-        func.count(TournamentField.id)
-    ).filter(
-        TournamentField.tournament_id.in_([t.id for t in tournaments])
-    ).group_by(TournamentField.tournament_id).all()
-    field_counts = dict(field_counts_query)
-
-    return render_template('my_picks.html',
-                         tournaments=tournaments,
-                         user_picks=user_picks,
-                         used_player_ids=used_player_ids,
-                         pick_results=pick_results,
-                         field_counts=field_counts,
-                         season_year=app.config['SEASON_YEAR'],
-                         penalty_per_incident=PENALTY_PER_INCIDENT)
+    """Alias for bookmarks: the page merged into the member scorecard."""
+    return redirect(url_for('member_scorecard', user_id=current_user.id))
 
 
 @app.route('/pick/<int:tournament_id>', methods=['GET', 'POST'])
@@ -885,7 +880,7 @@ def make_pick(tournament_id):
 
     if tournament.is_deadline_passed():
         flash('The deadline for this tournament has passed.', 'error')
-        return redirect(url_for('my_picks'))
+        return redirect(url_for('member_scorecard', user_id=current_user.id))
 
     existing_pick = Pick.query.filter_by(
         user_id=current_user.id,
@@ -944,7 +939,7 @@ def make_pick(tournament_id):
                 else:
                     flash('Pick updated successfully!', 'success')
                     db.session.commit()
-                    return redirect(url_for('my_picks'))
+                    return redirect(url_for('member_scorecard', user_id=current_user.id))
             else:
                 pick = Pick(
                     user_id=current_user.id,
@@ -961,7 +956,7 @@ def make_pick(tournament_id):
                     db.session.add(pick)
                     db.session.commit()
                     flash('Pick submitted successfully!', 'success')
-                    return redirect(url_for('my_picks'))
+                    return redirect(url_for('member_scorecard', user_id=current_user.id))
 
     return render_template('make_pick.html',
                          tournament=tournament,
