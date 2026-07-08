@@ -71,7 +71,7 @@
             {% for tournament in tournaments %}
             {% set pick = member_picks.get(tournament.id) %}
             {% set results = pick_results.get(tournament.id) %}
-            {% set is_locked = tournament.status == 'complete' or tournament.is_deadline_passed() %}
+            {% set is_locked = tournament.id in locked_ids %}
             {% set is_hidden = not is_locked and not viewer_is_member %}
             <div class="card mb-3 pick-card
                 {% if tournament.status == 'active' %}active-tournament
@@ -227,7 +227,7 @@
                     {% for tournament in tournaments %}
                     {% set pick = member_picks.get(tournament.id) %}
                     {% set results = pick_results.get(tournament.id) %}
-                    {% set is_locked = tournament.status == 'complete' or tournament.is_deadline_passed() %}
+                    {% set is_locked = tournament.id in locked_ids %}
                     {% set is_hidden = not is_locked and not viewer_is_member %}
                     <tr class="{% if tournament.status == 'active' %}row-active-tournament{% elif tournament.status == 'complete' %}row-complete{% endif %}">
                         <td>

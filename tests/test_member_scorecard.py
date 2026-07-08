@@ -88,6 +88,15 @@ def test_bare_member_url_with_no_members_redirects_home(db, client):
     assert resp.headers['Location'].endswith('/')
 
 
+def test_switcher_query_with_non_decimal_digits_falls_through(db, client, make_user):
+    """isdigit() accepts characters int() rejects (e.g. superscript two);
+    the redirect branch must not 500 on them."""
+    abe = make_user(username='abe')
+    resp = client.get('/member?user_id=²')
+    assert resp.status_code == 302
+    assert resp.headers['Location'].endswith(f'/member/{abe.id}')
+
+
 # ---------------------------------------------------------------------------
 # Week-by-week picks
 # ---------------------------------------------------------------------------

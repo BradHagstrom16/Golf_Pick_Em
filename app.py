@@ -602,7 +602,9 @@ def member_scorecard(user_id=None):
 
     if user_id is None:
         raw = request.args.get('user_id', '')
-        if raw.isdigit():
+        # isdecimal(), not isdigit(): isdigit() accepts characters (e.g. '²')
+        # that int() rejects, which would 500 this public path.
+        if raw.isdecimal():
             return redirect(url_for('member_scorecard', user_id=int(raw)))
         if current_user.is_authenticated:
             return redirect(url_for('member_scorecard', user_id=current_user.id))
@@ -636,6 +638,7 @@ def member_scorecard(user_id=None):
                            members=members,
                            viewer_is_member=viewer_is_member,
                            tournaments=tournaments,
+                           locked_ids=locked_ids,
                            member_picks=member_picks,
                            pick_results=pick_results,
                            scorecard=stats.personal_scorecard(member, season_year),
