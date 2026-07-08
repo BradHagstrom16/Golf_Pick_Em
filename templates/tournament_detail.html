@@ -196,7 +196,7 @@
                                     <span class="rank-badge {% if is_leader %}rank-badge-leader{% endif %}">{{ result.rank }}</span>
                                 {% endif %}
                                 <div>
-                                    <strong>{{ result.user.get_display_name() }}</strong>
+                                    <a href="{{ url_for('member_scorecard', user_id=result.user.id) }}" class="member-link"><strong>{{ result.user.get_display_name() }}</strong></a>
                                     {% if is_me %}<span class="badge-you ms-1">You</span>{% endif %}
                                 </div>
                             </div>
@@ -293,7 +293,7 @@
                                 {% endif %}
                             </td>
                             <td>
-                                <strong>{{ result.user.get_display_name() }}</strong>
+                                <a href="{{ url_for('member_scorecard', user_id=result.user.id) }}" class="member-link"><strong>{{ result.user.get_display_name() }}</strong></a>
                                 {% if not result.user.has_paid %}
                                     <span class="badge-unpaid">Unpaid</span>
                                 {% endif %}

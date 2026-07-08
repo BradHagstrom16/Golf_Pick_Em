@@ -1,0 +1,408 @@
+{% extends "base.html" %}
+
+{% block title %}{{ member.get_display_name() }} - Member Scorecard - Golf Pick 'Em{% endblock %}
+
+{% block content %}
+<header class="member-head">
+    <div>
+        <h2>{{ member.get_display_name() }}</h2>
+        <p class="member-head__sub">
+            {{ season_year }} season, week by week
+            {% if viewer_is_member %}
+                &middot; <a href="{{ url_for('my_picks') }}">Manage your picks</a>
+            {% endif %}
+        </p>
+    </div>
+    <form method="get" action="{{ url_for('member_scorecard') }}" class="member-switcher">
+        <label class="form-label small mb-1" for="member-select">View another member</label>
+        <div class="member-switcher__controls">
+            <select class="form-select" id="member-select" name="user_id">
+                {% for m in members %}
+                <option value="{{ m.id }}" {% if m.id == member.id %}selected{% endif %}>{{ m.get_display_name() }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-greenside">View</button>
+        </div>
+    </form>
+</header>
+
+<div class="scorecard member-scorecard-summary">
+    <div class="scorecard__figure scorecard__figure--lead">
+        <span class="scorecard__label">Rank</span>
+        <span class="scorecard__value scorecard__value--lead{% if scorecard.rank == 1 %} scorecard__value--gold{% endif %}">{{ scorecard.rank }}<span class="scorecard__unit">{{ 'th' if (scorecard.rank % 100) in [11, 12, 13] else {1: 'st', 2: 'nd', 3: 'rd'}.get(scorecard.rank % 10, 'th') }}</span></span>
+    </div>
+    <div class="scorecard__figure">
+        <span class="scorecard__label">Total Won</span>
+        <span class="scorecard__value">${{ "{:,}".format(scorecard.total) }}</span>
+    </div>
+    <div class="scorecard__figure">
+        <span class="scorecard__label">In the Money</span>
+        <span class="scorecard__value">{{ scorecard.cashes }}<span class="scorecard__unit">/ {{ scorecard.events_played }}</span></span>
+    </div>
+    <div class="scorecard__figure">
+        <span class="scorecard__label">Golfers Used</span>
+        <span class="scorecard__value">{{ scorecard.players_used }}</span>
+    </div>
+    <div class="scorecard__figure">
+        <span class="scorecard__label">Admin Overrides</span>
+        <span class="scorecard__value" data-member-overrides>{{ member_override_count }}</span>
+    </div>
+    {% if scorecard.best_pick %}
+    <div class="scorecard__figure scorecard__figure--wide">
+        <span class="scorecard__label">Best Pick</span>
+        <span class="scorecard__value scorecard__value--name">{{ scorecard.best_pick.golfer }}</span>
+        <span class="scorecard__sub">{{ scorecard.best_pick.amount|money_compact }} &middot; {{ scorecard.best_pick.event }}</span>
+    </div>
+    {% endif %}
+    {% if scorecard.cuts_at_majors %}
+    <div class="scorecard__figure">
+        <span class="scorecard__label">Missed Cuts at Majors</span>
+        <span class="scorecard__value scorecard__value--danger">{{ scorecard.cuts_at_majors }}</span>
+        {% if scorecard.penalty_outstanding %}<span class="scorecard__sub">${{ scorecard.penalty_outstanding }} to the pot</span>{% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+
+        <!-- ===== MOBILE CARD LIST (hidden on md+) ===== -->
+        <div class="mobile-card-list">
+            {% for tournament in tournaments %}
+            {% set pick = member_picks.get(tournament.id) %}
+            {% set results = pick_results.get(tournament.id) %}
+            {% set is_locked = tournament.id in locked_ids %}
+            {% set is_hidden = not is_locked and not viewer_is_member %}
+            <div class="card mb-3 pick-card
+                {% if tournament.status == 'active' %}active-tournament
+                {% elif tournament.status == 'complete' %}complete{% endif %}">
+
+                <div class="card-header d-flex justify-content-between align-items-start py-2">
+                    <div>
+                        <a href="{{ url_for('tournament_detail', tournament_id=tournament.id) }}"
+                           class="tournament-link fw-bold">
+                            {{ tournament.name }}
+                        </a>
+                        {% if tournament.is_major %}
+                            <span class="badge-major ms-1">1.5x</span>
+                        {% endif %}
+                        {% if tournament.is_team_event %}
+                            <span class="badge-team ms-1">Team</span>
+                        {% endif %}
+                    </div>
+                    <div class="ms-2 flex-shrink-0">
+                        {% if tournament.status == 'complete' %}
+                            <span class="badge-status-complete">Complete</span>
+                        {% elif tournament.status == 'active' %}
+                            <span class="badge-status-active">In Progress</span>
+                        {% elif tournament.is_deadline_passed() %}
+                            <span class="badge-status-locked">Locked</span>
+                        {% else %}
+                            <span class="badge-status-open">Open</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="card-body py-2">
+                    <div class="row g-2 small">
+                        <div class="col-6">
+                            <div class="text-muted">Date</div>
+                            <div>{{ tournament.start_date.strftime('%b %d') }}</div>
+                        </div>
+                        <div class="col-6 text-end">
+                            <div class="text-muted">Points</div>
+                            <div class="fw-bold">
+                                {% if pick %}
+                                    {% set current_earnings = pick.get_current_earnings() %}
+                                    {% if current_earnings %}
+                                        <span class="{% if tournament.status == 'complete' %}badge-earnings{% else %}badge-earnings-projected{% endif %}">${{ "{:,}".format(current_earnings) }}</span>
+                                        {% if tournament.status == 'active' %}
+                                            <br><small class="text-muted">projected</small>
+                                        {% endif %}
+                                    {% elif tournament.status == 'complete' %}
+                                        <span class="text-muted">$0</span>
+                                    {% else %}
+                                        <span class="text-muted">&mdash;</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted">&mdash;</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-muted">Primary</div>
+                            <div>
+                                {% if is_hidden %}
+                                    <span class="text-muted fst-italic">Hidden until deadline</span>
+                                {% elif pick %}
+                                    {{ pick.primary_player.full_name() }}
+                                    {% if pick.admin_override %}
+                                        <span class="state-pill state-pill-override" title="{{ pick.admin_override_note or 'Admin override pick' }}">👑 Override</span>
+                                    {% endif %}
+                                    {% if results and results.primary_result %}
+                                        {% if results.primary_result.status == 'cut' %}
+                                            <span class="badge badge-cut">CUT</span>
+                                        {% elif results.primary_result.status == 'wd' %}
+                                            <span class="badge badge-wd">WD</span>
+                                        {% elif results.primary_result.status == 'dq' %}
+                                            <span class="badge badge-dq">DQ</span>
+                                        {% endif %}
+                                    {% endif %}
+                                    {% if pick.penalty_triggered and pick.active_player_id == pick.primary_player_id %}
+                                        <span class="badge-penalty" title="Missed Major Cut Penalty">Penalty ${{ penalty_per_incident }}</span>
+                                    {% endif %}
+                                    {% if pick.primary_used %}
+                                        <span class="badge-used">Used</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted fst-italic">No pick</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-muted">Backup</div>
+                            <div>
+                                {% if is_hidden %}
+                                    <span class="text-muted fst-italic">&mdash;</span>
+                                {% elif pick %}
+                                    {{ pick.backup_player.full_name() }}
+                                    {% if pick.is_backup_activated() %}
+                                        <span class="state-pill state-pill-backup">🔄 Backup</span>
+                                    {% endif %}
+                                    {% if results and results.backup_result %}
+                                        {% if results.backup_result.status == 'cut' %}
+                                            <span class="badge badge-cut">CUT</span>
+                                        {% elif results.backup_result.status == 'wd' %}
+                                            <span class="badge badge-wd">WD</span>
+                                        {% elif results.backup_result.status == 'dq' %}
+                                            <span class="badge badge-dq">DQ</span>
+                                        {% endif %}
+                                    {% endif %}
+                                    {% if pick.penalty_triggered and pick.active_player_id == pick.backup_player_id %}
+                                        <span class="badge-penalty" title="Missed Major Cut Penalty">Penalty ${{ penalty_per_incident }}</span>
+                                    {% endif %}
+                                    {% if pick.backup_used %}
+                                        <span class="badge-used">Used</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted fst-italic">&mdash;</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-footer py-2 bg-transparent">
+                    {% if tournament.status == 'complete' %}
+                        <a href="{{ url_for('tournament_detail', tournament_id=tournament.id) }}"
+                           class="btn btn-sm btn-outline-greenside w-100">View Results</a>
+                    {% elif tournament.status == 'active' %}
+                        <a href="{{ url_for('tournament_detail', tournament_id=tournament.id) }}"
+                           class="btn btn-sm btn-outline-greenside w-100">Watch Live</a>
+                    {% else %}
+                        <a href="{{ url_for('tournament_detail', tournament_id=tournament.id) }}"
+                           class="btn btn-sm btn-outline-greenside w-100">View</a>
+                    {% endif %}
+                </div>
+
+            </div>
+            {% endfor %}
+        </div>
+        <!-- END MOBILE CARD LIST -->
+
+        <!-- ===== DESKTOP TABLE (hidden on mobile) ===== -->
+        <div class="table-responsive desktop-table-wrap">
+            <table class="table table-greenside desktop-table">
+                <thead>
+                    <tr>
+                        <th>Tournament</th>
+                        <th>Date</th>
+                        <th>Primary Pick</th>
+                        <th>Backup Pick</th>
+                        <th>Points</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for tournament in tournaments %}
+                    {% set pick = member_picks.get(tournament.id) %}
+                    {% set results = pick_results.get(tournament.id) %}
+                    {% set is_locked = tournament.id in locked_ids %}
+                    {% set is_hidden = not is_locked and not viewer_is_member %}
+                    <tr class="{% if tournament.status == 'active' %}row-active-tournament{% elif tournament.status == 'complete' %}row-complete{% endif %}">
+                        <td>
+                            <a href="{{ url_for('tournament_detail', tournament_id=tournament.id) }}" class="tournament-link">
+                                <strong>{{ tournament.name }}</strong>
+                            </a>
+                            {% if tournament.is_major %}
+                                <span class="badge-major">1.5x</span>
+                            {% endif %}
+                            {% if tournament.is_team_event %}
+                                <span class="badge-team">Team</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {{ tournament.start_date.strftime('%b %d') }}
+                            <br>
+                            {% if tournament.status == 'complete' %}
+                                <span class="badge-status-complete">Complete</span>
+                            {% elif tournament.status == 'active' %}
+                                <span class="badge-status-active">In Progress</span>
+                            {% elif tournament.is_deadline_passed() %}
+                                <span class="badge-status-locked">Locked</span>
+                            {% else %}
+                                <span class="badge-status-open">Open</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if is_hidden %}
+                                <span class="text-muted fst-italic">Hidden until deadline</span>
+                            {% elif pick %}
+                                <strong>{{ pick.primary_player.full_name() }}</strong>
+                                {% if pick.admin_override %}
+                                    <span class="state-pill state-pill-override" title="{{ pick.admin_override_note or 'Admin override pick' }}">👑 Override</span>
+                                {% endif %}
+                                {% if results and results.primary_result %}
+                                    {% if results.primary_result.status == 'cut' %}
+                                        <span class="badge badge-cut">CUT</span>
+                                    {% elif results.primary_result.status == 'wd' %}
+                                        <span class="badge badge-wd">WD</span>
+                                    {% elif results.primary_result.status == 'dq' %}
+                                        <span class="badge badge-dq">DQ</span>
+                                    {% endif %}
+                                {% endif %}
+                                {% if pick.penalty_triggered and pick.active_player_id == pick.primary_player_id %}
+                                    <span class="badge-penalty" title="Missed Major Cut Penalty">Penalty ${{ penalty_per_incident }}</span>
+                                {% endif %}
+                                {% if pick.primary_used %}
+                                    <span class="badge-used" title="This golfer counted for points and is locked for the season">Used</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if is_hidden %}
+                                <span class="text-muted">-</span>
+                            {% elif pick %}
+                                {{ pick.backup_player.full_name() }}
+                                {% if pick.is_backup_activated() %}
+                                    <span class="state-pill state-pill-backup" title="Backup activated - Primary withdrew before R2">🔄 Backup</span>
+                                {% endif %}
+                                {% if results and results.backup_result %}
+                                    {% if results.backup_result.status == 'cut' %}
+                                        <span class="badge badge-cut">CUT</span>
+                                    {% elif results.backup_result.status == 'wd' %}
+                                        <span class="badge badge-wd">WD</span>
+                                    {% elif results.backup_result.status == 'dq' %}
+                                        <span class="badge badge-dq">DQ</span>
+                                    {% endif %}
+                                {% endif %}
+                                {% if pick.penalty_triggered and pick.active_player_id == pick.backup_player_id %}
+                                    <span class="badge-penalty" title="Missed Major Cut Penalty">Penalty ${{ penalty_per_incident }}</span>
+                                {% endif %}
+                                {% if pick.backup_used %}
+                                    <span class="badge-used" title="This golfer counted for points and is locked for the season">Used</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if pick %}
+                                {% set current_earnings = pick.get_current_earnings() %}
+                                {% if current_earnings %}
+                                    <span class="{% if tournament.status == 'complete' %}badge-earnings{% else %}badge-earnings-projected{% endif %}">${{ "{:,}".format(current_earnings) }}</span>
+                                    {% if tournament.status == 'active' %}
+                                        <br><small class="text-muted">projected</small>
+                                    {% endif %}
+                                {% elif tournament.status == 'complete' %}
+                                    <span class="text-muted">$0</span>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if tournament.status == 'complete' %}
+                                <a href="{{ url_for('tournament_detail', tournament_id=tournament.id) }}" class="btn btn-sm btn-outline-greenside">Results</a>
+                            {% elif tournament.status == 'active' %}
+                                <a href="{{ url_for('tournament_detail', tournament_id=tournament.id) }}" class="btn btn-sm btn-outline-greenside">Watch Live</a>
+                            {% else %}
+                                <a href="{{ url_for('tournament_detail', tournament_id=tournament.id) }}" class="btn btn-sm btn-outline-greenside">View</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <!-- END DESKTOP TABLE -->
+
+    </div>
+
+    <div class="col-lg-4">
+        <!-- Commissioner's Ledger: admin-override tally -->
+        <div class="card sidebar-card">
+            <div class="card-header card-header-gold">
+                <h3 class="h5 mb-0">Commissioner's Ledger</h3>
+            </div>
+            <div class="card-body">
+                <p class="small text-muted mb-2">Picks set or changed by the commissioner this season.</p>
+                {% if override_tally %}
+                    <ul class="override-tally list-unstyled mb-0">
+                        {% for row in override_tally %}
+                        <li class="override-tally__row{% if row.user_id == member.id %} override-tally__row--current{% endif %}">
+                            <span class="override-tally__name">{{ row.name }}</span>
+                            <span class="override-tally__count">{{ row.count }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-muted mb-0">No admin overrides this season.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Legend -->
+        <div class="card sidebar-card mt-3">
+            <div class="card-header card-header-muted">
+                <h4 class="h6 mb-0">Legend</h4>
+            </div>
+            <div class="card-body">
+                <div class="legend-group">
+                    <p class="legend-group__label">Earnings</p>
+                    <div class="legend legend--stack">
+                        <span class="legend__item"><span class="badge-earnings-projected">$ Projected</span> Live earnings, not yet final</span>
+                        <span class="legend__item"><span class="badge-earnings">$ Banked</span> Settled earnings</span>
+                        <span class="legend__item"><span class="badge-major">1.5x</span> Major championship (1.5x points)</span>
+                        <span class="legend__item"><span class="badge-team">Team</span> Team event (full team payout)</span>
+                    </div>
+                </div>
+                <div class="legend-group">
+                    <p class="legend-group__label">Pick states</p>
+                    <div class="legend legend--stack">
+                        <span class="legend__item"><span class="state-pill state-pill-override">👑 Override</span> Commissioner set this pick</span>
+                        <span class="legend__item"><span class="state-pill state-pill-backup">🔄 Backup</span> Backup in play (primary withdrew before round 2)</span>
+                        <span class="legend__item"><span class="badge-used">Used</span> Golfer locked for the season</span>
+                    </div>
+                </div>
+                <div class="legend-group">
+                    <p class="legend-group__label">Result</p>
+                    <div class="legend legend--stack">
+                        <span class="legend__item"><span class="badge badge-cut">CUT</span> Missed cut</span>
+                        <span class="legend__item"><span class="badge badge-wd">WD</span> Withdrew</span>
+                        <span class="legend__item"><span class="badge badge-dq">DQ</span> Disqualified</span>
+                        <span class="legend__item"><span class="badge-penalty">Penalty ${{ penalty_per_incident }}</span> Cut or DQ at a major (owed to the pot)</span>
+                    </div>
+                </div>
+                {% if not viewer_is_member %}
+                <p class="small text-muted mb-0">Picks for open weeks stay hidden until the deadline passes.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

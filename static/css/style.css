@@ -800,9 +800,11 @@ footer.footer-greenside a {
 
 /* A tournament name used as a row link needs a visible affordance (some surfaces
    carry no separate View button): a faint pine underline at rest that
-   strengthens to full pine on hover. Shared by the schedule and My Picks. */
+   strengthens to full pine on hover. Shared by the schedule, My Picks, and
+   member names that open a Member Scorecard. */
 .schedule-link,
-.tournament-link {
+.tournament-link,
+.member-link {
   color: var(--text-primary);
   text-decoration: underline;
   text-decoration-color: rgba(0, 103, 71, 0.35);
@@ -810,7 +812,8 @@ footer.footer-greenside a {
   text-decoration-thickness: 1px;
 }
 .schedule-link:hover,
-.tournament-link:hover {
+.tournament-link:hover,
+.member-link:hover {
   color: var(--green-700);
   text-decoration-color: var(--green-700);
 }
@@ -1922,4 +1925,56 @@ footer.footer-greenside a {
   /* Roomier tap target for the play control; trim the floating readout. */
   .season-race__play { min-height: 2.5rem; padding: 0.5rem 0.95rem; }
   .season-race__readout { font-size: 0.68rem; max-width: 8.5rem; }
+}
+
+/* ============================================================================
+   MEMBER SCORECARD — any member's season, week by week
+   ============================================================================ */
+
+/* Masthead: serif member name on the left, the member switcher on the right;
+   stacks naturally on phones via flex-wrap. */
+.member-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 0.75rem 2rem;
+  margin-bottom: 1rem;
+}
+.member-head h2 { margin-bottom: 0.15rem; }
+.member-head__sub {
+  color: var(--text-muted);
+  margin-bottom: 0;
+}
+.member-switcher { min-width: 16rem; }
+.member-switcher .form-label { color: var(--text-muted); }
+.member-switcher__controls {
+  display: flex;
+  gap: 0.5rem;
+}
+.member-switcher__controls .form-select { min-width: 0; }
+
+.member-scorecard-summary { margin-bottom: 1.5rem; }
+
+/* Commissioner's Ledger: one hairline-separated row per member with at least
+   one override; counts read as ledger figures. */
+.override-tally__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding: 0.45rem 0.25rem;
+  border-bottom: 1px solid rgba(0, 67, 46, 0.08);
+}
+.override-tally__row:last-child { border-bottom: 0; }
+.override-tally__row--current {
+  background-color: rgba(26, 138, 106, 0.14);
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+}
+.override-tally__name { min-width: 0; overflow-wrap: anywhere; }
+.override-tally__count {
+  font-weight: 700;
+  color: var(--green-700);
+  font-variant-numeric: tabular-nums;
 }

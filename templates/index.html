@@ -170,7 +170,7 @@
                         <div class="d-flex align-items-center gap-2">
                             <span class="rank-badge {% if loop.index <= 3 %}rank-badge-leader{% endif %}">{{ loop.index }}</span>
                             <div>
-                                <strong>{{ user.get_display_name() }}</strong>
+                                <a href="{{ url_for('member_scorecard', user_id=user.id) }}" class="member-link"><strong>{{ user.get_display_name() }}</strong></a>
                                 {% if not user.has_paid %}
                                     <span class="badge-unpaid ms-1">Unpaid</span>
                                 {% endif %}
@@ -276,7 +276,7 @@
                         {% if loop.index == 1 %}🏆{% elif loop.index == 2 %}🥈{% elif loop.index == 3 %}🥉{% endif %}
                     </td>
                     <td>
-                        <strong>{{ user.get_display_name() }}</strong>
+                        <a href="{{ url_for('member_scorecard', user_id=user.id) }}" class="member-link"><strong>{{ user.get_display_name() }}</strong></a>
                         {% if not user.has_paid %}
                             <span class="badge-unpaid ms-1">Unpaid</span>
                         {% endif %}
