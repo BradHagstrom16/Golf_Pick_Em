@@ -607,6 +607,7 @@ def personal_scorecard(user, season_year):
         'events_played': events_played,
         'cashes': cashes,
         'cuts_at_majors': cuts_at_majors,
+        'penalty_owed': user.penalty_owed(season_year),
         'penalty_outstanding': user.penalty_outstanding(season_year),
         'players_used': len(user.get_used_player_ids()),
     }

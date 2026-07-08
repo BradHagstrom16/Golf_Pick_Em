@@ -58,7 +58,8 @@
     <div class="scorecard__figure">
         <span class="scorecard__label">Missed Cuts at Majors</span>
         <span class="scorecard__value scorecard__value--danger">{{ scorecard.cuts_at_majors }}</span>
-        {% if scorecard.penalty_outstanding %}<span class="scorecard__sub">${{ scorecard.penalty_outstanding }} to the pot</span>{% endif %}
+        {% if scorecard.penalty_outstanding %}<span class="scorecard__sub">${{ scorecard.penalty_outstanding }} to the pot</span>
+        {% elif scorecard.penalty_owed %}<span class="scorecard__sub">Settled &mdash; ${{ scorecard.penalty_owed }} paid</span>{% endif %}
     </div>
     {% endif %}
 </div>
@@ -135,7 +136,11 @@
                                 {% if is_hidden %}
                                     <span class="text-muted fst-italic">Hidden until deadline</span>
                                 {% elif pick %}
-                                    {{ pick.primary_player.full_name() }}
+                                    {% if tournament.status == 'complete' and pick.backup_used %}
+                                        <span class="pick-name-idle">{{ pick.primary_player.full_name() }}</span>
+                                    {% else %}
+                                        {{ pick.primary_player.full_name() }}
+                                    {% endif %}
                                     {% if pick.admin_override %}
                                         <span class="state-pill state-pill-override" title="{{ pick.admin_override_note or 'Admin override pick' }}">👑 Override</span>
                                     {% endif %}
@@ -165,7 +170,11 @@
                                 {% if is_hidden %}
                                     <span class="text-muted fst-italic">&mdash;</span>
                                 {% elif pick %}
-                                    {{ pick.backup_player.full_name() }}
+                                    {% if tournament.status == 'complete' and pick.primary_used %}
+                                        <span class="pick-name-idle">{{ pick.backup_player.full_name() }}</span>
+                                    {% else %}
+                                        {{ pick.backup_player.full_name() }}
+                                    {% endif %}
                                     {% if pick.is_backup_activated() %}
                                         <span class="state-pill state-pill-backup">🔄 Backup</span>
                                     {% endif %}
@@ -193,7 +202,18 @@
                 </div>
 
                 <div class="card-footer py-2 bg-transparent">
-                    {% if tournament.status == 'complete' %}
+                    {% if viewer_is_member and tournament.status != 'complete' and not tournament.is_deadline_passed() %}
+                        {% if field_counts.get(tournament.id, 0) == 0 %}
+                            <a href="{{ url_for('tournament_detail', tournament_id=tournament.id) }}"
+                               class="btn btn-sm btn-outline-greenside w-100">View</a>
+                        {% elif pick %}
+                            <a href="{{ url_for('make_pick', tournament_id=tournament.id) }}"
+                               class="btn btn-sm btn-gold w-100">Edit Pick</a>
+                        {% else %}
+                            <a href="{{ url_for('make_pick', tournament_id=tournament.id) }}"
+                               class="btn btn-sm btn-greenside w-100">Make Pick</a>
+                        {% endif %}
+                    {% elif tournament.status == 'complete' %}
                         <a href="{{ url_for('tournament_detail', tournament_id=tournament.id) }}"
                            class="btn btn-sm btn-outline-greenside w-100">View Results</a>
                     {% elif tournament.status == 'active' %}
@@ -220,7 +240,7 @@
                         <th>Primary Pick</th>
                         <th>Backup Pick</th>
                         <th>Points</th>
-                        <th></th>
+                        <th>{% if viewer_is_member %}Action{% endif %}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -258,7 +278,11 @@
                             {% if is_hidden %}
                                 <span class="text-muted fst-italic">Hidden until deadline</span>
                             {% elif pick %}
-                                <strong>{{ pick.primary_player.full_name() }}</strong>
+                                {% if tournament.status == 'complete' and pick.backup_used %}
+                                    <span class="pick-name-idle">{{ pick.primary_player.full_name() }}</span>
+                                {% else %}
+                                    <strong>{{ pick.primary_player.full_name() }}</strong>
+                                {% endif %}
                                 {% if pick.admin_override %}
                                     <span class="state-pill state-pill-override" title="{{ pick.admin_override_note or 'Admin override pick' }}">👑 Override</span>
                                 {% endif %}
@@ -285,7 +309,11 @@
                             {% if is_hidden %}
                                 <span class="text-muted">-</span>
                             {% elif pick %}
-                                {{ pick.backup_player.full_name() }}
+                                {% if tournament.status == 'complete' and pick.primary_used %}
+                                    <span class="pick-name-idle">{{ pick.backup_player.full_name() }}</span>
+                                {% else %}
+                                    {{ pick.backup_player.full_name() }}
+                                {% endif %}
                                 {% if pick.is_backup_activated() %}
                                     <span class="state-pill state-pill-backup" title="Backup activated - Primary withdrew before R2">🔄 Backup</span>
                                 {% endif %}
@@ -326,7 +354,15 @@
                             {% endif %}
                         </td>
                         <td>
-                            {% if tournament.status == 'complete' %}
+                            {% if viewer_is_member and tournament.status != 'complete' and not tournament.is_deadline_passed() %}
+                                {% if field_counts.get(tournament.id, 0) == 0 %}
+                                    <a href="{{ url_for('tournament_detail', tournament_id=tournament.id) }}" class="btn btn-sm btn-outline-greenside">View</a>
+                                {% elif pick %}
+                                    <a href="{{ url_for('make_pick', tournament_id=tournament.id) }}" class="btn btn-sm btn-gold">Edit</a>
+                                {% else %}
+                                    <a href="{{ url_for('make_pick', tournament_id=tournament.id) }}" class="btn btn-sm btn-greenside">Pick</a>
+                                {% endif %}
+                            {% elif tournament.status == 'complete' %}
                                 <a href="{{ url_for('tournament_detail', tournament_id=tournament.id) }}" class="btn btn-sm btn-outline-greenside">Results</a>
                             {% elif tournament.status == 'active' %}
                                 <a href="{{ url_for('tournament_detail', tournament_id=tournament.id) }}" class="btn btn-sm btn-outline-greenside">Watch Live</a>
@@ -344,6 +380,32 @@
     </div>
 
     <div class="col-lg-4">
+        {% if viewer_is_member %}
+        <!-- Used Golfers: what's already burned from the season pool -->
+        <div class="card sidebar-card mb-3">
+            <div class="card-header card-header-muted">
+                <h3 class="h6 mb-0">Used Golfers</h3>
+            </div>
+            <div class="card-body">
+                {% if used_player_ids %}
+                    <p class="small text-muted mb-2">These golfers cannot be picked again:</p>
+                    <ul class="list-unstyled mb-0">
+                        {% for pick in member_picks.values() %}
+                            {% if pick.primary_used %}
+                                <li class="mb-1">&bull; {{ pick.primary_player.full_name() }}</li>
+                            {% endif %}
+                            {% if pick.backup_used %}
+                                <li class="mb-1">&bull; {{ pick.backup_player.full_name() }}</li>
+                            {% endif %}
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-muted mb-0">No golfers used yet.</p>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
         <!-- Commissioner's Ledger: admin-override tally -->
         <div class="card sidebar-card">
             <div class="card-header card-header-gold">
@@ -387,6 +449,7 @@
                         <span class="legend__item"><span class="state-pill state-pill-override">👑 Override</span> Commissioner set this pick</span>
                         <span class="legend__item"><span class="state-pill state-pill-backup">🔄 Backup</span> Backup in play (primary withdrew before round 2)</span>
                         <span class="legend__item"><span class="badge-used">Used</span> Golfer locked for the season</span>
+                        <span class="legend__item"><span class="pick-name-idle">Golfer name</span> Didn't count that week</span>
                     </div>
                 </div>
                 <div class="legend-group">
@@ -396,6 +459,15 @@
                         <span class="legend__item"><span class="badge badge-wd">WD</span> Withdrew</span>
                         <span class="legend__item"><span class="badge badge-dq">DQ</span> Disqualified</span>
                         <span class="legend__item"><span class="badge-penalty">Penalty ${{ penalty_per_incident }}</span> Cut or DQ at a major (owed to the pot)</span>
+                    </div>
+                </div>
+                <div class="legend-group">
+                    <p class="legend-group__label">Status</p>
+                    <div class="legend legend--stack">
+                        <span class="legend__item"><span class="badge-status-active">In Progress</span> Tournament is live</span>
+                        <span class="legend__item"><span class="badge-status-complete">Complete</span> Tournament finished</span>
+                        <span class="legend__item"><span class="badge-status-open">Open</span> Picks are open</span>
+                        <span class="legend__item"><span class="badge-status-locked">Locked</span> Picks are locked</span>
                     </div>
                 </div>
                 {% if not viewer_is_member %}

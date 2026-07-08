@@ -629,6 +629,19 @@ def member_scorecard(user_id=None):
         member_picks = {tid: p for tid, p in member_picks.items() if tid in locked_ids}
         pick_results = {tid: r for tid, r in pick_results.items() if tid in locked_ids}
 
+    # Pick management (make/edit buttons, Used Golfers card) is self-view only,
+    # so the public path pays no extra queries and has nothing to leak.
+    field_counts = {}
+    used_player_ids = set()
+    if viewer_is_member:
+        field_counts = dict(db.session.query(
+            TournamentField.tournament_id,
+            func.count(TournamentField.id)
+        ).filter(
+            TournamentField.tournament_id.in_([t.id for t in tournaments])
+        ).group_by(TournamentField.tournament_id).all())
+        used_player_ids = current_user.get_used_player_ids()
+
     tally = stats.override_tally(season_year, list(locked_ids))
     member_override_count = next(
         (row['count'] for row in tally if row['user_id'] == member.id), 0)
@@ -641,6 +654,8 @@ def member_scorecard(user_id=None):
                            locked_ids=locked_ids,
                            member_picks=member_picks,
                            pick_results=pick_results,
+                           field_counts=field_counts,
+                           used_player_ids=used_player_ids,
                            scorecard=stats.personal_scorecard(member, season_year),
                            override_tally=tally,
                            member_override_count=member_override_count,
