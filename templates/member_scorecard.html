@@ -6,12 +6,7 @@
 <header class="member-head">
     <div>
         <h2>{{ member.get_display_name() }}</h2>
-        <p class="member-head__sub">
-            {{ season_year }} season, week by week
-            {% if viewer_is_member %}
-                &middot; <a href="{{ url_for('my_picks') }}">Manage your picks</a>
-            {% endif %}
-        </p>
+        <p class="member-head__sub">{{ season_year }} season, week by week</p>
     </div>
     <form method="get" action="{{ url_for('member_scorecard') }}" class="member-switcher">
         <label class="form-label small mb-1" for="member-select">View another member</label>

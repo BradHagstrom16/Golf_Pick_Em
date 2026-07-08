@@ -472,9 +472,23 @@ def test_tournament_detail_member_names_link_to_scorecard(
     assert f'/member/{cox.id}' in html
 
 
-def test_my_picks_still_renders_for_current_user(
+def test_my_picks_redirects_to_own_scorecard(db, client, make_user, login):
+    cox = make_user(username='cox')
+    login(cox)
+    resp = client.get('/my-picks')
+    assert resp.status_code == 302
+    assert resp.headers['Location'].endswith(f'/member/{cox.id}')
+
+
+def test_my_picks_requires_login(db, client):
+    resp = client.get('/my-picks')
+    assert resp.status_code == 302
+    assert '/login' in resp.headers['Location']
+
+
+def test_my_picks_alias_lands_on_scorecard(
         db, client, make_user, make_player, make_tournament, make_pick, login):
-    """Regression smoke for the shared-helper extraction from my_picks."""
+    """Bookmarked /my-picks URLs must land on the member's own scorecard."""
     cox = make_user(username='cox')
     scott = make_player(first_name='Scottie', last_name='Scheffler')
     caddie = make_player(first_name='Carl', last_name='Spackler')
@@ -483,8 +497,28 @@ def test_my_picks_still_renders_for_current_user(
     make_pick(cox, t, scott, caddie, active_player_id=scott.id, points_earned=500_000)
 
     login(cox)
-    resp = client.get('/my-picks')
+    resp = client.get('/my-picks', follow_redirects=True)
     assert resp.status_code == 200
     html = resp.get_data(as_text=True)
     assert 'Sony Open' in html
     assert 'Scottie Scheffler' in html
+
+
+def test_pick_submit_redirects_to_scorecard(
+        db, client, make_user, make_player, make_tournament, login):
+    cox = make_user(username='cox')
+    scott = make_player(first_name='Scottie', last_name='Scheffler')
+    caddie = make_player(first_name='Carl', last_name='Spackler')
+    t = make_tournament(
+        name='Travelers Championship', status='upcoming',
+        start_date=datetime.now() + timedelta(days=32),
+        pick_deadline=_future_deadline())
+    _add_to_field(db, t, scott, caddie)
+
+    login(cox)
+    resp = client.post(f'/pick/{t.id}', data={
+        'primary_player_id': scott.id,
+        'backup_player_id': caddie.id,
+    })
+    assert resp.status_code == 302
+    assert resp.headers['Location'].endswith(f'/member/{cox.id}')
