@@ -610,3 +610,32 @@ def personal_scorecard(user, season_year):
         'penalty_outstanding': user.penalty_outstanding(season_year),
         'players_used': len(user.get_used_player_ids()),
     }
+
+
+# ---------------------------------------------------------------------------
+# Admin-override tally
+# ---------------------------------------------------------------------------
+def override_tally(season_year, locked_tournament_ids):
+    """Admin-override picks per member, locked tournaments only.
+
+    ``locked_tournament_ids`` is computed by the caller in Python (complete or
+    deadline passed) because ``pick_deadline`` is stored as a naive CT datetime
+    and can't be compared in SQL. Scoping to locked weeks keeps an override on
+    a still-open week from being disclosed before the deadline.
+
+    Returns a list of ``{'user_id', 'name', 'count'}`` sorted by count
+    descending, then name; members with zero overrides are omitted.
+    """
+    if not locked_tournament_ids:
+        return []
+    rows = (db.session.query(Pick.user_id, func.count(Pick.id))
+            .join(Tournament, Pick.tournament_id == Tournament.id)
+            .filter(Pick.admin_override.is_(True),
+                    Tournament.season_year == season_year,
+                    Pick.tournament_id.in_(locked_tournament_ids))
+            .group_by(Pick.user_id)
+            .all())
+    tally = [{'user_id': uid, 'name': _user_name(uid), 'count': int(count)}
+             for uid, count in rows]
+    tally.sort(key=lambda r: (-r['count'], r['name']))
+    return tally

@@ -587,6 +587,64 @@ def stats_hub():
     )
 
 
+@app.route('/member')
+@app.route('/member/<int:user_id>')
+def member_scorecard(user_id=None):
+    """Member Scorecard: any member's season of picks, week by week.
+
+    Public like the standings; pick secrecy is deadline-based, not auth-based.
+    Picks for weeks that are neither complete nor past their deadline are
+    stripped from the context server-side unless the viewer IS the member, so
+    a rival's golfer can never leak into the HTML before lock. The override
+    tally obeys the same rule.
+    """
+    season_year = app.config['SEASON_YEAR']
+
+    if user_id is None:
+        raw = request.args.get('user_id', '')
+        if raw.isdigit():
+            return redirect(url_for('member_scorecard', user_id=int(raw)))
+        if current_user.is_authenticated:
+            return redirect(url_for('member_scorecard', user_id=current_user.id))
+        first = User.query.order_by(func.lower(User.username)).first()
+        if first:
+            return redirect(url_for('member_scorecard', user_id=first.id))
+        return redirect(url_for('index'))
+
+    member = db.get_or_404(User, user_id)
+    members = User.query.order_by(func.lower(User.username)).all()
+
+    tournaments, member_picks, pick_results = build_member_season_picks(
+        member, season_year)
+
+    # Locked = safe to show: complete, or the deadline has passed. Computed in
+    # Python because pick_deadline is a naive CT datetime (no SQL comparison).
+    locked_ids = {t.id for t in tournaments
+                  if t.status == 'complete' or t.is_deadline_passed()}
+
+    viewer_is_member = current_user.is_authenticated and current_user.id == member.id
+    if not viewer_is_member:
+        member_picks = {tid: p for tid, p in member_picks.items() if tid in locked_ids}
+        pick_results = {tid: r for tid, r in pick_results.items() if tid in locked_ids}
+
+    tally = stats.override_tally(season_year, list(locked_ids))
+    member_override_count = next(
+        (row['count'] for row in tally if row['user_id'] == member.id), 0)
+
+    return render_template('member_scorecard.html',
+                           member=member,
+                           members=members,
+                           viewer_is_member=viewer_is_member,
+                           tournaments=tournaments,
+                           member_picks=member_picks,
+                           pick_results=pick_results,
+                           scorecard=stats.personal_scorecard(member, season_year),
+                           override_tally=tally,
+                           member_override_count=member_override_count,
+                           season_year=season_year,
+                           penalty_per_incident=PENALTY_PER_INCIDENT)
+
+
 # ============================================================================
 # Authentication Routes
 # ============================================================================
@@ -749,24 +807,23 @@ def admin_reset_password(user_id):
 # Pick Routes
 # ============================================================================
 
-@app.route('/my-picks')
-@login_required
-def my_picks():
-    """View user's picks for the season."""
+def build_member_season_picks(member, season_year):
+    """Season tournaments plus one member's picks and batched results.
+
+    Shared by /my-picks and the member scorecard. Returns
+    ``(tournaments, picks_by_tournament, pick_results)`` where the latter two
+    are keyed by tournament id.
+    """
     tournaments = Tournament.query.filter_by(
-        season_year=app.config['SEASON_YEAR']
+        season_year=season_year
     ).order_by(Tournament.start_date).all()
 
-    # Get user's picks
-    user_picks = {pick.tournament_id: pick for pick in current_user.picks}
+    picks_by_tournament = {pick.tournament_id: pick for pick in member.picks}
 
-    # Get used player IDs
-    used_player_ids = current_user.get_used_player_ids()
-
-    # Batch load all results for this user's picks
+    # Batch load all results for this member's picks
     all_player_ids = set()
     all_tournament_ids = set()
-    for pick in user_picks.values():
+    for pick in picks_by_tournament.values():
         all_player_ids.update([pick.primary_player_id, pick.backup_player_id])
         all_tournament_ids.add(pick.tournament_id)
 
@@ -779,11 +836,24 @@ def my_picks():
     result_lookup = {(r.tournament_id, r.player_id): r for r in results}
 
     pick_results = {}
-    for tournament_id, pick in user_picks.items():
+    for tournament_id, pick in picks_by_tournament.items():
         pick_results[tournament_id] = {
             'primary_result': result_lookup.get((tournament_id, pick.primary_player_id)),
             'backup_result': result_lookup.get((tournament_id, pick.backup_player_id)),
         }
+
+    return tournaments, picks_by_tournament, pick_results
+
+
+@app.route('/my-picks')
+@login_required
+def my_picks():
+    """View user's picks for the season."""
+    tournaments, user_picks, pick_results = build_member_season_picks(
+        current_user, app.config['SEASON_YEAR'])
+
+    # Get used player IDs
+    used_player_ids = current_user.get_used_player_ids()
 
     # Batch load field counts for all tournaments
     field_counts_query = db.session.query(

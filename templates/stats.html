@@ -174,7 +174,7 @@
 <section class="stats-section" aria-labelledby="scorecard-heading">
   <div class="stats-section__head">
     <h3 id="scorecard-heading">Your Scorecard</h3>
-    <p class="stats-section__note">{{ current_user.get_display_name() }}'s season so far.</p>
+    <p class="stats-section__note">{{ current_user.get_display_name() }}'s season so far. <a href="{{ url_for('member_scorecard', user_id=current_user.id) }}">Week by week &rarr;</a></p>
   </div>
 
   <div class="scorecard">
