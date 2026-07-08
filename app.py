@@ -828,9 +828,8 @@ def admin_reset_password(user_id):
 def build_member_season_picks(member, season_year):
     """Season tournaments plus one member's picks and batched results.
 
-    Shared by /my-picks and the member scorecard. Returns
-    ``(tournaments, picks_by_tournament, pick_results)`` where the latter two
-    are keyed by tournament id.
+    Returns ``(tournaments, picks_by_tournament, pick_results)`` where the
+    latter two are keyed by tournament id.
     """
     tournaments = Tournament.query.filter_by(
         season_year=season_year
